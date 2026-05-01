@@ -1,8 +1,6 @@
 // ============================================================
-// modulos/auth.js — Pantalla de login y gestión de sesión
+// modulos/auth.js — Pantalla de login/registro y gestión de sesión
 // Depende de: core/supabase.js
-// Muestra una pantalla de inicio de sesión antes de cargar
-// la app. Si ya hay sesión activa, la salta directamente.
 // ============================================================
 
 const ModuloAuth = (() => {
@@ -17,62 +15,104 @@ const ModuloAuth = (() => {
     document.getElementById('app-principal').style.display  = 'block';
   }
 
-  function _setError(msg) {
-    const el = document.getElementById('login-error');
-    if (el) el.textContent = msg;
+  function _irALogin() {
+    document.getElementById('login-forma').style.display    = 'flex';
+    document.getElementById('registro-forma').style.display = 'none';
+    document.getElementById('login-error').textContent = '';
+    document.getElementById('login-email').focus();
   }
 
-  function _setEspera(activo) {
-    const btn   = document.getElementById('btn-login');
-    const email = document.getElementById('login-email');
-    const pass  = document.getElementById('login-password');
-    if (btn)   { btn.disabled = activo; btn.textContent = activo ? 'Entrando…' : 'Entrar'; }
-    if (email)  email.disabled = activo;
-    if (pass)   pass.disabled  = activo;
+  function _irARegistro() {
+    document.getElementById('login-forma').style.display    = 'none';
+    document.getElementById('registro-forma').style.display = 'flex';
+    document.getElementById('reg-error').textContent = '';
+    document.getElementById('reg-email').focus();
+  }
+
+  function _setErrorLogin(msg)    { const el = document.getElementById('login-error'); if (el) el.textContent = msg; }
+  function _setErrorRegistro(msg) { const el = document.getElementById('reg-error');   if (el) el.textContent = msg; }
+
+  function _setEspera(btn, activo, textoEspera, textoNormal) {
+    if (btn) { btn.disabled = activo; btn.textContent = activo ? textoEspera : textoNormal; }
   }
 
   /**
    * Inicializa el módulo de autenticación.
-   * Devuelve una Promise que resuelve cuando el usuario
-   * está correctamente autenticado (login nuevo o sesión previa válida).
+   * Devuelve una Promise que resuelve cuando el usuario está autenticado.
    */
   async function init() {
-    // 1. Sesión activa → saltar login
     if (SB.isLoggedIn()) { _ocultarLogin(); return; }
-
-    // 2. Token caducado → intentar refrescar silenciosamente
     const refrescado = await SB.refrescarSesion();
     if (refrescado) { _ocultarLogin(); return; }
 
-    // 3. Sin sesión → mostrar el formulario de login
     _mostrarLogin();
 
     return new Promise((resolver) => {
 
+      // ---- LOGIN ----
       async function intentarLogin() {
-        _setError('');
+        _setErrorLogin('');
         const email    = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value;
+        if (!email || !password) { _setErrorLogin('Introduce email y contraseña.'); return; }
 
-        if (!email || !password) { _setError('Introduce email y contraseña.'); return; }
-
-        _setEspera(true);
+        const btn = document.getElementById('btn-login');
+        _setEspera(btn, true, 'Entrando…', 'Entrar');
         try {
           await SB.login(email, password);
           _ocultarLogin();
-          resolver(); // La Promise se resuelve: la app puede continuar
+          resolver();
         } catch (e) {
-          _setEspera(false);
-          _setError(e.message || 'Error al iniciar sesión. Comprueba los datos.');
+          _setEspera(btn, false, '', 'Entrar');
+          _setErrorLogin(e.message || 'Credenciales incorrectas.');
         }
       }
 
-      document.getElementById('btn-login')?.addEventListener('click', intentarLogin);
+      // ---- REGISTRO ----
+      async function intentarRegistro() {
+        _setErrorRegistro('');
+        const email = document.getElementById('reg-email').value.trim();
+        const pass1 = document.getElementById('reg-password').value;
+        const pass2 = document.getElementById('reg-password2').value;
 
-      // Permitir pulsar Enter desde el campo de contraseña
+        if (!email || !pass1) { _setErrorRegistro('Rellena todos los campos.'); return; }
+        if (pass1.length < 6) { _setErrorRegistro('La contraseña debe tener al menos 6 caracteres.'); return; }
+        if (pass1 !== pass2)  { _setErrorRegistro('Las contraseñas no coinciden.'); return; }
+
+        const btn = document.getElementById('btn-registro');
+        _setEspera(btn, true, 'Creando cuenta…', 'Crear cuenta');
+        try {
+          const logadoDirecto = await SB.signup(email, pass1);
+          if (logadoDirecto) {
+            _ocultarLogin();
+            resolver();
+          } else {
+            // Supabase necesita confirmación por email
+            _setEspera(btn, false, '', 'Crear cuenta');
+            _setErrorRegistro('');
+            document.getElementById('reg-error').style.color = '#82d6a0';
+            document.getElementById('reg-error').textContent =
+              '✔ Cuenta creada. Revisa tu email para confirmar y después inicia sesión.';
+          }
+        } catch (e) {
+          _setEspera(btn, false, '', 'Crear cuenta');
+          _setErrorRegistro(e.message || 'Error al crear la cuenta.');
+        }
+      }
+
+      // Event listeners
+      document.getElementById('btn-login')?.addEventListener('click', intentarLogin);
       document.getElementById('login-password')?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') intentarLogin();
       });
+
+      document.getElementById('btn-registro')?.addEventListener('click', intentarRegistro);
+      document.getElementById('reg-password2')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') intentarRegistro();
+      });
+
+      document.getElementById('btn-ir-registro')?.addEventListener('click', _irARegistro);
+      document.getElementById('btn-ir-login')?.addEventListener('click', _irALogin);
     });
   }
 

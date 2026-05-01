@@ -500,6 +500,15 @@ textarea.inp  { resize: vertical; min-height: 64px; }
 .login-subtitulo { font-size: .9rem; color: var(--texto2); text-align: center; margin-top: -6px; }
 .login-error     { color: var(--rojo-h); font-size: .9rem; min-height: 1.2em; text-align: center; }
 
+.login-toggle { text-align: center; font-size: .85rem; color: var(--texto2); margin-top: 4px; }
+.login-toggle button {
+  background: none; border: none; color: var(--azul-h);
+  cursor: pointer; text-decoration: underline; font-size: .85rem; padding: 0;
+}
+.login-toggle button:hover { color: #5dade2; }
+
+#login-forma, #registro-forma { display: flex; flex-direction: column; gap: 16px; }
+
 #btn-logout {
   background: transparent;
   color: rgba(255,255,255,.7);

@@ -42,6 +42,28 @@ const SB = (() => {
   }
 
   /**
+   * Registra un nuevo usuario con email y contraseña.
+   * Devuelve true si quedó logado directamente (confirmación de email desactivada),
+   * o false si Supabase envió un email de confirmación.
+   */
+  async function signup(email, password) {
+    const res = await fetch(`${BASE}/auth/v1/signup`, {
+      method:  'POST',
+      headers: { 'apikey': ANON, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ email, password })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error_description || data.msg || data.message || 'Error al registrarse');
+    }
+    if (data.access_token) {
+      _guardarSesion(data);
+      return true; // login automático (confirmación de email desactivada)
+    }
+    return false; // Supabase envió email de confirmación
+  }
+
+  /**
    * Inicia sesión con email y contraseña.
    * Lanza un Error con mensaje en español si falla.
    */
@@ -195,7 +217,7 @@ const SB = (() => {
 
   return {
     // Auth
-    isLoggedIn, login, logout, refrescarSesion,
+    isLoggedIn, login, signup, logout, refrescarSesion,
     // Ingredientes
     obtenerIngredientes, obtenerIngrediente,
     guardarIngrediente, actualizarIngrediente, eliminarIngrediente,

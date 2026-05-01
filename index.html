@@ -22,19 +22,51 @@
   <div id="pantalla-login">
     <div class="login-caja">
       <div class="login-titulo">🍽 Cocina</div>
-      <div class="login-subtitulo">Acceso privado</div>
-      <div class="form-grupo">
-        <label for="login-email">Email</label>
-        <input id="login-email" type="email" class="inp" placeholder="usuario@restaurante.com" autocomplete="username">
+
+      <!-- ---- Formulario de LOGIN ---- -->
+      <div id="login-forma">
+        <div class="login-subtitulo">Acceso privado</div>
+        <div class="form-grupo">
+          <label for="login-email">Email</label>
+          <input id="login-email" type="email" class="inp" placeholder="usuario@restaurante.com" autocomplete="username">
+        </div>
+        <div class="form-grupo">
+          <label for="login-password">Contraseña</label>
+          <input id="login-password" type="password" class="inp" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div id="login-error" class="login-error"></div>
+        <button id="btn-login" class="btn btn-primario" type="button" style="min-height:52px;font-size:1.1rem">
+          Entrar
+        </button>
+        <div class="login-toggle">
+          ¿Primera vez? <button type="button" id="btn-ir-registro">Crear cuenta →</button>
+        </div>
       </div>
-      <div class="form-grupo">
-        <label for="login-password">Contraseña</label>
-        <input id="login-password" type="password" class="inp" placeholder="••••••••" autocomplete="current-password">
+
+      <!-- ---- Formulario de REGISTRO ---- -->
+      <div id="registro-forma" style="display:none">
+        <div class="login-subtitulo">Nueva cuenta</div>
+        <div class="form-grupo">
+          <label for="reg-email">Email</label>
+          <input id="reg-email" type="email" class="inp" placeholder="usuario@restaurante.com" autocomplete="username">
+        </div>
+        <div class="form-grupo">
+          <label for="reg-password">Contraseña</label>
+          <input id="reg-password" type="password" class="inp" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+        </div>
+        <div class="form-grupo">
+          <label for="reg-password2">Repite la contraseña</label>
+          <input id="reg-password2" type="password" class="inp" placeholder="••••••••" autocomplete="new-password">
+        </div>
+        <div id="reg-error" class="login-error"></div>
+        <button id="btn-registro" class="btn btn-primario" type="button" style="min-height:52px;font-size:1.1rem">
+          Crear cuenta
+        </button>
+        <div class="login-toggle">
+          ¿Ya tienes cuenta? <button type="button" id="btn-ir-login">Iniciar sesión →</button>
+        </div>
       </div>
-      <div id="login-error" class="login-error"></div>
-      <button id="btn-login" class="btn btn-primario" type="button" style="min-height:52px;font-size:1.1rem">
-        Entrar
-      </button>
+
     </div>
   </div>
 
