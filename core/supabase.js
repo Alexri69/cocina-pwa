@@ -239,6 +239,45 @@ const SB = (() => {
   }
 
   // ----------------------------------------------------------
+  // BACKUP — exportar todo / restaurar todo
+  // ----------------------------------------------------------
+
+  async function exportarTodo() {
+    const [ings, platos, bebidas, todasFac] = await Promise.all([
+      _get('ingredientes', '?select=*&order=timestamp.desc'),
+      _get('platos',       '?select=*&order=timestamp.desc'),
+      _get('bebidas',      '?select=*&order=timestamp.desc'),
+      _get('facturas',     '?select=*&order=timestamp.desc'),
+    ]);
+    const strip = arr => (arr || []).map(({ user_id, ...r }) => r);
+    return {
+      ingredientes: strip(ings),
+      platos:       strip(platos),
+      bebidas:      strip(bebidas),
+      facturas:     strip(todasFac).map(_facturaDeBD),
+    };
+  }
+
+  async function restaurarDatos({ ingredientes = [], platos = [], bebidas = [], facturas = [] }) {
+    const hdrs  = _cab({ 'Prefer': 'return=minimal,resolution=merge-duplicates' });
+    const upsert = (tabla, arr) => arr.length
+      ? _req(tabla, { method: 'POST', headers: hdrs, body: JSON.stringify(arr) })
+      : Promise.resolve();
+
+    // Facturas: convertir de camelCase a snake_case conservando el id original
+    const facSnake = facturas.map(f => {
+      const { id } = f;
+      const conv   = _facturaParaBD(f);
+      return id ? { id, ...conv } : conv;
+    });
+
+    await upsert('ingredientes', ingredientes);
+    await upsert('platos',       platos);
+    await upsert('bebidas',      bebidas);
+    await upsert('facturas',     facSnake);
+  }
+
+  // ----------------------------------------------------------
   // BEBIDAS
   // ----------------------------------------------------------
 
@@ -265,6 +304,8 @@ const SB = (() => {
     // Bebidas
     obtenerBebidas, obtenerBebida,
     guardarBebida, actualizarBebida, eliminarBebida,
+    // Backup
+    exportarTodo, restaurarDatos,
     // Facturas y Presupuestos
     obtenerFacturas, obtenerPresupuestos, obtenerFactura,
     guardarFactura, actualizarFactura, borrarFactura,

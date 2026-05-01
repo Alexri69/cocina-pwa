@@ -114,6 +114,78 @@ const ModuloConfig = (() => {
     }
   }
 
+  // --- Backup ---
+
+  async function _exportar() {
+    const btn = document.getElementById('bkp-btn-exportar');
+    if (btn) btn.disabled = true;
+    try {
+      const datos  = await SB.exportarTodo();
+      const backup = {
+        version: 1,
+        fecha:   new Date().toISOString(),
+        app:     'cocina-pwa',
+        config: {
+          empresa:   JSON.parse(localStorage.getItem(CLAVE_EMP)  || '{}'),
+          impresora: JSON.parse(localStorage.getItem(CLAVE_IMP)  || '{}'),
+        },
+        datos,
+      };
+      const blob     = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url      = URL.createObjectURL(blob);
+      const a        = document.createElement('a');
+      const fechaStr = new Date().toISOString().slice(0, 10);
+      a.href         = url;
+      a.download     = `cocina-backup-${fechaStr}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      _mostrarMsg('bkp-msg', '✔ Copia descargada');
+    } catch (e) {
+      _mostrarMsg('bkp-msg', '✖ Error: ' + e.message);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function _importar(archivo) {
+    if (!archivo) return;
+    const btn = document.getElementById('bkp-btn-importar');
+    if (btn) btn.disabled = true;
+    try {
+      const texto  = await archivo.text();
+      const backup = JSON.parse(texto);
+
+      if (backup.app !== 'cocina-pwa' || !backup.datos) {
+        alert('El archivo no es una copia de seguridad válida de esta aplicación.');
+        return;
+      }
+
+      const resumen = [
+        `${backup.datos.ingredientes?.length ?? 0} ingredientes`,
+        `${backup.datos.platos?.length ?? 0} platos`,
+        `${backup.datos.bebidas?.length ?? 0} bebidas`,
+        `${backup.datos.facturas?.length ?? 0} facturas/presupuestos`,
+      ].join(', ');
+
+      if (!confirm(`¿Restaurar copia del ${backup.fecha?.slice(0,10)}?\n\nContiene: ${resumen}.\n\nLos registros existentes con el mismo ID se actualizarán. Los nuevos se añadirán.`)) return;
+
+      await SB.restaurarDatos(backup.datos);
+
+      if (backup.config?.empresa)   localStorage.setItem(CLAVE_EMP, JSON.stringify(backup.config.empresa));
+      if (backup.config?.impresora) localStorage.setItem(CLAVE_IMP, JSON.stringify(backup.config.impresora));
+
+      _cargarEnFormulario();
+      _cargarImpresora();
+      _mostrarMsg('bkp-msg', '✔ Datos restaurados correctamente');
+    } catch (e) {
+      _mostrarMsg('bkp-msg', '✖ Error al restaurar: ' + e.message);
+    } finally {
+      if (btn) btn.disabled = false;
+      const inp = document.getElementById('bkp-input-archivo');
+      if (inp) inp.value = '';
+    }
+  }
+
   // --- Util ---
 
   function _mostrarMsg(id, texto) {
@@ -140,6 +212,8 @@ const ModuloConfig = (() => {
     document.getElementById('imp-btn-guardar')?.addEventListener('click', _guardarImpresora);
     document.getElementById('imp-btn-test')?.addEventListener('click', _testImpresora);
     document.getElementById('imp-conexion')?.addEventListener('change', e => _toggleConexion(e.target.value));
+    document.getElementById('bkp-btn-exportar')?.addEventListener('click', _exportar);
+    document.getElementById('bkp-input-archivo')?.addEventListener('change', e => _importar(e.target.files[0]));
   }
 
   return { init, obtenerConfig, obtenerConfigImpresora };

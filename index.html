@@ -708,6 +708,22 @@
         </div>
       </div>
 
+      <div class="tarjeta" style="margin-top:16px">
+        <div class="tarjeta-titulo">Copias de Seguridad</div>
+        <p style="font-size:.8rem;color:var(--texto2);margin-bottom:14px">
+          Exporta todos los datos (ingredientes, platos, bebidas, facturas y configuración) a un archivo JSON.
+          Para restaurar, importa un archivo generado previamente.
+        </p>
+        <div class="form-acciones" style="align-items:center;flex-wrap:wrap;gap:10px">
+          <button id="bkp-btn-exportar" class="btn btn-primario-sm">⬇ Exportar copia</button>
+          <label class="btn btn-secundario-sm" style="cursor:pointer;margin:0">
+            ⬆ Restaurar copia
+            <input id="bkp-input-archivo" type="file" accept=".json" style="display:none">
+          </label>
+          <span id="bkp-msg" style="font-size:.85rem;color:var(--ok)"></span>
+        </div>
+      </div>
+
       </div><!-- fin wrapper config -->
     </main>
 
