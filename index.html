@@ -411,6 +411,7 @@
         <div class="sub-nav">
           <button class="sub-tab activo" id="fac-tab-facturas">🧾 Facturas</button>
           <button class="sub-tab" id="fac-tab-presupuestos">📋 Presupuestos</button>
+          <button class="sub-tab" id="fac-tab-bebidas">🥤 Bebidas</button>
         </div>
         <div style="display:flex;gap:8px">
           <button id="fac-btn-nueva"      class="btn btn-primario-sm">＋ Nueva Factura</button>
@@ -421,6 +422,48 @@
       <!-- Vista: lista de facturas -->
       <div id="fac-vista-lista">
         <div id="fac-lista"></div>
+      </div>
+
+      <!-- Vista: gestión de bebidas desde facturas -->
+      <div id="fac-vista-bebidas" style="display:none">
+        <div class="tarjeta">
+          <div class="tarjeta-titulo" id="fac-beb-form-titulo">Añadir Bebida</div>
+          <div class="form-grid">
+            <div class="form-grupo">
+              <label for="fac-beb-nombre">Nombre *</label>
+              <input id="fac-beb-nombre" type="text" class="inp" placeholder="Ej: Agua con gas">
+            </div>
+            <div class="form-grupo">
+              <label for="fac-beb-precio">Precio (€)</label>
+              <input id="fac-beb-precio" type="number" class="inp" placeholder="1.50" min="0" step="0.01">
+            </div>
+            <div class="form-grupo">
+              <label for="fac-beb-categoria">Categoría</label>
+              <select id="fac-beb-categoria" class="inp">
+                <option value="agua">💧 Agua</option>
+                <option value="refresco" selected>🥤 Refrescos</option>
+                <option value="cerveza">🍺 Cerveza</option>
+                <option value="vino">🍷 Vinos</option>
+                <option value="licor">🥃 Licores y combinados</option>
+                <option value="cafe">☕ Cafés e infusiones</option>
+                <option value="zumo">🍊 Zumos</option>
+                <option value="otro">🫗 Otros</option>
+              </select>
+            </div>
+            <div class="form-grupo form-grupo-full">
+              <label for="fac-beb-desc">Descripción</label>
+              <textarea id="fac-beb-desc" class="inp" rows="2" placeholder="Descripción opcional"></textarea>
+            </div>
+          </div>
+          <div class="form-acciones">
+            <button id="fac-beb-btn-guardar" class="btn btn-primario-sm">✔ Guardar Bebida</button>
+            <button id="fac-beb-btn-cancelar" class="btn btn-secundario-sm" style="display:none">✖ Cancelar edición</button>
+          </div>
+        </div>
+        <div class="tarjeta" style="margin-top:16px">
+          <div class="tarjeta-titulo">Bebidas en la Carta</div>
+          <div id="fac-beb-lista"></div>
+        </div>
       </div>
 
       <!-- Vista: formulario nueva / editar factura -->
