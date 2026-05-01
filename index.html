@@ -591,7 +591,7 @@
           </div>
           <div class="form-grupo">
             <label for="cfg-cp">Código postal</label>
-            <input id="cfg-cp" type="text" class="inp" placeholder="35001">
+            <input id="cfg-cp" type="text" class="inp" placeholder="38001">
           </div>
           <div class="form-grupo">
             <label for="cfg-ciudad">Ciudad</label>
@@ -653,11 +653,25 @@
           <div class="form-grupo">
             <label for="imp-modelo">Modelo</label>
             <select id="imp-modelo" class="inp">
-              <option value="brother-ql">Brother QL (800, 810W, 820NWB…)</option>
-              <option value="dymo">Dymo LabelWriter</option>
-              <option value="zebra">Zebra ZD / ZT</option>
-              <option value="generica-escpos">Genérica ESC/POS</option>
-              <option value="generica-zpl">Genérica ZPL</option>
+              <optgroup label="Etiquetas de escritorio">
+                <option value="brother-ql">Brother QL (800, 810W, 820NWB…)</option>
+                <option value="dymo">Dymo LabelWriter (450, 550…)</option>
+                <option value="niimbot">NIIMBOT (B21, B3S, B1…)</option>
+                <option value="phomemo">Phomemo (M110, M200…)</option>
+                <option value="rollo">Rollo Label Printer</option>
+              </optgroup>
+              <optgroup label="Industrial / hostelería">
+                <option value="zebra">Zebra ZD / ZT / GK</option>
+                <option value="honeywell">Honeywell PC / PM series</option>
+                <option value="tsc">TSC TTP / TE series</option>
+                <option value="bixolon">Bixolon SLP / XD series</option>
+                <option value="sato">SATO CG / CL series</option>
+              </optgroup>
+              <optgroup label="Genéricas (protocolo)">
+                <option value="generica-escpos">Genérica ESC/POS</option>
+                <option value="generica-zpl">Genérica ZPL</option>
+                <option value="generica-cpcl">Genérica CPCL</option>
+              </optgroup>
             </select>
           </div>
           <div class="form-grupo">
