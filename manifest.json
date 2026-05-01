@@ -4,7 +4,7 @@
   "description": "Gestión de etiquetado de recipientes abiertos. Cumple Reg. UE 1169/2011 y RD 126/2015.",
   "start_url": "./index.html",
   "display": "standalone",
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#1a1a1a",
   "theme_color": "#c0392b",
   "lang": "es-ES",

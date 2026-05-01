@@ -33,7 +33,7 @@ function navegarA(id) {
   document.querySelectorAll('.modulo-seccion').forEach(sec => sec.style.display = 'none');
   const seccion = document.getElementById('modulo-' + id);
   if (seccion) seccion.style.display = 'block';
-  document.querySelectorAll('.nav-tab').forEach(btn => {
+  document.querySelectorAll('.nav-tab, .nav-bottom-tab').forEach(btn => {
     btn.classList.toggle('activo', btn.dataset.modulo === id);
   });
   _moduloActivo = id;
@@ -77,8 +77,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('cfg-btn-tema-osc')?.addEventListener('click', () => aplicarTema('oscuro'));
   document.getElementById('cfg-btn-tema-cla')?.addEventListener('click', () => aplicarTema('claro'));
 
-  // Pestañas de navegación
-  document.querySelectorAll('.nav-tab').forEach(btn => {
+  // Pestañas de navegación (header + barra inferior móvil)
+  document.querySelectorAll('.nav-tab, .nav-bottom-tab').forEach(btn => {
     btn.addEventListener('click', () => navegarA(btn.dataset.modulo));
   });
 

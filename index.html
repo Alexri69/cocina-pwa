@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#c0392b">
   <meta name="description" content="Gestión de cocina: etiquetado, carta y facturas. Conforme Reg. UE 1169/2011 y RD 126/2015.">
   <meta name="mobile-web-app-capable" content="yes">
@@ -20,13 +20,6 @@
   </script>
 </head>
 <body>
-
-  <!-- Aviso girar pantalla (visible solo en móvil en modo retrato) -->
-  <div class="rotar-hint" aria-hidden="true">
-    <div class="rotar-hint-icono">📱</div>
-    <div class="rotar-hint-texto">Gira el dispositivo</div>
-    <div class="rotar-hint-sub">Esta app está diseñada para usarse en horizontal</div>
-  </div>
 
   <!-- ========================================================
        PANTALLA DE LOGIN (visible hasta que el usuario se autentique)
@@ -496,6 +489,14 @@
       Cocina v3.0 · Datos en Supabase ·
       <a href="generar-iconos.html" style="color:#555" target="_blank">Generar iconos</a>
     </footer>
+
+    <!-- Barra de navegación inferior (solo móvil, reemplaza las pestañas del header) -->
+    <nav class="nav-bottom" role="navigation" aria-label="Módulos">
+      <button class="nav-bottom-tab" data-modulo="etiquetas"><span class="nb-icon">🏷</span>Etiquetas</button>
+      <button class="nav-bottom-tab" data-modulo="menu"><span class="nb-icon">📋</span>Carta</button>
+      <button class="nav-bottom-tab" data-modulo="facturas"><span class="nb-icon">🧾</span>Facturas</button>
+      <button class="nav-bottom-tab" data-modulo="config"><span class="nb-icon">⚙</span>Config</button>
+    </nav>
 
   </div><!-- #app-principal -->
 
