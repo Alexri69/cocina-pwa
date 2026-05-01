@@ -1,0 +1,26 @@
+{
+  "name": "Cocina Etiquetas — Trazabilidad",
+  "short_name": "Etiquetas",
+  "description": "Gestión de etiquetado de recipientes abiertos. Cumple Reg. UE 1169/2011 y RD 126/2015.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#1a1a1a",
+  "theme_color": "#c0392b",
+  "lang": "es-ES",
+  "icons": [
+    {
+      "src": "iconos/icono-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "iconos/icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "productivity", "utilities"]
+}

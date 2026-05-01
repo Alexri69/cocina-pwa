@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <meta name="theme-color" content="#c0392b">
+  <meta name="description" content="Gestión de cocina: etiquetado, carta y facturas. Conforme Reg. UE 1169/2011 y RD 126/2015.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Cocina">
+  <title>Cocina — Etiquetas · Carta · Facturas</title>
+  <link rel="apple-touch-icon" href="iconos/icono-192.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+  <!-- ========================================================
+       PANTALLA DE LOGIN (visible hasta que el usuario se autentique)
+       ======================================================== -->
+  <div id="pantalla-login">
+    <div class="login-caja">
+      <div class="login-titulo">🍽 Cocina</div>
+      <div class="login-subtitulo">Acceso privado</div>
+      <div class="form-grupo">
+        <label for="login-email">Email</label>
+        <input id="login-email" type="email" class="inp" placeholder="usuario@restaurante.com" autocomplete="username">
+      </div>
+      <div class="form-grupo">
+        <label for="login-password">Contraseña</label>
+        <input id="login-password" type="password" class="inp" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <div id="login-error" class="login-error"></div>
+      <button id="btn-login" class="btn btn-primario" type="button" style="min-height:52px;font-size:1.1rem">
+        Entrar
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================
+       APLICACIÓN PRINCIPAL (oculta hasta que el login sea correcto)
+       ======================================================== -->
+  <div id="app-principal" style="display:none">
+
+    <!-- =====================================================
+         CABECERA + NAVEGACIÓN PRINCIPAL
+         ===================================================== -->
+    <header class="cabecera" role="banner">
+      <div class="cabecera-izq">
+        <div class="cabecera-titulo">🍽 Cocina</div>
+        <div class="cabecera-subtitulo">Reg. UE 1169/2011 · RD 126/2015</div>
+      </div>
+
+      <!-- Tres pestañas de navegación -->
+      <nav class="nav-tabs" role="navigation" aria-label="Módulos">
+        <button class="nav-tab" data-modulo="etiquetas" aria-label="Módulo de etiquetado">
+          🏷 Etiquetas
+        </button>
+        <button class="nav-tab" data-modulo="menu" aria-label="Módulo de carta y recetas">
+          📋 Carta
+        </button>
+        <button class="nav-tab" data-modulo="facturas" aria-label="Módulo de facturas">
+          🧾 Facturas
+        </button>
+      </nav>
+
+      <div style="display:flex;align-items:center;gap:10px">
+        <div id="indicador-microfono" aria-label="Estado del micrófono" role="status">🎤</div>
+        <button id="btn-logout" title="Cerrar sesión">⏻ Salir</button>
+      </div>
+    </header>
+
+    <!-- =====================================================
+         MÓDULO 1: ETIQUETAS
+         ===================================================== -->
+    <main id="modulo-etiquetas" class="modulo-seccion contenido-principal" role="main">
+
+      <!-- Columna izquierda: controles de voz -->
+      <section aria-label="Control de voz">
+
+        <div class="tarjeta">
+          <div class="tarjeta-titulo">Nuevo Registro por Voz</div>
+          <button id="etq-btn-nuevo" class="btn btn-primario" type="button">
+            ▶ Nuevo Producto
+          </button>
+          <button id="etq-btn-cancelar" class="btn btn-secundario" type="button" style="margin-top:12px">
+            ✖ Cancelar
+          </button>
+        </div>
+
+        <div class="tarjeta" style="margin-top:16px">
+          <div class="tarjeta-titulo">Estado</div>
+          <div class="panel-estado" role="status" aria-live="polite">
+            <div id="etq-mensaje" class="mensaje-info">
+              Listo. Pulsa "Nuevo Producto" para iniciar el registro.
+            </div>
+            <div id="etq-respuesta"></div>
+          </div>
+          <div class="contenedor-progreso"
+               id="etq-progreso-cont"
+               role="progressbar" aria-valuemin="0" aria-valuemax="14" aria-valuenow="0">
+            <div id="etq-progreso-barra"></div>
+          </div>
+          <div id="etq-progreso-texto"></div>
+        </div>
+
+        <div class="tarjeta" style="margin-top:16px">
+          <div class="tarjeta-titulo">Código de colores</div>
+          <div class="leyenda">
+            <div class="leyenda-item"><div class="leyenda-punto verde"></div><span>Más de 2 días</span></div>
+            <div class="leyenda-item"><div class="leyenda-punto amarillo"></div><span>2 días o menos</span></div>
+            <div class="leyenda-item"><div class="leyenda-punto rojo"></div><span>Caducado</span></div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Columna derecha: etiqueta + historial -->
+      <section aria-label="Etiqueta e historial">
+
+        <div id="etq-seccion-etiqueta" style="display:none">
+          <div class="tarjeta">
+            <div class="tarjeta-titulo">Vista Previa de Etiqueta</div>
+            <div id="etq-preview"></div>
+            <button id="etq-btn-imprimir" class="btn btn-imprimir" type="button" style="margin-top:16px">
+              🖨 Imprimir Etiqueta
+            </button>
+          </div>
+        </div>
+
+        <div class="tarjeta" style="margin-top:16px">
+          <div class="tarjeta-titulo">Historial (últimos 20)</div>
+          <button id="etq-btn-historial" class="btn btn-historial" type="button">▼ Ver historial</button>
+          <div id="etq-seccion-historial" style="display:none; margin-top:12px" role="list">
+            <div id="etq-lista-historial"></div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- =====================================================
+         MÓDULO 2: CARTA (Ingredientes + Platos)
+         ===================================================== -->
+    <main id="modulo-menu" class="modulo-seccion" role="main" style="display:none">
+      <div class="modulo-cabecera-inner">
+        <h2 class="modulo-h2">Carta del Restaurante</h2>
+        <!-- Sub-navegación: Platos / Ingredientes -->
+        <div class="sub-nav" role="tablist">
+          <button class="sub-tab" data-subtab="platos"       role="tab">🍽 Platos</button>
+          <button class="sub-tab" data-subtab="ingredientes" role="tab">🥦 Ingredientes</button>
+        </div>
+      </div>
+
+      <!-- ---- Sub-sección: PLATOS ---- -->
+      <div id="menu-sub-platos">
+
+        <!-- Formulario de nuevo plato / editar plato -->
+        <div class="tarjeta">
+          <div class="tarjeta-titulo">Añadir / Editar Plato</div>
+          <div class="form-grid">
+            <div class="form-grupo">
+              <label for="plato-nombre">Nombre del plato *</label>
+              <input id="plato-nombre" type="text" class="inp" placeholder="Ej: Ensalada César">
+            </div>
+            <div class="form-grupo">
+              <label for="plato-precio">Precio (€)</label>
+              <input id="plato-precio" type="number" class="inp" placeholder="12.50" min="0" step="0.01">
+            </div>
+            <div class="form-grupo form-grupo-full">
+              <label for="plato-desc">Descripción</label>
+              <textarea id="plato-desc" class="inp" rows="2" placeholder="Descripción breve del plato"></textarea>
+            </div>
+            <div class="form-grupo form-grupo-full">
+              <label>Ingredientes (marca los que contiene)</label>
+              <div id="plato-selector-ingredientes" class="grid-ingredientes">
+                <!-- ModuloMenu._renderSelectorIngredientes() lo rellena -->
+              </div>
+            </div>
+            <div class="form-grupo form-grupo-full">
+              <label>Alérgenos calculados automáticamente:</label>
+              <div id="plato-alergenos-calculados" class="badges-alergenos">
+                <span class="badge-sin-alergenos">Ninguno</span>
+              </div>
+            </div>
+          </div>
+          <div class="form-acciones">
+            <button id="plato-btn-guardar" class="btn btn-primario-sm">✔ Guardar Plato</button>
+            <button id="plato-btn-cancelar-edicion" class="btn btn-secundario-sm" style="display:none">✖ Cancelar edición</button>
+          </div>
+        </div>
+
+        <!-- Lista de platos -->
+        <div class="tarjeta" style="margin-top:16px">
+          <div class="tarjeta-titulo">Platos en la Carta</div>
+          <div id="menu-lista-platos"></div>
+        </div>
+      </div>
+
+      <!-- ---- Sub-sección: INGREDIENTES ---- -->
+      <div id="menu-sub-ingredientes" style="display:none">
+
+        <div class="tarjeta">
+          <div class="tarjeta-titulo">Añadir / Editar Ingrediente</div>
+          <div class="form-grid">
+            <div class="form-grupo form-grupo-full">
+              <label for="ing-nombre">Nombre del ingrediente *</label>
+              <input id="ing-nombre" type="text" class="inp" placeholder="Ej: Harina de trigo">
+            </div>
+            <div class="form-grupo form-grupo-full">
+              <label>Alérgenos que contiene:</label>
+              <!-- 14 checkboxes de alérgenos -->
+              <div class="grid-alergenos-check">
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-gluten">            🌾 Gluten</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-crustáceos">        🦞 Crustáceos</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-huevo">             🥚 Huevo</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-pescado">           🐟 Pescado</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-cacahuetes">        🥜 Cacahuetes</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-soja">              🌱 Soja</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-leche">             🥛 Leche</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-frutos-de-cáscara"> 🌰 Frutos cáscara</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-apio">              🌿 Apio</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-mostaza">           🌼 Mostaza</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-granos-de-sésamo">  🫘 Sésamo</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-altramuces">        🌸 Altramuces</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-moluscos">          🐚 Moluscos</label>
+                <label class="check-alergeno"><input type="checkbox" id="ing-al-sulfitos">          🍷 Sulfitos</label>
+              </div>
+            </div>
+          </div>
+          <div class="form-acciones">
+            <button id="ing-btn-guardar"           class="btn btn-primario-sm">✔ Guardar Ingrediente</button>
+            <button id="ing-btn-cancelar-edicion"  class="btn btn-secundario-sm" style="display:none">✖ Cancelar edición</button>
+          </div>
+        </div>
+
+        <div class="tarjeta" style="margin-top:16px">
+          <div class="tarjeta-titulo">Ingredientes guardados</div>
+          <div id="menu-lista-ingredientes"></div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- =====================================================
+         MÓDULO 3: FACTURAS
+         ===================================================== -->
+    <main id="modulo-facturas" class="modulo-seccion" role="main" style="display:none">
+      <div class="modulo-cabecera-inner">
+        <h2 class="modulo-h2">Facturas</h2>
+        <button id="fac-btn-nueva" class="btn btn-primario-sm">＋ Nueva Factura</button>
+      </div>
+
+      <!-- Vista: lista de facturas -->
+      <div id="fac-vista-lista">
+        <div id="fac-lista"></div>
+      </div>
+
+      <!-- Vista: formulario nueva / editar factura -->
+      <div id="fac-vista-formulario" style="display:none">
+        <div class="tarjeta">
+          <div class="tarjeta-titulo" id="fac-form-titulo">Nueva Factura</div>
+
+          <!-- Cabecera de la factura -->
+          <div class="form-grid">
+            <div class="form-grupo">
+              <label for="fac-cliente">Cliente / Razón social *</label>
+              <input id="fac-cliente" type="text" class="inp" placeholder="Nombre del cliente">
+            </div>
+            <div class="form-grupo">
+              <label for="fac-nif">NIF / CIF</label>
+              <input id="fac-nif" type="text" class="inp" placeholder="12345678A">
+            </div>
+            <div class="form-grupo">
+              <label for="fac-fecha">Fecha</label>
+              <input id="fac-fecha" type="date" class="inp">
+            </div>
+            <div class="form-grupo">
+              <label for="fac-iva">IGIC (%)</label>
+              <input id="fac-iva" type="number" class="inp" value="7" min="0" max="100" step="1">
+            </div>
+            <div class="form-grupo form-grupo-full">
+              <label for="fac-direccion">Dirección</label>
+              <input id="fac-direccion" type="text" class="inp" placeholder="Calle, número, localidad">
+            </div>
+          </div>
+
+          <!-- Líneas de la factura -->
+          <div class="tarjeta-titulo" style="margin-top:20px">Líneas de concepto</div>
+
+          <div class="fac-add-linea-bar">
+            <select id="fac-selector-platos" class="inp inp-select">
+              <option value="">— Importar plato de la carta —</option>
+            </select>
+            <button id="fac-btn-add-linea" class="btn btn-secundario-sm">＋ Línea manual</button>
+          </div>
+
+          <div class="tabla-responsive">
+            <table class="fac-tabla-lineas-form">
+              <thead>
+                <tr>
+                  <th>Concepto</th>
+                  <th>Cant.</th>
+                  <th>P. Unit. (€)</th>
+                  <th>Importe</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="fac-lineas-body"></tbody>
+            </table>
+          </div>
+
+          <!-- Totales -->
+          <div class="fac-totales-form">
+            <div class="fac-fila-total"><span>Base imponible:</span> <span id="fac-subtotal">0.00 €</span></div>
+            <div class="fac-fila-total"><span id="fac-iva-label">IGIC (7%):</span> <span id="fac-cuota-iva">0.00 €</span></div>
+            <div class="fac-fila-total fac-total-final"><span>TOTAL:</span> <strong id="fac-total">0.00 €</strong></div>
+          </div>
+
+          <div class="form-grupo" style="margin-top:12px">
+            <label for="fac-notas">Notas</label>
+            <textarea id="fac-notas" class="inp" rows="2" placeholder="Observaciones opcionales"></textarea>
+          </div>
+
+          <div class="form-acciones">
+            <button id="fac-btn-guardar"  class="btn btn-primario-sm">💾 Guardar Factura</button>
+            <button id="fac-btn-cancelar" class="btn btn-secundario-sm">✖ Cancelar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vista: detalle / impresión de factura -->
+      <div id="fac-vista-detalle" style="display:none">
+        <div class="form-acciones" style="margin-bottom:12px">
+          <button id="fac-btn-volver"   class="btn btn-secundario-sm">← Volver</button>
+          <button id="fac-btn-imprimir" class="btn btn-imprimir">🖨 Imprimir Factura</button>
+        </div>
+        <div id="fac-detalle-contenido"></div>
+      </div>
+
+    </main>
+
+    <!-- =====================================================
+         PIE DE PÁGINA
+         ===================================================== -->
+    <footer class="pie" role="contentinfo">
+      Cocina v3.0 · Datos en Supabase ·
+      <a href="generar-iconos.html" style="color:#555" target="_blank">Generar iconos</a>
+    </footer>
+
+  </div><!-- #app-principal -->
+
+  <!-- ========================================================
+       SCRIPTS — orden obligatorio: core → modulos → app
+       ======================================================== -->
+  <script src="core/bd.js"></script>
+  <script src="core/voz.js"></script>
+  <script src="core/supabase.js"></script>
+  <script src="modulos/etiquetas.js"></script>
+  <script src="modulos/menu.js"></script>
+  <script src="modulos/facturas.js"></script>
+  <script src="modulos/auth.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>

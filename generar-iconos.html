@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Generador de Iconos — Cocina Etiquetas</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #1a1a1a; color: #f0f0f0;
+           display: flex; flex-direction: column; align-items: center; padding: 40px; gap: 20px; }
+    h1   { color: #e74c3c; }
+    p    { color: #aaa; max-width: 500px; text-align: center; }
+    .btn { background: #c0392b; color: white; border: none; padding: 14px 28px;
+           border-radius: 10px; font-size: 1.1rem; cursor: pointer; margin: 8px; }
+    .btn:hover { background: #e74c3c; }
+    canvas { display: none; }
+    .instrucciones { background: #2c2c2c; border-radius: 10px; padding: 20px;
+                     max-width: 520px; font-size: 0.9rem; line-height: 1.7; }
+    code { background: #444; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>Generador de Iconos PWA</h1>
+  <p>
+    Esta página genera los dos iconos PNG que necesita la PWA "Cocina Etiquetas"
+    para instalarse en dispositivos Android, iOS y escritorio.
+    Ábrela <strong>una sola vez</strong>, descarga ambos archivos y colócalos
+    en la carpeta <code>iconos/</code>.
+  </p>
+
+  <!-- Canvas ocultos donde se dibujarán los iconos -->
+  <canvas id="canvas192" width="192" height="192"></canvas>
+  <canvas id="canvas512" width="512" height="512"></canvas>
+
+  <button class="btn" onclick="descargarIcono(192)">⬇ Descargar icono-192.png</button>
+  <button class="btn" onclick="descargarIcono(512)">⬇ Descargar icono-512.png</button>
+
+  <div class="instrucciones">
+    <strong>Pasos para instalar los iconos:</strong>
+    <ol>
+      <li>Pulsa los botones de arriba para descargar <code>icono-192.png</code> y <code>icono-512.png</code>.</li>
+      <li>Crea una carpeta llamada <code>iconos</code> dentro de la carpeta del proyecto.</li>
+      <li>Mueve los dos archivos descargados dentro de esa carpeta <code>iconos/</code>.</li>
+      <li>La estructura final debe ser:<br>
+        <code>Restaurante/iconos/icono-192.png</code><br>
+        <code>Restaurante/iconos/icono-512.png</code>
+      </li>
+      <li>Vuelve a cargar <code>index.html</code> en el navegador.</li>
+    </ol>
+  </div>
+
+  <script>
+    // Dibuja el icono en un canvas del tamaño indicado
+    // y lo ofrece como descarga.
+    function dibujarIcono(tamano) {
+      const canvas = document.getElementById('canvas' + tamano);
+      const ctx = canvas.getContext('2d');
+      const c = tamano; // Abreviatura: c = tamaño del canvas
+
+      // Fondo circular rojo oscuro
+      ctx.fillStyle = '#c0392b';
+      ctx.beginPath();
+      ctx.arc(c / 2, c / 2, c / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Círculo interior más claro
+      ctx.fillStyle = '#e74c3c';
+      ctx.beginPath();
+      ctx.arc(c / 2, c / 2, c * 0.38, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Icono de etiqueta: rectángulo con muesca
+      const margen = c * 0.28;
+      const ancho  = c - margen * 2;
+      const alto   = c - margen * 2.2;
+      const radio  = c * 0.06;
+      const x0 = margen;
+      const y0 = margen * 1.1;
+
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.roundRect(x0, y0, ancho, alto, radio);
+      ctx.fill();
+
+      // Líneas que simulan texto en la etiqueta
+      ctx.fillStyle = '#c0392b';
+      const lineaAltura = c * 0.055;
+      const lineaY1 = y0 + alto * 0.22;
+      const lineaY2 = y0 + alto * 0.44;
+      const lineaY3 = y0 + alto * 0.64;
+
+      // Línea gruesa (nombre del producto)
+      ctx.fillRect(x0 + c * 0.08, lineaY1, ancho * 0.75, lineaAltura * 1.2);
+      // Línea delgada (lote)
+      ctx.fillRect(x0 + c * 0.08, lineaY2, ancho * 0.5, lineaAltura * 0.7);
+      // Bloque color (caducidad)
+      ctx.fillStyle = '#27ae60';
+      ctx.fillRect(x0 + c * 0.08, lineaY3, ancho * 0.84, lineaAltura * 1.1);
+
+      return canvas;
+    }
+
+    // Descarga el icono del tamaño indicado como archivo PNG
+    function descargarIcono(tamano) {
+      const canvas = dibujarIcono(tamano);
+      const enlace = document.createElement('a');
+      enlace.download = 'icono-' + tamano + '.png';
+      enlace.href = canvas.toDataURL('image/png');
+      enlace.click();
+    }
+
+    // Dibujar una previsualización al cargar la página
+    window.onload = () => {
+      dibujarIcono(192);
+      dibujarIcono(512);
+    };
+  </script>
+</body>
+</html>
