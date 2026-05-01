@@ -3,7 +3,7 @@
 // Versión 2: cubre la nueva estructura de archivos con módulos.
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v10'; // Cambiar versión invalida la caché anterior
+const NOMBRE_CACHE = 'cocina-etiquetas-v11'; // Cambiar versión invalida la caché anterior
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
@@ -15,6 +15,7 @@ const ARCHIVOS_A_CACHEAR = [
   './core/supabase.js',
   './modulos/etiquetas.js',
   './modulos/menu.js',
+  './modulos/bebidas.js',
   './modulos/facturas.js',
   './modulos/auth.js',
   './modulos/config.js',

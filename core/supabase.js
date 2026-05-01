@@ -239,6 +239,16 @@ const SB = (() => {
   }
 
   // ----------------------------------------------------------
+  // BEBIDAS
+  // ----------------------------------------------------------
+
+  const obtenerBebidas   = ()   => _get('bebidas', '?select=*&order=timestamp.desc');
+  const obtenerBebida    = (id) => _get('bebidas', `?id=eq.${id}&select=*`).then(_primero);
+  const guardarBebida    = (d)  => _post('bebidas', { nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', timestamp: Date.now() }).then(_primero);
+  const actualizarBebida = (d)  => _patch('bebidas', d.id, { nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro' }).then(_primero);
+  const eliminarBebida   = (id) => _delete('bebidas', id);
+
+  // ----------------------------------------------------------
   // INICIO: cargar sesión al arrancar el script
   // ----------------------------------------------------------
   _cargarSesion();
@@ -252,6 +262,9 @@ const SB = (() => {
     // Platos
     obtenerPlatos, obtenerPlato,
     guardarPlato, actualizarPlato, eliminarPlato,
+    // Bebidas
+    obtenerBebidas, obtenerBebida,
+    guardarBebida, actualizarBebida, eliminarBebida,
     // Facturas y Presupuestos
     obtenerFacturas, obtenerPresupuestos, obtenerFactura,
     guardarFactura, actualizarFactura, borrarFactura,

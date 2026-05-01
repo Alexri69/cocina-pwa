@@ -148,9 +148,12 @@ const ModuloFacturas = (() => {
     const sel = document.getElementById('fac-selector-platos');
     if (!sel) return;
     try {
-      const platos = await SB.obtenerPlatos();
-      sel.innerHTML = '<option value="">— Importar plato de la carta —</option>'
-        + (platos || []).map(p => `<option value="${p.id}" data-nombre="${_esc(p.nombre)}" data-precio="${p.precio}">${p.nombre}${p.precio > 0 ? ' (' + p.precio.toFixed(2) + ' €)' : ''}</option>`).join('');
+      const [platos, bebidas] = await Promise.all([SB.obtenerPlatos(), SB.obtenerBebidas()]);
+      const optsPlatos  = (platos  || []).map(p => `<option value="${p.id}" data-nombre="${_esc(p.nombre)}" data-precio="${p.precio}">${p.nombre}${p.precio > 0 ? ' (' + p.precio.toFixed(2) + ' €)' : ''}</option>`).join('');
+      const optsBebidas = (bebidas || []).map(b => `<option value="${b.id}" data-nombre="${_esc(b.nombre)}" data-precio="${b.precio}">${b.nombre}${b.precio > 0 ? ' (' + b.precio.toFixed(2) + ' €)' : ''}</option>`).join('');
+      sel.innerHTML = '<option value="">— Importar plato o bebida —</option>'
+        + (optsPlatos  ? `<optgroup label="🍽 Platos">${optsPlatos}</optgroup>`   : '')
+        + (optsBebidas ? `<optgroup label="🥤 Bebidas">${optsBebidas}</optgroup>` : '');
     } catch { sel.innerHTML = '<option value="">— Sin conexión —</option>'; }
   }
 

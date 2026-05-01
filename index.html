@@ -95,6 +95,7 @@
       <nav class="nav-tabs" role="navigation" aria-label="Módulos">
         <button class="nav-tab" data-modulo="etiquetas">🏷 Etiquetas</button>
         <button class="nav-tab" data-modulo="menu">📋 Carta</button>
+        <button class="nav-tab" data-modulo="bebidas">🥤 Bebidas</button>
         <button class="nav-tab" data-modulo="facturas">🧾 Facturas</button>
         <button class="nav-tab" data-modulo="config">⚙ Config</button>
       </nav>
@@ -127,6 +128,11 @@
               <div class="dash-card-icon">📋</div>
               <div class="dash-card-nombre">Carta</div>
               <div class="dash-card-desc">Platos · Ingredientes</div>
+            </button>
+            <button class="dash-card" onclick="navegarA('bebidas')">
+              <div class="dash-card-icon">🥤</div>
+              <div class="dash-card-nombre">Bebidas</div>
+              <div class="dash-card-desc">Carta de bebidas</div>
             </button>
             <button class="dash-card" onclick="navegarA('facturas')">
               <div class="dash-card-icon">🧾</div>
@@ -349,7 +355,56 @@
     </main>
 
     <!-- =====================================================
-         MÓDULO 3: FACTURAS
+         MÓDULO 3: BEBIDAS
+         ===================================================== -->
+    <main id="modulo-bebidas" class="modulo-seccion" role="main" style="display:none">
+      <div class="modulo-cabecera-inner">
+        <h2 class="modulo-h2">Carta de Bebidas</h2>
+      </div>
+
+      <div class="tarjeta">
+        <div class="tarjeta-titulo">Añadir / Editar Bebida</div>
+        <div class="form-grid">
+          <div class="form-grupo">
+            <label for="beb-nombre">Nombre *</label>
+            <input id="beb-nombre" type="text" class="inp" placeholder="Ej: Agua con gas">
+          </div>
+          <div class="form-grupo">
+            <label for="beb-precio">Precio (€)</label>
+            <input id="beb-precio" type="number" class="inp" placeholder="1.50" min="0" step="0.01">
+          </div>
+          <div class="form-grupo">
+            <label for="beb-categoria">Categoría</label>
+            <select id="beb-categoria" class="inp">
+              <option value="agua">💧 Agua</option>
+              <option value="refresco" selected>🥤 Refrescos</option>
+              <option value="cerveza">🍺 Cerveza</option>
+              <option value="vino">🍷 Vinos</option>
+              <option value="licor">🥃 Licores y combinados</option>
+              <option value="cafe">☕ Cafés e infusiones</option>
+              <option value="zumo">🍊 Zumos</option>
+              <option value="otro">🫗 Otros</option>
+            </select>
+          </div>
+          <div class="form-grupo form-grupo-full">
+            <label for="beb-desc">Descripción</label>
+            <textarea id="beb-desc" class="inp" rows="2" placeholder="Descripción opcional"></textarea>
+          </div>
+        </div>
+        <div class="form-acciones">
+          <button id="beb-btn-guardar" class="btn btn-primario-sm">✔ Guardar Bebida</button>
+          <button id="beb-btn-cancelar" class="btn btn-secundario-sm" style="display:none">✖ Cancelar edición</button>
+        </div>
+      </div>
+
+      <div class="tarjeta" style="margin-top:16px">
+        <div class="tarjeta-titulo">Bebidas en la Carta</div>
+        <div id="beb-lista"></div>
+      </div>
+    </main>
+
+    <!-- =====================================================
+         MÓDULO 4: FACTURAS
          ===================================================== -->
     <main id="modulo-facturas" class="modulo-seccion" role="main" style="display:none">
       <div class="modulo-cabecera-inner">
@@ -402,7 +457,7 @@
 
           <div class="fac-add-linea-bar">
             <select id="fac-selector-platos" class="inp inp-select">
-              <option value="">— Importar plato de la carta —</option>
+              <option value="">— Importar plato o bebida —</option>
             </select>
             <button id="fac-btn-add-linea" class="btn btn-secundario-sm">＋ Línea manual</button>
           </div>
@@ -650,6 +705,7 @@
     <nav class="nav-bottom" role="navigation" aria-label="Módulos">
       <button class="nav-bottom-tab" data-modulo="etiquetas"><span class="nb-icon">🏷</span>Etiquetas</button>
       <button class="nav-bottom-tab" data-modulo="menu"><span class="nb-icon">📋</span>Carta</button>
+      <button class="nav-bottom-tab" data-modulo="bebidas"><span class="nb-icon">🥤</span>Bebidas</button>
       <button class="nav-bottom-tab" data-modulo="facturas"><span class="nb-icon">🧾</span>Facturas</button>
       <button class="nav-bottom-tab" data-modulo="config"><span class="nb-icon">⚙</span>Config</button>
     </nav>
@@ -664,6 +720,7 @@
   <script src="core/supabase.js"></script>
   <script src="modulos/etiquetas.js"></script>
   <script src="modulos/menu.js"></script>
+  <script src="modulos/bebidas.js"></script>
   <script src="modulos/facturas.js"></script>
   <script src="modulos/auth.js"></script>
   <script src="modulos/config.js"></script>

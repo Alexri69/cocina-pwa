@@ -64,6 +64,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Inicializar módulos
   await ModuloEtiquetas.init();
   await ModuloMenu.init();
+  await ModuloBebidas.init();
   await ModuloFacturas.init();
   await ModuloConfig.init();
 
