@@ -68,6 +68,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   await ModuloFacturas.init();
   await ModuloConfig.init();
 
+  // Comprobar caducidades y mostrar alertas
+  await _comprobarCaducidades();
+
   // Botones de cabecera
   document.getElementById('btn-tema')?.addEventListener('click', _toggleTema);
   document.getElementById('btn-logout')?.addEventListener('click', () => {
@@ -87,3 +90,54 @@ document.addEventListener('DOMContentLoaded', async () => {
   const moduloGuardado = sessionStorage.getItem('moduloActivo') || 'dashboard';
   navegarA(moduloGuardado);
 });
+
+// ---- Alertas de caducidad ----
+
+async function _comprobarCaducidades() {
+  try {
+    const { caducados, proximos } = await ModuloEtiquetas.verificarCaducidades();
+    const total = caducados.length + proximos.length;
+
+    _actualizarBadgeEtiquetas(total);
+    _renderAlertasDashboard(caducados, proximos);
+
+    if (total > 0 && 'Notification' in window && Notification.permission !== 'denied') {
+      const perm = Notification.permission === 'granted'
+        ? 'granted'
+        : await Notification.requestPermission();
+      if (perm === 'granted') {
+        const partes = [];
+        if (caducados.length) partes.push(`${caducados.length} caducado${caducados.length > 1 ? 's' : ''}`);
+        if (proximos.length)  partes.push(`${proximos.length} próximo${proximos.length > 1 ? 's' : ''} a caducar`);
+        new Notification('🍽 Cocina — Alerta de caducidad', {
+          body: partes.join(' · '),
+          icon: './iconos/icono-192.png',
+          tag:  'cocina-caducidad'
+        });
+      }
+    }
+  } catch (e) { console.warn('[App] Error comprobando caducidades:', e); }
+}
+
+function _actualizarBadgeEtiquetas(n) {
+  ['etq-badge-nav', 'etq-badge-bottom'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent    = n;
+    el.style.display  = n > 0 ? 'inline-block' : 'none';
+  });
+}
+
+function _renderAlertasDashboard(caducados, proximos) {
+  const cont  = document.getElementById('dash-alertas');
+  const lista = document.getElementById('dash-alertas-lista');
+  if (!cont || !lista) return;
+  if (!caducados.length && !proximos.length) { cont.style.display = 'none'; return; }
+  lista.innerHTML = [
+    ...caducados.map(p =>
+      `<div class="dash-alerta-item rojo">🔴 <strong>${p.nombre}</strong> — Lote ${p.lote} — <em>CADUCADO</em></div>`),
+    ...proximos.map(p =>
+      `<div class="dash-alerta-item amarillo">🟡 <strong>${p.nombre}</strong> — Lote ${p.lote} — caduca ${VOZ.formatearFechaSolo(p.fechaCaducidad)}</div>`),
+  ].join('');
+  cont.style.display = 'block';
+}

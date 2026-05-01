@@ -90,6 +90,49 @@ html, body {
 .nav-tab:hover  { background: rgba(255,255,255,.06); color: var(--texto); }
 .nav-tab.activo { background: rgba(91,124,246,.15); color: var(--acento); }
 
+/* Badge de alertas en pestañas */
+.tab-badge {
+  display: inline-block;
+  background: #e74c3c;
+  color: #fff;
+  border-radius: 8px;
+  font-size: .6rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  margin-left: 4px;
+  vertical-align: middle;
+  min-width: 16px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Alertas de caducidad en el dashboard */
+.dash-alertas {
+  background: rgba(231,76,60,.08);
+  border: 1px solid rgba(231,76,60,.25);
+  border-radius: var(--radio);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+.dash-alertas-titulo {
+  font-size: .85rem;
+  font-weight: 700;
+  color: #e74c3c;
+  margin-bottom: 10px;
+}
+.dash-alerta-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: .85rem;
+  margin-bottom: 5px;
+}
+.dash-alerta-item:last-child { margin-bottom: 0; }
+.dash-alerta-item.rojo    { background: rgba(231,76,60,.15); }
+.dash-alerta-item.amarillo{ background: rgba(241,196,15,.12); }
+
 #indicador-microfono {
   font-size: 1.2rem; padding: 4px 8px; border-radius: var(--radio);
   background: rgba(255,255,255,.05); transition: background .3s;

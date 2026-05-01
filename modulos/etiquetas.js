@@ -403,6 +403,14 @@ const ModuloEtiquetas = (() => {
     }
   }
 
-  return { init };
+  async function verificarCaducidades() {
+    const productos = await BD.obtenerProductos();
+    return {
+      caducados: productos.filter(p => VOZ.calcularColorCaducidad(p.fechaCaducidad) === 'rojo'),
+      proximos:  productos.filter(p => VOZ.calcularColorCaducidad(p.fechaCaducidad) === 'amarillo'),
+    };
+  }
+
+  return { init, verificarCaducidades };
 
 })();
