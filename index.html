@@ -353,8 +353,14 @@
          ===================================================== -->
     <main id="modulo-facturas" class="modulo-seccion" role="main" style="display:none">
       <div class="modulo-cabecera-inner">
-        <h2 class="modulo-h2">Facturas</h2>
-        <button id="fac-btn-nueva" class="btn btn-primario-sm">＋ Nueva Factura</button>
+        <div class="sub-nav">
+          <button class="sub-tab activo" id="fac-tab-facturas">🧾 Facturas</button>
+          <button class="sub-tab" id="fac-tab-presupuestos">📋 Presupuestos</button>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="fac-btn-nueva"      class="btn btn-primario-sm">＋ Nueva Factura</button>
+          <button id="fac-btn-nuevo-pres" class="btn btn-secundario-sm" style="display:none">＋ Presupuesto</button>
+        </div>
       </div>
 
       <!-- Vista: lista de facturas -->
@@ -458,18 +464,38 @@
             </div>
           </div>
 
+          <!-- Campos de evento (solo para presupuestos, JS los muestra/oculta) -->
+          <div id="fac-grupo-evento" style="display:none;margin-top:12px">
+            <div class="tarjeta-titulo" style="margin-bottom:10px">Detalles del evento</div>
+            <div class="form-grid">
+              <div class="form-grupo form-grupo-full">
+                <label for="fac-evento-desc">Descripción del evento</label>
+                <input id="fac-evento-desc" type="text" class="inp" placeholder="Boda, cumpleaños, cena de empresa…">
+              </div>
+              <div class="form-grupo">
+                <label for="fac-evento-fecha">Fecha del evento</label>
+                <input id="fac-evento-fecha" type="date" class="inp">
+              </div>
+              <div class="form-grupo">
+                <label for="fac-evento-comensales">Nº de comensales</label>
+                <input id="fac-evento-comensales" type="number" class="inp" min="1" placeholder="20">
+              </div>
+            </div>
+          </div>
+
           <div class="form-acciones">
-            <button id="fac-btn-guardar"  class="btn btn-primario-sm">💾 Guardar Factura</button>
+            <button id="fac-btn-guardar"  class="btn btn-primario-sm">💾 Guardar</button>
             <button id="fac-btn-cancelar" class="btn btn-secundario-sm">✖ Cancelar</button>
           </div>
         </div>
       </div>
 
-      <!-- Vista: detalle / impresión de factura -->
+      <!-- Vista: detalle / impresión de factura o presupuesto -->
       <div id="fac-vista-detalle" style="display:none">
         <div class="form-acciones" style="margin-bottom:12px">
-          <button id="fac-btn-volver"   class="btn btn-secundario-sm">← Volver</button>
-          <button id="fac-btn-imprimir" class="btn btn-imprimir">🖨 Imprimir Factura</button>
+          <button id="fac-btn-volver"    class="btn btn-secundario-sm">← Volver</button>
+          <button id="fac-btn-convertir" class="btn btn-primario-sm"   style="display:none">📄 Convertir a Factura</button>
+          <button id="fac-btn-imprimir"  class="btn btn-imprimir">🖨 Imprimir</button>
         </div>
         <div id="fac-detalle-contenido"></div>
       </div>

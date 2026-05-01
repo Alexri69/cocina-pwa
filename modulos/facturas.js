@@ -1,13 +1,14 @@
 // ============================================================
-// modulos/facturas.js — Gestión de facturas (Supabase)
+// modulos/facturas.js — Facturas y Presupuestos (Supabase)
 // Depende de: core/supabase.js, core/voz.js
-// IGIC: Impuesto General Indirecto Canario (Ley 20/1991)
 // ============================================================
 
 const ModuloFacturas = (() => {
 
   let _idFacturaActual = null;
-  let _lineas = [];
+  let _lineas          = [];
+  let _tipoVista       = 'factura';     // sub-tab activo: 'factura' | 'presupuesto'
+  let _tipoActual      = 'factura';     // tipo del registro abierto en el formulario
 
   // ----------------------------------------------------------
   // VISTAS
@@ -21,7 +22,20 @@ const ModuloFacturas = (() => {
   }
 
   // ----------------------------------------------------------
-  // LISTA DE FACTURAS
+  // SUB-TABS
+  // ----------------------------------------------------------
+
+  function _actualizarSubTabs() {
+    document.getElementById('fac-tab-facturas')    ?.classList.toggle('activo', _tipoVista === 'factura');
+    document.getElementById('fac-tab-presupuestos')?.classList.toggle('activo', _tipoVista === 'presupuesto');
+    const btnFac  = document.getElementById('fac-btn-nueva');
+    const btnPres = document.getElementById('fac-btn-nuevo-pres');
+    if (btnFac)  btnFac.style.display  = _tipoVista === 'factura'     ? '' : 'none';
+    if (btnPres) btnPres.style.display = _tipoVista === 'presupuesto' ? '' : 'none';
+  }
+
+  // ----------------------------------------------------------
+  // LISTA
   // ----------------------------------------------------------
 
   async function _renderLista() {
@@ -29,57 +43,100 @@ const ModuloFacturas = (() => {
     if (!lista) return;
     lista.innerHTML = '<p class="texto-vacio">Cargando…</p>';
     try {
-      const facturas = await SB.obtenerFacturas();
-      if (!facturas?.length) { lista.innerHTML = '<p class="texto-vacio">No hay facturas todavía. Crea la primera.</p>'; return; }
-      lista.innerHTML = facturas.map(f => {
-        const cls  = f.pagada ? 'estado-pagada' : 'estado-pendiente';
-        const etiq = f.pagada ? '✔ Pagada' : '⏳ Pendiente';
-        return `<div class="card-factura" data-id="${f.id}">
-          <div class="fac-card-cabecera">
-            <div class="fac-card-numero">Factura ${f.numero}</div>
-            <div class="badge-estado ${cls}">${etiq}</div>
-          </div>
-          <div class="fac-card-cliente">${_esc(f.cliente)}</div>
-          <div class="fac-card-meta">
-            <span>${VOZ.formatearFechaSolo(f.fecha)}</span>
-            <strong>${f.total.toFixed(2)} €</strong>
-          </div>
-          <div class="card-acciones">
-            <button class="btn-mini btn-ver"    onclick="ModuloFacturas.verFactura('${f.id}')">👁 Ver</button>
-            <button class="btn-mini btn-editar" onclick="ModuloFacturas.editarFactura('${f.id}')">✏ Editar</button>
-            <button class="btn-mini ${f.pagada ? 'btn-borrar' : 'btn-pagar'}"
-                    onclick="ModuloFacturas.togglePagada('${f.id}',${f.pagada})">
+      const items = _tipoVista === 'presupuesto'
+        ? await SB.obtenerPresupuestos()
+        : await SB.obtenerFacturas();
+      if (!items?.length) {
+        lista.innerHTML = `<p class="texto-vacio">No hay ${_tipoVista === 'presupuesto' ? 'presupuestos' : 'facturas'} todavía.</p>`;
+        return;
+      }
+      lista.innerHTML = items.map(f => _cardHtml(f)).join('');
+    } catch (e) {
+      lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${e.message}</p>`;
+    }
+  }
+
+  function _cardHtml(f) {
+    const esPres = f.tipo === 'presupuesto';
+    let cls, etiq;
+    if (esPres) {
+      cls  = f.estadoPresupuesto === 'aceptado'  ? 'estado-pres-aceptado'
+           : f.estadoPresupuesto === 'rechazado' ? 'estado-pres-rechazado'
+           : 'estado-pendiente';
+      etiq = f.estadoPresupuesto === 'aceptado'  ? '✔ Aceptado'
+           : f.estadoPresupuesto === 'rechazado' ? '✕ Rechazado'
+           : '⏳ Pendiente';
+    } else {
+      cls  = f.pagada ? 'estado-pagada' : 'estado-pendiente';
+      etiq = f.pagada ? '✔ Pagada'      : '⏳ Pendiente';
+    }
+    return `<div class="card-factura" data-id="${f.id}">
+      <div class="fac-card-cabecera">
+        <div class="fac-card-numero">${_esc(f.numero)}</div>
+        <div class="badge-estado ${cls}">${etiq}</div>
+      </div>
+      <div class="fac-card-cliente">${_esc(f.cliente)}</div>
+      ${esPres && f.descripcionEvento ? `<div style="font-size:.8rem;color:var(--texto2);margin-bottom:2px">📅 ${_esc(f.descripcionEvento)}</div>` : ''}
+      <div class="fac-card-meta">
+        <span>${VOZ.formatearFechaSolo(f.fecha)}</span>
+        <strong>${f.total.toFixed(2)} €</strong>
+      </div>
+      <div class="card-acciones">
+        <button class="btn-mini btn-ver"    onclick="ModuloFacturas.verFactura('${f.id}')">👁 Ver</button>
+        <button class="btn-mini btn-editar" onclick="ModuloFacturas.editarFactura('${f.id}')">✏ Editar</button>
+        ${esPres
+          ? (f.estadoPresupuesto !== 'aceptado'
+              ? `<button class="btn-mini btn-pagar" onclick="ModuloFacturas.aceptarPresupuesto('${f.id}')">✔ Aceptar</button>`
+              : '')
+          : `<button class="btn-mini ${f.pagada ? 'btn-borrar' : 'btn-pagar'}"
+                onclick="ModuloFacturas.togglePagada('${f.id}',${f.pagada})">
               ${f.pagada ? '↩ Pendiente' : '✔ Pagada'}
-            </button>
-            <button class="btn-mini btn-borrar" onclick="ModuloFacturas.borrarFactura('${f.id}','${f.numero}')">🗑</button>
-          </div>
-        </div>`;
-      }).join('');
-    } catch (e) { lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${e.message}</p>`; }
+             </button>`
+        }
+        <button class="btn-mini btn-borrar" onclick="ModuloFacturas.borrarFactura('${f.id}','${f.numero}')">🗑</button>
+      </div>
+    </div>`;
   }
 
   // ----------------------------------------------------------
   // FORMULARIO
   // ----------------------------------------------------------
 
-  async function _abrirFormulario(factura = null) {
+  async function _abrirFormulario(factura = null, tipo = 'factura') {
     _idFacturaActual = factura ? factura.id : null;
-    _lineas = factura ? JSON.parse(JSON.stringify(factura.lineas)) : [];
+    _tipoActual      = factura ? (factura.tipo || 'factura') : tipo;
+    _lineas          = factura ? JSON.parse(JSON.stringify(factura.lineas)) : [];
 
-    document.getElementById('fac-form-titulo').textContent = factura ? `Editar Factura ${factura.numero}` : 'Nueva Factura';
-    document.getElementById('fac-cliente').value   = factura?.cliente   || '';
-    document.getElementById('fac-nif').value        = factura?.nif       || '';
-    document.getElementById('fac-direccion').value  = factura?.direccion || '';
-    document.getElementById('fac-fecha').value      = factura
+    const esPres = _tipoActual === 'presupuesto';
+
+    document.getElementById('fac-form-titulo').textContent = factura
+      ? `Editar ${esPres ? 'Presupuesto' : 'Factura'} ${factura.numero}`
+      : (esPres ? 'Nuevo Presupuesto' : 'Nueva Factura');
+
+    document.getElementById('fac-cliente').value         = factura?.cliente   || '';
+    document.getElementById('fac-nif').value             = factura?.nif       || '';
+    document.getElementById('fac-direccion').value       = factura?.direccion || '';
+    document.getElementById('fac-fecha').value           = factura
       ? (typeof factura.fecha === 'string' ? factura.fecha.split('T')[0] : factura.fecha)
       : new Date().toISOString().split('T')[0];
-    document.getElementById('fac-iva').value           = factura?.porcentajeIgic ?? 7;
-    document.getElementById('fac-notas').value         = factura?.notas || '';
-    document.getElementById('fac-irpf').value          = factura?.retencionIrpf ?? 0;
-    document.getElementById('fac-forma-pago').value    = factura?.formaPago || 'efectivo';
-    document.getElementById('fac-vencimiento').value   = factura?.vencimiento
+    document.getElementById('fac-iva').value             = factura?.porcentajeIgic ?? 7;
+    document.getElementById('fac-notas').value           = factura?.notas || '';
+    document.getElementById('fac-irpf').value            = factura?.retencionIrpf ?? 0;
+    document.getElementById('fac-forma-pago').value      = factura?.formaPago || 'efectivo';
+    document.getElementById('fac-vencimiento').value     = factura?.vencimiento
       ? (typeof factura.vencimiento === 'string' ? factura.vencimiento.split('T')[0] : factura.vencimiento)
       : '';
+
+    // Campos de evento (solo presupuestos)
+    const grupoEvento = document.getElementById('fac-grupo-evento');
+    if (grupoEvento) grupoEvento.style.display = esPres ? '' : 'none';
+    if (esPres) {
+      document.getElementById('fac-evento-desc').value       = factura?.descripcionEvento || '';
+      document.getElementById('fac-evento-fecha').value      = factura?.fechaEvento
+        ? (typeof factura.fechaEvento === 'string' ? factura.fechaEvento.split('T')[0] : factura.fechaEvento)
+        : '';
+      document.getElementById('fac-evento-comensales').value = factura?.comensales || '';
+    }
 
     await _renderSelectorPlatos();
     _renderLineas();
@@ -134,22 +191,22 @@ const ModuloFacturas = (() => {
   function _eliminarLinea(idx) { _lineas.splice(idx, 1); _renderLineas(); }
 
   function _calcularTotales() {
-    const subtotal   = _lineas.reduce((s, l) => s + (l.subtotal || 0), 0);
-    const pIgic      = parseFloat(document.getElementById('fac-iva')?.value) || 0;
-    const cuotaIgic  = subtotal * pIgic / 100;
-    const pIrpf      = parseFloat(document.getElementById('fac-irpf')?.value) || 0;
-    const cuotaIrpf  = subtotal * pIrpf / 100;
-    const total      = subtotal + cuotaIgic - cuotaIrpf;
+    const subtotal  = _lineas.reduce((s, l) => s + (l.subtotal || 0), 0);
+    const pIgic     = parseFloat(document.getElementById('fac-iva')?.value)  || 0;
+    const cuotaIgic = subtotal * pIgic / 100;
+    const pIrpf     = parseFloat(document.getElementById('fac-irpf')?.value) || 0;
+    const cuotaIrpf = subtotal * pIrpf / 100;
+    const total     = subtotal + cuotaIgic - cuotaIrpf;
 
     const cfg    = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
     const impNom = cfg.regimen === 'iva' ? 'IVA' : 'IGIC';
 
-    _setText('fac-subtotal',  subtotal.toFixed(2)  + ' €');
-    _setText('fac-cuota-iva', cuotaIgic.toFixed(2) + ' €');
-    _setText('fac-iva-label', `${impNom} (${pIgic}%)`);
+    _setText('fac-subtotal',   subtotal.toFixed(2)   + ' €');
+    _setText('fac-cuota-iva',  cuotaIgic.toFixed(2)  + ' €');
+    _setText('fac-iva-label',  `${impNom} (${pIgic}%)`);
     _setText('fac-irpf-label', `IRPF (−${pIrpf}%)`);
-    _setText('fac-cuota-irpf', cuotaIrpf.toFixed(2) + ' €');
-    _setText('fac-total',      total.toFixed(2)      + ' €');
+    _setText('fac-cuota-irpf', cuotaIrpf.toFixed(2)  + ' €');
+    _setText('fac-total',      total.toFixed(2)       + ' €');
 
     const filaIrpf = document.getElementById('fac-fila-irpf');
     if (filaIrpf) filaIrpf.style.display = pIrpf > 0 ? 'flex' : 'none';
@@ -157,35 +214,45 @@ const ModuloFacturas = (() => {
 
   async function _guardarFactura() {
     const cliente = document.getElementById('fac-cliente').value.trim();
-    if (!cliente)       { alert('El nombre del cliente es obligatorio.'); return; }
-    if (!_lineas.length){ alert('Añade al menos una línea a la factura.'); return; }
+    if (!cliente)        { alert('El nombre del cliente es obligatorio.'); return; }
+    if (!_lineas.length) { alert('Añade al menos una línea.'); return; }
 
-    const subtotal      = _lineas.reduce((s, l) => s + (l.subtotal || 0), 0);
-    const porcentajeIgic= parseFloat(document.getElementById('fac-iva').value) || 0;
-    const cuotaIgic     = subtotal * porcentajeIgic / 100;
-    const retencionIrpf = parseFloat(document.getElementById('fac-irpf').value) || 0;
-    const cuotaIrpf     = subtotal * retencionIrpf / 100;
+    const subtotal       = _lineas.reduce((s, l) => s + (l.subtotal || 0), 0);
+    const porcentajeIgic = parseFloat(document.getElementById('fac-iva').value)  || 0;
+    const cuotaIgic      = subtotal * porcentajeIgic / 100;
+    const retencionIrpf  = parseFloat(document.getElementById('fac-irpf').value) || 0;
+    const cuotaIrpf      = subtotal * retencionIrpf / 100;
+    const esPres         = _tipoActual === 'presupuesto';
+
+    let existente = null;
+    if (_idFacturaActual) existente = await SB.obtenerFactura(_idFacturaActual);
 
     const datos = {
-      numero:         _idFacturaActual ? (await SB.obtenerFactura(_idFacturaActual)).numero : await SB.siguienteNumeroFactura(),
+      numero:            existente ? existente.numero
+                       : esPres   ? await SB.siguienteNumeroPresupuesto()
+                       :            await SB.siguienteNumeroFactura(),
       cliente,
-      nif:            document.getElementById('fac-nif').value.trim(),
-      direccion:      document.getElementById('fac-direccion').value.trim(),
-      fecha:          document.getElementById('fac-fecha').value,
-      lineas:         _lineas,
+      nif:               document.getElementById('fac-nif').value.trim(),
+      direccion:         document.getElementById('fac-direccion').value.trim(),
+      fecha:             document.getElementById('fac-fecha').value,
+      lineas:            _lineas,
       subtotal,
       porcentajeIgic,
       cuotaIgic,
       retencionIrpf,
       cuotaIrpf,
-      total:          subtotal + cuotaIgic - cuotaIrpf,
-      pagada:         _idFacturaActual ? (await SB.obtenerFactura(_idFacturaActual)).pagada : false,
-      notas:          document.getElementById('fac-notas').value.trim(),
-      formaPago:      document.getElementById('fac-forma-pago').value || 'efectivo',
-      vencimiento:    document.getElementById('fac-vencimiento').value || null,
+      total:             subtotal + cuotaIgic - cuotaIrpf,
+      pagada:            existente ? existente.pagada : false,
+      notas:             document.getElementById('fac-notas').value.trim(),
+      formaPago:         document.getElementById('fac-forma-pago').value || 'efectivo',
+      vencimiento:       document.getElementById('fac-vencimiento').value || null,
+      tipo:              _tipoActual,
+      estadoPresupuesto: esPres ? (existente?.estadoPresupuesto || 'pendiente') : null,
+      descripcionEvento: esPres ? (document.getElementById('fac-evento-desc')?.value.trim()  || '') : '',
+      fechaEvento:       esPres ? (document.getElementById('fac-evento-fecha')?.value || null)      : null,
     };
 
-    if (_idFacturaActual !== null) {
+    if (_idFacturaActual) {
       await SB.actualizarFactura({ id: _idFacturaActual, ...datos });
     } else {
       await SB.guardarFactura(datos);
@@ -205,6 +272,8 @@ const ModuloFacturas = (() => {
     _idFacturaActual = id;
     _renderDetalle(f);
     _mostrarVista('detalle');
+    const btnConv = document.getElementById('fac-btn-convertir');
+    if (btnConv) btnConv.style.display = f.tipo === 'presupuesto' ? '' : 'none';
   }
 
   function _renderDetalle(f) {
@@ -218,6 +287,7 @@ const ModuloFacturas = (() => {
     const leyRef       = regimen === 'iva'
       ? 'Ley 37/1992 del Impuesto sobre el Valor Añadido'
       : 'Ley 20/1991 del Impuesto General Indirecto Canario (IGIC)';
+    const esPres       = f.tipo === 'presupuesto';
 
     const emisorLineas = [
       cfg.nif       ? `NIF/CIF: ${_esc(cfg.nif)}`   : null,
@@ -236,19 +306,26 @@ const ModuloFacturas = (() => {
         <td class="td-num">${(l.subtotal || 0).toFixed(2)} €</td>
       </tr>`).join('');
 
-    const irpfPct  = f.retencionIrpf || 0;
-    const irpfAmt  = f.cuotaIrpf     || 0;
-    const irpfHtml = irpfPct > 0
-      ? `<div class="fac-fila-total"><span>Retención IRPF (${irpfPct}%):</span><span style="color:#c00">−${irpfAmt.toFixed(2)} €</span></div>`
+    const irpfHtml = (f.retencionIrpf || 0) > 0
+      ? `<div class="fac-fila-total"><span>Retención IRPF (${f.retencionIrpf}%):</span><span style="color:#c00">−${(f.cuotaIrpf||0).toFixed(2)} €</span></div>`
       : '';
 
     const pagoLabels = { efectivo:'Efectivo', transferencia:'Transferencia bancaria', tarjeta:'Tarjeta', cheque:'Cheque' };
     const pagoLabel  = pagoLabels[f.formaPago] || '';
     const ibanHtml   = (f.formaPago === 'transferencia' && cfg.iban)
-      ? `<br><strong>IBAN:</strong> ${_esc(cfg.iban)}`
-      : '';
-    const vencHtml   = f.vencimiento
-      ? `<br><strong>Vencimiento:</strong> ${VOZ.formatearFechaSolo(f.vencimiento)}`
+      ? `<br><strong>IBAN:</strong> ${_esc(cfg.iban)}` : '';
+
+    const estadoColor = f.estadoPresupuesto === 'aceptado'  ? '#4ade80'
+                      : f.estadoPresupuesto === 'rechazado' ? '#f87171' : '#fbbf24';
+    const estadoTxt   = f.estadoPresupuesto === 'aceptado'  ? '✔ ACEPTADO'
+                      : f.estadoPresupuesto === 'rechazado' ? '✕ RECHAZADO' : '⏳ PENDIENTE DE ACEPTACIÓN';
+
+    const eventoHtml = esPres && f.descripcionEvento
+      ? `<div class="fac-receptor" style="margin-top:12px">
+           <div class="fac-receptor-titulo">Descripción del evento</div>
+           <strong>${_esc(f.descripcionEvento)}</strong>
+           ${f.fechaEvento ? `<br>Fecha del evento: <strong>${VOZ.formatearFechaSolo(f.fechaEvento)}</strong>` : ''}
+         </div>`
       : '';
 
     div.innerHTML = `
@@ -259,27 +336,27 @@ const ModuloFacturas = (() => {
             ${emisorLineas ? `<div class="fac-emisor-datos">${emisorLineas}</div>` : ''}
           </div>
           <div class="fac-titulo-doc">
-            <div class="fac-numero-grande">FACTURA</div>
+            <div class="fac-numero-grande">${esPres ? 'PRESUPUESTO' : 'FACTURA'}</div>
             <div class="fac-meta-item"><span>Número:</span> ${_esc(f.numero)}</div>
             <div class="fac-meta-item"><span>Fecha:</span> ${VOZ.formatearFechaSolo(f.fecha)}</div>
-            ${f.vencimiento ? `<div class="fac-meta-item"><span>Vencimiento:</span> ${VOZ.formatearFechaSolo(f.vencimiento)}</div>` : ''}
+            ${f.vencimiento ? `<div class="fac-meta-item"><span>${esPres ? 'Válido hasta:' : 'Vencimiento:'}</span> ${VOZ.formatearFechaSolo(f.vencimiento)}</div>` : ''}
           </div>
         </div>
 
         <div class="fac-receptor">
           <div class="fac-receptor-titulo">Datos del cliente</div>
           <strong>${_esc(f.cliente)}</strong>
-          ${f.nif       ? `<br>NIF/CIF: ${_esc(f.nif)}`    : ''}
-          ${f.direccion ? `<br>${_esc(f.direccion)}`        : ''}
+          ${f.nif       ? `<br>NIF/CIF: ${_esc(f.nif)}`  : ''}
+          ${f.direccion ? `<br>${_esc(f.direccion)}`      : ''}
         </div>
+
+        ${eventoHtml}
 
         <table class="fac-tabla-lineas">
           <thead>
             <tr>
-              <th>Concepto</th>
-              <th class="td-num">Cant.</th>
-              <th class="td-num">P. Unit.</th>
-              <th class="td-num">Importe</th>
+              <th>Concepto</th><th class="td-num">Cant.</th>
+              <th class="td-num">P. Unit.</th><th class="td-num">Importe</th>
             </tr>
           </thead>
           <tbody>${filas}</tbody>
@@ -289,16 +366,24 @@ const ModuloFacturas = (() => {
           <div class="fac-fila-total"><span>Base imponible:</span><span>${f.subtotal.toFixed(2)} €</span></div>
           <div class="fac-fila-total"><span>${impNom} (${f.porcentajeIgic}%):</span><span>${f.cuotaIgic.toFixed(2)} €</span></div>
           ${irpfHtml}
-          <div class="fac-fila-total fac-total-final"><span>TOTAL A PAGAR:</span><span>${f.total.toFixed(2)} €</span></div>
+          <div class="fac-fila-total fac-total-final">
+            <span>${esPres ? 'TOTAL ESTIMADO:' : 'TOTAL A PAGAR:'}</span>
+            <span>${f.total.toFixed(2)} €</span>
+          </div>
         </div>
 
-        ${pagoLabel ? `<div class="fac-pago"><strong>Forma de pago:</strong> ${_esc(pagoLabel)}${ibanHtml}${vencHtml}</div>` : ''}
-        ${f.notas   ? `<div class="fac-notas">Notas: ${_esc(f.notas)}</div>` : ''}
+        ${pagoLabel && !esPres ? `<div class="fac-pago"><strong>Forma de pago:</strong> ${_esc(pagoLabel)}${ibanHtml}</div>` : ''}
+        ${f.notas ? `<div class="fac-notas">Notas: ${_esc(f.notas)}</div>` : ''}
 
         <div class="fac-pie-legal">
-          Factura emitida conforme a la ${leyRef}.<br>
-          Sujeto pasivo: ${_esc(emisorNombre)}${cfg.nif ? ' · NIF/CIF: ' + _esc(cfg.nif) : ''}
-          ${f.pagada ? '<br><strong>✔ PAGADA</strong>' : ''}
+          ${esPres
+            ? `Presupuesto sin valor contractual hasta su aceptación formal.<br>Emitido conforme a la ${leyRef}.`
+            : `Factura emitida conforme a la ${leyRef}.<br>Sujeto pasivo: ${_esc(emisorNombre)}${cfg.nif ? ' · NIF/CIF: ' + _esc(cfg.nif) : ''}`
+          }
+          ${esPres
+            ? `<br><span style="font-weight:700;color:${estadoColor}">${estadoTxt}</span>`
+            : (f.pagada ? '<br><strong>✔ PAGADA</strong>' : '')
+          }
         </div>
       </div>`;
   }
@@ -315,8 +400,39 @@ const ModuloFacturas = (() => {
     await _renderLista();
   }
 
+  async function aceptarPresupuesto(id) {
+    const f = await SB.obtenerFactura(id);
+    if (!f) return;
+    await SB.actualizarFactura({ ...f, estadoPresupuesto: 'aceptado' });
+    await _renderLista();
+  }
+
+  async function _convertirAFactura() {
+    if (!_idFacturaActual) return;
+    if (!confirm('¿Convertir este presupuesto en factura?\nSe creará una nueva factura con los mismos datos.')) return;
+    const pres = await SB.obtenerFactura(_idFacturaActual);
+    if (!pres) return;
+
+    const numero = await SB.siguienteNumeroFactura();
+    const { id: _i, user_id: _u, timestamp: _t, ...resto } = pres;
+    const nuevaFac = await SB.guardarFactura({
+      ...resto,
+      numero,
+      tipo:              'factura',
+      estadoPresupuesto: null,
+      pagada:            false,
+      fecha:             new Date().toISOString().split('T')[0],
+    });
+    await SB.actualizarFactura({ ...pres, estadoPresupuesto: 'aceptado' });
+
+    alert(`✔ Factura ${numero} creada correctamente.`);
+    _tipoVista = 'factura';
+    _actualizarSubTabs();
+    await verFactura(nuevaFac.id);
+  }
+
   async function borrarFactura(id, numero) {
-    if (!confirm(`¿Eliminar la factura ${numero}? Esta acción no se puede deshacer.`)) return;
+    if (!confirm(`¿Eliminar "${numero}"? Esta acción no se puede deshacer.`)) return;
     await SB.borrarFactura(id);
     await _renderLista();
   }
@@ -333,26 +449,38 @@ const ModuloFacturas = (() => {
   // ----------------------------------------------------------
 
   async function init() {
-    document.getElementById('fac-btn-nueva')?.addEventListener('click', () => _abrirFormulario());
-    document.getElementById('fac-btn-guardar')?.addEventListener('click', _guardarFactura);
-    document.getElementById('fac-btn-cancelar')?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
-    document.getElementById('fac-btn-volver')?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
-    document.getElementById('fac-btn-imprimir')?.addEventListener('click', () => window.print());
-    document.getElementById('fac-btn-add-linea')?.addEventListener('click', () => _agregarLinea());
+    document.getElementById('fac-tab-facturas')?.addEventListener('click', async () => {
+      _tipoVista = 'factura'; _actualizarSubTabs(); _mostrarVista('lista'); await _renderLista();
+    });
+    document.getElementById('fac-tab-presupuestos')?.addEventListener('click', async () => {
+      _tipoVista = 'presupuesto'; _actualizarSubTabs(); _mostrarVista('lista'); await _renderLista();
+    });
+
+    document.getElementById('fac-btn-nueva')     ?.addEventListener('click', () => _abrirFormulario(null, 'factura'));
+    document.getElementById('fac-btn-nuevo-pres') ?.addEventListener('click', () => _abrirFormulario(null, 'presupuesto'));
+    document.getElementById('fac-btn-guardar')   ?.addEventListener('click', _guardarFactura);
+    document.getElementById('fac-btn-cancelar')  ?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
+    document.getElementById('fac-btn-volver')    ?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
+    document.getElementById('fac-btn-imprimir')  ?.addEventListener('click', () => window.print());
+    document.getElementById('fac-btn-convertir') ?.addEventListener('click', _convertirAFactura);
+    document.getElementById('fac-btn-add-linea') ?.addEventListener('click', () => _agregarLinea());
     document.getElementById('fac-selector-platos')?.addEventListener('change', (e) => {
       const opt = e.target.selectedOptions[0];
       if (!opt.value) return;
       _agregarLinea(opt.dataset.nombre, parseFloat(opt.dataset.precio) || 0, 1);
       e.target.value = '';
     });
-    document.getElementById('fac-iva')?.addEventListener('input', _calcularTotales);
+    document.getElementById('fac-iva') ?.addEventListener('input',  _calcularTotales);
     document.getElementById('fac-irpf')?.addEventListener('change', _calcularTotales);
+
+    _actualizarSubTabs();
     await _renderLista();
     _mostrarVista('lista');
   }
 
   return {
     init, verFactura, editarFactura, togglePagada, borrarFactura,
+    aceptarPresupuesto,
     _actualizarLinea, _eliminarLinea
   };
 

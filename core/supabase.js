@@ -188,40 +188,54 @@ const SB = (() => {
 
   function _facturaDeBD(f) {
     if (!f) return null;
-    const { porcentaje_igic, cuota_igic, retencion_irpf, cuota_irpf, forma_pago, ...resto } = f;
+    const { porcentaje_igic, cuota_igic, retencion_irpf, cuota_irpf, forma_pago,
+            estado_presupuesto, descripcion_evento, fecha_evento, ...resto } = f;
     return {
       ...resto,
-      porcentajeIgic: porcentaje_igic,
-      cuotaIgic:      cuota_igic,
-      retencionIrpf:  retencion_irpf  ?? 0,
-      cuotaIrpf:      cuota_irpf      ?? 0,
-      formaPago:      forma_pago      ?? 'efectivo',
+      porcentajeIgic:    porcentaje_igic,
+      cuotaIgic:         cuota_igic,
+      retencionIrpf:     retencion_irpf     ?? 0,
+      cuotaIrpf:         cuota_irpf         ?? 0,
+      formaPago:         forma_pago         ?? 'efectivo',
+      estadoPresupuesto: estado_presupuesto ?? null,
+      descripcionEvento: descripcion_evento ?? '',
+      fechaEvento:       fecha_evento       ?? null,
     };
   }
 
   function _facturaParaBD(f) {
-    const { porcentajeIgic, cuotaIgic, retencionIrpf, cuotaIrpf, formaPago, id, user_id, ...resto } = f;
+    const { porcentajeIgic, cuotaIgic, retencionIrpf, cuotaIrpf, formaPago,
+            estadoPresupuesto, descripcionEvento, fechaEvento, id, user_id, ...resto } = f;
     return {
       ...resto,
-      porcentaje_igic: porcentajeIgic ?? 7,
-      cuota_igic:      cuotaIgic      ?? 0,
-      retencion_irpf:  retencionIrpf  ?? 0,
-      cuota_irpf:      cuotaIrpf      ?? 0,
-      forma_pago:      formaPago      ?? 'efectivo',
+      porcentaje_igic:    porcentajeIgic    ?? 7,
+      cuota_igic:         cuotaIgic         ?? 0,
+      retencion_irpf:     retencionIrpf     ?? 0,
+      cuota_irpf:         cuotaIrpf         ?? 0,
+      forma_pago:         formaPago         ?? 'efectivo',
+      estado_presupuesto: estadoPresupuesto ?? null,
+      descripcion_evento: descripcionEvento ?? '',
+      fecha_evento:       fechaEvento       ?? null,
     };
   }
 
-  const obtenerFacturas   = ()    => _get('facturas', '?select=*&order=timestamp.desc').then(arr => (arr || []).map(_facturaDeBD));
-  const obtenerFactura    = (id)  => _get('facturas', `?id=eq.${id}&select=*`).then(arr => _facturaDeBD(_primero(arr)));
-  const guardarFactura    = (f)   => _post('facturas', _facturaParaBD(f)).then(r => _facturaDeBD(_primero(r)));
-  const actualizarFactura = (f)   => _patch('facturas', f.id, _facturaParaBD(f)).then(r => _facturaDeBD(_primero(r)));
-  const borrarFactura     = (id)  => _delete('facturas', id);
+  const obtenerFacturas     = ()   => _get('facturas', '?select=*&tipo=eq.factura&order=timestamp.desc').then(arr => (arr || []).map(_facturaDeBD));
+  const obtenerPresupuestos = ()   => _get('facturas', '?select=*&tipo=eq.presupuesto&order=timestamp.desc').then(arr => (arr || []).map(_facturaDeBD));
+  const obtenerFactura      = (id) => _get('facturas', `?id=eq.${id}&select=*`).then(arr => _facturaDeBD(_primero(arr)));
+  const guardarFactura      = (f)  => _post('facturas', _facturaParaBD(f)).then(r => _facturaDeBD(_primero(r)));
+  const actualizarFactura   = (f)  => _patch('facturas', f.id, _facturaParaBD(f)).then(r => _facturaDeBD(_primero(r)));
+  const borrarFactura       = (id) => _delete('facturas', id);
 
   async function siguienteNumeroFactura() {
     const anyo = new Date().getFullYear();
-    // %25 = URL-encoded % (wildcard SQL LIKE)
-    const res  = await _get('facturas', `?select=numero&numero=like.${anyo}-%25`);
+    const res  = await _get('facturas', `?select=numero&tipo=eq.factura&numero=like.${anyo}-%25`);
     return `${anyo}-${String((res?.length || 0) + 1).padStart(4, '0')}`;
+  }
+
+  async function siguienteNumeroPresupuesto() {
+    const anyo = new Date().getFullYear();
+    const res  = await _get('facturas', `?select=numero&tipo=eq.presupuesto&numero=like.PRES-${anyo}-%25`);
+    return `PRES-${anyo}-${String((res?.length || 0) + 1).padStart(4, '0')}`;
   }
 
   // ----------------------------------------------------------
@@ -238,10 +252,10 @@ const SB = (() => {
     // Platos
     obtenerPlatos, obtenerPlato,
     guardarPlato, actualizarPlato, eliminarPlato,
-    // Facturas
-    obtenerFacturas, obtenerFactura,
+    // Facturas y Presupuestos
+    obtenerFacturas, obtenerPresupuestos, obtenerFactura,
     guardarFactura, actualizarFactura, borrarFactura,
-    siguienteNumeroFactura
+    siguienteNumeroFactura, siguienteNumeroPresupuesto
   };
 
 })();
