@@ -3,7 +3,7 @@
 // Versión 2: cubre la nueva estructura de archivos con módulos.
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v6'; // Cambiar versión invalida la caché anterior
+const NOMBRE_CACHE = 'cocina-etiquetas-v7'; // Cambiar versión invalida la caché anterior
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',

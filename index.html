@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#c0392b">
   <meta name="description" content="Gestión de cocina: etiquetado, carta y facturas. Conforme Reg. UE 1169/2011 y RD 126/2015.">
   <meta name="mobile-web-app-capable" content="yes">
@@ -20,6 +20,13 @@
   </script>
 </head>
 <body>
+
+  <!-- Aviso girar pantalla (visible solo en móvil en modo retrato) -->
+  <div class="rotar-hint" aria-hidden="true">
+    <div class="rotar-hint-icono">📱</div>
+    <div class="rotar-hint-texto">Gira el dispositivo</div>
+    <div class="rotar-hint-sub">Esta app está diseñada para usarse en horizontal</div>
+  </div>
 
   <!-- ========================================================
        PANTALLA DE LOGIN (visible hasta que el usuario se autentique)
