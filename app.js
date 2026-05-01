@@ -83,6 +83,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Restaurar módulo activo
-  const moduloGuardado = sessionStorage.getItem('moduloActivo') || 'facturas';
+  const moduloGuardado = sessionStorage.getItem('moduloActivo') || 'dashboard';
   navegarA(moduloGuardado);
 });

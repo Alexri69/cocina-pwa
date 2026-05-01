@@ -52,3 +52,14 @@ CREATE TABLE public.facturas (
 ALTER TABLE public.facturas ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "solo_propietario" ON public.facturas
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- ============================================================
+-- MIGRACIÓN: nuevas columnas en facturas (ejecutar si la tabla ya existe)
+-- Si acabas de crear la tabla, ya estarán incluidas en el CREATE TABLE
+-- de arriba (cópialas allí también).
+-- ============================================================
+ALTER TABLE public.facturas
+  ADD COLUMN IF NOT EXISTS retencion_irpf  numeric(5,2)  NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS cuota_irpf      numeric(10,2) NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS forma_pago      text          NOT NULL DEFAULT 'efectivo',
+  ADD COLUMN IF NOT EXISTS vencimiento     date;

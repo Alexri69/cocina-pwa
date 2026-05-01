@@ -85,7 +85,9 @@
          ===================================================== -->
     <header class="cabecera" role="banner">
       <div class="cabecera-izq">
-        <div class="cabecera-titulo">🍽 Cocina</div>
+        <button class="cabecera-titulo-btn" onclick="navegarA('dashboard')" title="Inicio">
+          <span>🍽</span><span class="cabecera-titulo">Cocina</span>
+        </button>
         <div class="cabecera-subtitulo">Reg. UE 1169/2011 · RD 126/2015</div>
       </div>
 
@@ -103,6 +105,43 @@
         <button id="btn-logout" title="Cerrar sesión">⏻ Salir</button>
       </div>
     </header>
+
+    <!-- =====================================================
+         MÓDULO 0: DASHBOARD / INICIO
+         ===================================================== -->
+    <main id="modulo-dashboard" class="modulo-seccion" role="main" style="display:none">
+      <div class="dash-fondo">
+        <div class="dash-contenido">
+          <div class="dash-saludo">
+            <span class="dash-logo">🍽</span>
+            <h1 class="dash-nombre" id="dash-nombre-restaurante">Cocina</h1>
+            <p class="dash-sub">Selecciona un módulo para comenzar</p>
+          </div>
+          <div class="dash-grid">
+            <button class="dash-card" onclick="navegarA('etiquetas')">
+              <div class="dash-card-icon">🏷</div>
+              <div class="dash-card-nombre">Etiquetas</div>
+              <div class="dash-card-desc">Trazabilidad · Alérgenos</div>
+            </button>
+            <button class="dash-card" onclick="navegarA('menu')">
+              <div class="dash-card-icon">📋</div>
+              <div class="dash-card-nombre">Carta</div>
+              <div class="dash-card-desc">Platos · Ingredientes</div>
+            </button>
+            <button class="dash-card" onclick="navegarA('facturas')">
+              <div class="dash-card-icon">🧾</div>
+              <div class="dash-card-nombre">Facturas</div>
+              <div class="dash-card-desc">Facturación legal</div>
+            </button>
+            <button class="dash-card" onclick="navegarA('config')">
+              <div class="dash-card-icon">⚙</div>
+              <div class="dash-card-nombre">Config</div>
+              <div class="dash-card-desc">Empresa · Impresora</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
 
     <!-- =====================================================
          MÓDULO 1: ETIQUETAS
@@ -381,12 +420,42 @@
           <div class="fac-totales-form">
             <div class="fac-fila-total"><span>Base imponible:</span> <span id="fac-subtotal">0.00 €</span></div>
             <div class="fac-fila-total"><span id="fac-iva-label">IGIC (7%):</span> <span id="fac-cuota-iva">0.00 €</span></div>
-            <div class="fac-fila-total fac-total-final"><span>TOTAL:</span> <strong id="fac-total">0.00 €</strong></div>
+            <div class="fac-fila-total" id="fac-fila-irpf" style="display:none">
+              <span id="fac-irpf-label">IRPF (−15%):</span>
+              <span id="fac-cuota-irpf" style="color:var(--err)">0.00 €</span>
+            </div>
+            <div class="fac-fila-total fac-total-final"><span>TOTAL A PAGAR:</span> <strong id="fac-total">0.00 €</strong></div>
           </div>
 
           <div class="form-grupo" style="margin-top:12px">
             <label for="fac-notas">Notas</label>
             <textarea id="fac-notas" class="inp" rows="2" placeholder="Observaciones opcionales"></textarea>
+          </div>
+
+          <!-- Campos adicionales legales -->
+          <div class="form-grid" style="margin-top:12px">
+            <div class="form-grupo">
+              <label for="fac-irpf">Retención IRPF</label>
+              <select id="fac-irpf" class="inp">
+                <option value="0">Sin retención (0%)</option>
+                <option value="7">7% — inicio actividad</option>
+                <option value="15">15% — general autónomo</option>
+                <option value="19">19%</option>
+              </select>
+            </div>
+            <div class="form-grupo">
+              <label for="fac-forma-pago">Forma de pago</label>
+              <select id="fac-forma-pago" class="inp">
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia bancaria</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="cheque">Cheque</option>
+              </select>
+            </div>
+            <div class="form-grupo">
+              <label for="fac-vencimiento">Fecha de vencimiento</label>
+              <input id="fac-vencimiento" type="date" class="inp">
+            </div>
           </div>
 
           <div class="form-acciones">
@@ -462,8 +531,19 @@
             <input id="cfg-web" type="url" class="inp" placeholder="https://restaurante.com">
           </div>
           <div class="form-grupo">
-            <label for="cfg-igic">IGIC / IVA por defecto (%)</label>
+            <label for="cfg-regimen">Régimen fiscal</label>
+            <select id="cfg-regimen" class="inp">
+              <option value="igic">IGIC — Canarias (Ley 20/1991)</option>
+              <option value="iva">IVA — Península / Ceuta / Melilla (Ley 37/1992)</option>
+            </select>
+          </div>
+          <div class="form-grupo">
+            <label for="cfg-igic">Tipo impositivo por defecto (%)</label>
             <input id="cfg-igic" type="number" class="inp" value="7" min="0" max="100" step="0.1">
+          </div>
+          <div class="form-grupo form-grupo-full">
+            <label for="cfg-iban">IBAN / Cuenta bancaria</label>
+            <input id="cfg-iban" type="text" class="inp" placeholder="ES00 0000 0000 00 0000000000">
           </div>
         </div>
         <div class="form-acciones" style="align-items:center">
@@ -478,6 +558,56 @@
           <span style="font-size:.9rem;color:var(--texto2)">Tema:</span>
           <button id="cfg-btn-tema-osc" class="btn-secundario-sm" onclick="aplicarTema('oscuro')">🌙 Oscuro</button>
           <button id="cfg-btn-tema-cla" class="btn-secundario-sm" onclick="aplicarTema('claro')">☀ Claro</button>
+        </div>
+      </div>
+
+      <div class="tarjeta" style="max-width:680px;margin-top:16px">
+        <div class="tarjeta-titulo">Impresora de Etiquetas</div>
+        <p style="font-size:.8rem;color:var(--texto2);margin-bottom:14px">
+          Configuración de la impresora térmica para etiquetas de trazabilidad (recipientes abiertos).
+        </p>
+        <div class="form-grid">
+          <div class="form-grupo">
+            <label for="imp-modelo">Modelo</label>
+            <select id="imp-modelo" class="inp">
+              <option value="brother-ql">Brother QL (800, 810W, 820NWB…)</option>
+              <option value="dymo">Dymo LabelWriter</option>
+              <option value="zebra">Zebra ZD / ZT</option>
+              <option value="generica-escpos">Genérica ESC/POS</option>
+              <option value="generica-zpl">Genérica ZPL</option>
+            </select>
+          </div>
+          <div class="form-grupo">
+            <label for="imp-tamano">Tamaño de etiqueta</label>
+            <select id="imp-tamano" class="inp">
+              <option value="62x29">62 × 29 mm (Brother estándar)</option>
+              <option value="62x100">62 × 100 mm</option>
+              <option value="29x90">29 × 90 mm</option>
+              <option value="38x90">38 × 90 mm</option>
+              <option value="102x51">102 × 51 mm</option>
+            </select>
+          </div>
+          <div class="form-grupo">
+            <label for="imp-conexion">Conexión</label>
+            <select id="imp-conexion" class="inp">
+              <option value="sistema">Sistema (diálogo del SO)</option>
+              <option value="wifi">WiFi / Red local (IP:Puerto)</option>
+              <option value="bluetooth">Bluetooth (Web Bluetooth API)</option>
+            </select>
+          </div>
+          <div class="form-grupo" id="imp-grupo-ip" style="display:none">
+            <label for="imp-ip">Dirección IP</label>
+            <input id="imp-ip" type="text" class="inp" placeholder="192.168.1.100">
+          </div>
+          <div class="form-grupo" id="imp-grupo-puerto" style="display:none">
+            <label for="imp-puerto">Puerto TCP</label>
+            <input id="imp-puerto" type="number" class="inp" value="9100" min="1" max="65535">
+          </div>
+        </div>
+        <div class="form-acciones" style="margin-top:12px;align-items:center">
+          <button id="imp-btn-guardar" class="btn btn-primario-sm">💾 Guardar configuración</button>
+          <button id="imp-btn-test" class="btn btn-secundario-sm">🖨 Prueba de impresión</button>
+          <span id="imp-msg" style="font-size:.85rem;color:var(--ok)"></span>
         </div>
       </div>
     </main>

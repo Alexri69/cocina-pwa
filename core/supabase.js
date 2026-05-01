@@ -188,13 +188,27 @@ const SB = (() => {
 
   function _facturaDeBD(f) {
     if (!f) return null;
-    const { porcentaje_igic, cuota_igic, ...resto } = f;
-    return { ...resto, porcentajeIgic: porcentaje_igic, cuotaIgic: cuota_igic };
+    const { porcentaje_igic, cuota_igic, retencion_irpf, cuota_irpf, forma_pago, ...resto } = f;
+    return {
+      ...resto,
+      porcentajeIgic: porcentaje_igic,
+      cuotaIgic:      cuota_igic,
+      retencionIrpf:  retencion_irpf  ?? 0,
+      cuotaIrpf:      cuota_irpf      ?? 0,
+      formaPago:      forma_pago      ?? 'efectivo',
+    };
   }
 
   function _facturaParaBD(f) {
-    const { porcentajeIgic, cuotaIgic, id, user_id, ...resto } = f;
-    return { ...resto, porcentaje_igic: porcentajeIgic ?? 7, cuota_igic: cuotaIgic ?? 0 };
+    const { porcentajeIgic, cuotaIgic, retencionIrpf, cuotaIrpf, formaPago, id, user_id, ...resto } = f;
+    return {
+      ...resto,
+      porcentaje_igic: porcentajeIgic ?? 7,
+      cuota_igic:      cuotaIgic      ?? 0,
+      retencion_irpf:  retencionIrpf  ?? 0,
+      cuota_irpf:      cuotaIrpf      ?? 0,
+      forma_pago:      formaPago      ?? 'efectivo',
+    };
   }
 
   const obtenerFacturas   = ()    => _get('facturas', '?select=*&order=timestamp.desc').then(arr => (arr || []).map(_facturaDeBD));

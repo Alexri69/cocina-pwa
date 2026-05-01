@@ -73,8 +73,13 @@ const ModuloFacturas = (() => {
     document.getElementById('fac-fecha').value      = factura
       ? (typeof factura.fecha === 'string' ? factura.fecha.split('T')[0] : factura.fecha)
       : new Date().toISOString().split('T')[0];
-    document.getElementById('fac-iva').value        = factura?.porcentajeIgic ?? 7;
-    document.getElementById('fac-notas').value      = factura?.notas || '';
+    document.getElementById('fac-iva').value           = factura?.porcentajeIgic ?? 7;
+    document.getElementById('fac-notas').value         = factura?.notas || '';
+    document.getElementById('fac-irpf').value          = factura?.retencionIrpf ?? 0;
+    document.getElementById('fac-forma-pago').value    = factura?.formaPago || 'efectivo';
+    document.getElementById('fac-vencimiento').value   = factura?.vencimiento
+      ? (typeof factura.vencimiento === 'string' ? factura.vencimiento.split('T')[0] : factura.vencimiento)
+      : '';
 
     await _renderSelectorPlatos();
     _renderLineas();
@@ -129,14 +134,25 @@ const ModuloFacturas = (() => {
   function _eliminarLinea(idx) { _lineas.splice(idx, 1); _renderLineas(); }
 
   function _calcularTotales() {
-    const subtotal     = _lineas.reduce((s, l) => s + (l.subtotal || 0), 0);
-    const porcentaje   = parseFloat(document.getElementById('fac-iva')?.value) || 0;
-    const cuotaIgic    = subtotal * porcentaje / 100;
-    const total        = subtotal + cuotaIgic;
+    const subtotal   = _lineas.reduce((s, l) => s + (l.subtotal || 0), 0);
+    const pIgic      = parseFloat(document.getElementById('fac-iva')?.value) || 0;
+    const cuotaIgic  = subtotal * pIgic / 100;
+    const pIrpf      = parseFloat(document.getElementById('fac-irpf')?.value) || 0;
+    const cuotaIrpf  = subtotal * pIrpf / 100;
+    const total      = subtotal + cuotaIgic - cuotaIrpf;
+
+    const cfg    = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
+    const impNom = cfg.regimen === 'iva' ? 'IVA' : 'IGIC';
+
     _setText('fac-subtotal',  subtotal.toFixed(2)  + ' €');
     _setText('fac-cuota-iva', cuotaIgic.toFixed(2) + ' €');
-    _setText('fac-total',     total.toFixed(2)      + ' €');
-    _setText('fac-iva-label', `IGIC (${porcentaje}%)`);
+    _setText('fac-iva-label', `${impNom} (${pIgic}%)`);
+    _setText('fac-irpf-label', `IRPF (−${pIrpf}%)`);
+    _setText('fac-cuota-irpf', cuotaIrpf.toFixed(2) + ' €');
+    _setText('fac-total',      total.toFixed(2)      + ' €');
+
+    const filaIrpf = document.getElementById('fac-fila-irpf');
+    if (filaIrpf) filaIrpf.style.display = pIrpf > 0 ? 'flex' : 'none';
   }
 
   async function _guardarFactura() {
@@ -147,6 +163,8 @@ const ModuloFacturas = (() => {
     const subtotal      = _lineas.reduce((s, l) => s + (l.subtotal || 0), 0);
     const porcentajeIgic= parseFloat(document.getElementById('fac-iva').value) || 0;
     const cuotaIgic     = subtotal * porcentajeIgic / 100;
+    const retencionIrpf = parseFloat(document.getElementById('fac-irpf').value) || 0;
+    const cuotaIrpf     = subtotal * retencionIrpf / 100;
 
     const datos = {
       numero:         _idFacturaActual ? (await SB.obtenerFactura(_idFacturaActual)).numero : await SB.siguienteNumeroFactura(),
@@ -158,9 +176,13 @@ const ModuloFacturas = (() => {
       subtotal,
       porcentajeIgic,
       cuotaIgic,
-      total:          subtotal + cuotaIgic,
+      retencionIrpf,
+      cuotaIrpf,
+      total:          subtotal + cuotaIgic - cuotaIrpf,
       pagada:         _idFacturaActual ? (await SB.obtenerFactura(_idFacturaActual)).pagada : false,
-      notas:          document.getElementById('fac-notas').value.trim()
+      notas:          document.getElementById('fac-notas').value.trim(),
+      formaPago:      document.getElementById('fac-forma-pago').value || 'efectivo',
+      vencimiento:    document.getElementById('fac-vencimiento').value || null,
     };
 
     if (_idFacturaActual !== null) {
@@ -188,6 +210,24 @@ const ModuloFacturas = (() => {
   function _renderDetalle(f) {
     const div = document.getElementById('fac-detalle-contenido');
     if (!div) return;
+
+    const cfg          = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
+    const emisorNombre = cfg.razonSocial || 'MI RESTAURANTE';
+    const regimen      = cfg.regimen || 'igic';
+    const impNom       = regimen === 'iva' ? 'IVA' : 'IGIC';
+    const leyRef       = regimen === 'iva'
+      ? 'Ley 37/1992 del Impuesto sobre el Valor Añadido'
+      : 'Ley 20/1991 del Impuesto General Indirecto Canario (IGIC)';
+
+    const emisorLineas = [
+      cfg.nif       ? `NIF/CIF: ${_esc(cfg.nif)}`   : null,
+      cfg.direccion ? _esc(cfg.direccion)             : null,
+      [cfg.cp, cfg.ciudad].filter(Boolean).join(' ') || null,
+      cfg.provincia ? _esc(cfg.provincia)             : null,
+      cfg.telefono  ? `Tel: ${_esc(cfg.telefono)}`   : null,
+      cfg.email     ? _esc(cfg.email)                 : null,
+    ].filter(Boolean).join('<br>');
+
     const filas = (f.lineas || []).map(l => `
       <tr>
         <td>${_esc(l.descripcion)}</td>
@@ -196,48 +236,69 @@ const ModuloFacturas = (() => {
         <td class="td-num">${(l.subtotal || 0).toFixed(2)} €</td>
       </tr>`).join('');
 
-    const cfg = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
-    const emisorNombre = cfg.razonSocial || 'MI RESTAURANTE';
-    const emisorLineas = [
-      cfg.nif       ? `NIF/CIF: ${_esc(cfg.nif)}`    : null,
-      cfg.direccion ? _esc(cfg.direccion)              : null,
-      [cfg.cp, cfg.ciudad].filter(Boolean).join(' ')  || null,
-      cfg.provincia ? _esc(cfg.provincia)              : null,
-      cfg.telefono  ? `Tel: ${_esc(cfg.telefono)}`    : null,
-      cfg.email     ? _esc(cfg.email)                  : null,
-    ].filter(Boolean).join('<br>');
+    const irpfPct  = f.retencionIrpf || 0;
+    const irpfAmt  = f.cuotaIrpf     || 0;
+    const irpfHtml = irpfPct > 0
+      ? `<div class="fac-fila-total"><span>Retención IRPF (${irpfPct}%):</span><span style="color:#c00">−${irpfAmt.toFixed(2)} €</span></div>`
+      : '';
+
+    const pagoLabels = { efectivo:'Efectivo', transferencia:'Transferencia bancaria', tarjeta:'Tarjeta', cheque:'Cheque' };
+    const pagoLabel  = pagoLabels[f.formaPago] || '';
+    const ibanHtml   = (f.formaPago === 'transferencia' && cfg.iban)
+      ? `<br><strong>IBAN:</strong> ${_esc(cfg.iban)}`
+      : '';
+    const vencHtml   = f.vencimiento
+      ? `<br><strong>Vencimiento:</strong> ${VOZ.formatearFechaSolo(f.vencimiento)}`
+      : '';
 
     div.innerHTML = `
       <div class="factura-imprimible">
         <div class="fac-cabecera-print">
           <div class="fac-emisor">
-            <strong>${_esc(emisorNombre)}</strong>
-            ${emisorLineas ? '<br><small>' + emisorLineas + '</small>' : ''}
+            <strong class="fac-emisor-nombre">${_esc(emisorNombre)}</strong>
+            ${emisorLineas ? `<div class="fac-emisor-datos">${emisorLineas}</div>` : ''}
           </div>
           <div class="fac-titulo-doc">
             <div class="fac-numero-grande">FACTURA</div>
-            <div>Nº ${_esc(f.numero)}</div>
-            <div>Fecha: ${VOZ.formatearFechaSolo(f.fecha)}</div>
+            <div class="fac-meta-item"><span>Número:</span> ${_esc(f.numero)}</div>
+            <div class="fac-meta-item"><span>Fecha:</span> ${VOZ.formatearFechaSolo(f.fecha)}</div>
+            ${f.vencimiento ? `<div class="fac-meta-item"><span>Vencimiento:</span> ${VOZ.formatearFechaSolo(f.vencimiento)}</div>` : ''}
           </div>
         </div>
+
         <div class="fac-receptor">
-          <strong>Cliente:</strong> ${_esc(f.cliente)}
-          ${f.nif       ? '<br><strong>NIF/CIF:</strong> ' + _esc(f.nif)       : ''}
-          ${f.direccion ? '<br>'                           + _esc(f.direccion) : ''}
+          <div class="fac-receptor-titulo">Datos del cliente</div>
+          <strong>${_esc(f.cliente)}</strong>
+          ${f.nif       ? `<br>NIF/CIF: ${_esc(f.nif)}`    : ''}
+          ${f.direccion ? `<br>${_esc(f.direccion)}`        : ''}
         </div>
+
         <table class="fac-tabla-lineas">
-          <thead><tr><th>Concepto</th><th class="td-num">Cant.</th><th class="td-num">P. Unit.</th><th class="td-num">Importe</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              <th class="td-num">Cant.</th>
+              <th class="td-num">P. Unit.</th>
+              <th class="td-num">Importe</th>
+            </tr>
+          </thead>
           <tbody>${filas}</tbody>
         </table>
+
         <div class="fac-totales">
           <div class="fac-fila-total"><span>Base imponible:</span><span>${f.subtotal.toFixed(2)} €</span></div>
-          <div class="fac-fila-total"><span>IGIC (${f.porcentajeIgic}%):</span><span>${f.cuotaIgic.toFixed(2)} €</span></div>
-          <div class="fac-fila-total fac-total-final"><span>TOTAL:</span><span>${f.total.toFixed(2)} €</span></div>
+          <div class="fac-fila-total"><span>${impNom} (${f.porcentajeIgic}%):</span><span>${f.cuotaIgic.toFixed(2)} €</span></div>
+          ${irpfHtml}
+          <div class="fac-fila-total fac-total-final"><span>TOTAL A PAGAR:</span><span>${f.total.toFixed(2)} €</span></div>
         </div>
-        ${f.notas ? `<div class="fac-notas">Notas: ${_esc(f.notas)}</div>` : ''}
+
+        ${pagoLabel ? `<div class="fac-pago"><strong>Forma de pago:</strong> ${_esc(pagoLabel)}${ibanHtml}${vencHtml}</div>` : ''}
+        ${f.notas   ? `<div class="fac-notas">Notas: ${_esc(f.notas)}</div>` : ''}
+
         <div class="fac-pie-legal">
-          Factura emitida conforme a la Ley 20/1991 del IGIC (Canarias).
-          ${f.pagada ? '<br><strong>PAGADA</strong>' : ''}
+          Factura emitida conforme a la ${leyRef}.<br>
+          Sujeto pasivo: ${_esc(emisorNombre)}${cfg.nif ? ' · NIF/CIF: ' + _esc(cfg.nif) : ''}
+          ${f.pagada ? '<br><strong>✔ PAGADA</strong>' : ''}
         </div>
       </div>`;
   }
@@ -285,6 +346,7 @@ const ModuloFacturas = (() => {
       e.target.value = '';
     });
     document.getElementById('fac-iva')?.addEventListener('input', _calcularTotales);
+    document.getElementById('fac-irpf')?.addEventListener('change', _calcularTotales);
     await _renderLista();
     _mostrarVista('lista');
   }

@@ -183,10 +183,125 @@ html, body {
 .nav-bottom-tab.activo .nb-icon { filter: drop-shadow(0 0 4px var(--acento)); }
 
 @media (max-width: 640px) {
-  .nav-tabs   { display: none; }        /* ocultar pestañas del header */
-  .nav-bottom { display: flex; }        /* mostrar barra inferior */
+  .nav-tabs   { display: none; }
+  .nav-bottom { display: flex; }
   .modulo-seccion { padding-bottom: 80px; }
   .cabecera { height: 50px; padding: 0 12px; }
+}
+
+/* ============================================================
+   BOTÓN LOGO / HOME
+   ============================================================ */
+.cabecera-titulo-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 0;
+  color: var(--texto);
+  font-family: inherit;
+  line-height: 1;
+}
+.cabecera-titulo-btn:hover .cabecera-titulo { color: var(--acento); }
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+#modulo-dashboard { padding: 0; max-width: 100%; }
+
+.dash-fondo {
+  min-height: calc(100vh - 56px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 10% 85%, rgba(255,180,60,.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 15%, rgba(91,124,246,.08) 0%, transparent 50%),
+    linear-gradient(160deg, #0b0d18 0%, #10131e 60%, #0c0f16 100%);
+  padding: 40px 24px 80px;
+}
+
+[data-tema="claro"] .dash-fondo {
+  background:
+    radial-gradient(ellipse at 10% 85%, rgba(255,180,60,.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 15%, rgba(91,124,246,.07) 0%, transparent 50%),
+    linear-gradient(160deg, #edf0f8 0%, #e8ecf5 60%, #eef1f9 100%);
+}
+
+.dash-contenido {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 44px;
+}
+
+.dash-saludo { text-align: center; }
+
+.dash-logo {
+  font-size: 3.8rem;
+  line-height: 1;
+  margin-bottom: 14px;
+  filter: drop-shadow(0 0 28px rgba(91,124,246,.4));
+  display: block;
+}
+
+.dash-nombre {
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: var(--texto);
+  letter-spacing: -.5px;
+  margin-bottom: 6px;
+}
+
+.dash-sub { font-size: .9rem; color: var(--texto2); }
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+}
+
+.dash-card {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 18px;
+  padding: 38px 20px 30px;
+  cursor: pointer;
+  transition: transform .22s ease, border-color .2s, background .2s, box-shadow .2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--texto);
+  font-family: inherit;
+}
+.dash-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(91,124,246,.45);
+  background: rgba(91,124,246,.08);
+  box-shadow: 0 14px 44px rgba(91,124,246,.2);
+}
+.dash-card:active { transform: translateY(-2px); }
+
+[data-tema="claro"] .dash-card { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.09); }
+[data-tema="claro"] .dash-card:hover { background: rgba(91,124,246,.07); border-color: rgba(91,124,246,.35); }
+
+.dash-card-icon   { font-size: 2.5rem; line-height: 1; }
+.dash-card-nombre { font-size: 1.05rem; font-weight: 600; }
+.dash-card-desc   { font-size: .78rem; color: var(--texto2); }
+
+@media (max-width: 480px) {
+  .dash-card { padding: 28px 12px 22px; }
+  .dash-card-icon { font-size: 2rem; }
+  .dash-nombre { font-size: 1.6rem; }
+  .dash-contenido { gap: 30px; }
+  .dash-logo { font-size: 3rem; }
 }
 
 .modulo-cabecera-inner {
@@ -538,28 +653,35 @@ textarea.inp  { resize: vertical; min-height: 60px; }
 
 /* Factura imprimible */
 .factura-imprimible {
-  background: white; color: #111; padding: 28px; border-radius: var(--radio);
-  font-family: Arial, sans-serif; font-size: 13px; max-width: 680px; margin: 0 auto;
+  background: white; color: #111; padding: 32px 36px; border-radius: var(--radio);
+  font-family: Arial, Helvetica, sans-serif; font-size: 13px; max-width: 760px; margin: 0 auto;
   border: 1px solid var(--borde);
 }
 .fac-cabecera-print {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: 22px; padding-bottom: 14px; border-bottom: 2px solid #222;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
+  margin-bottom: 20px; padding-bottom: 16px; border-bottom: 3px solid #1a1a2e;
 }
-.fac-emisor         { font-size: 13px; color: #333; }
-.fac-titulo-doc     { text-align: right; }
-.fac-numero-grande  { font-size: 1.6rem; font-weight: 900; text-transform: uppercase; }
-.fac-receptor       { background: #f7f7f7; padding: 11px 14px; border-radius: 4px; margin-bottom: 18px; font-size: 13px; }
-.fac-tabla-lineas   { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-.fac-tabla-lineas th { background: #222; color: white; padding: 7px 11px; font-size: 11px; text-align: left; }
-.fac-tabla-lineas td { padding: 7px 11px; border-bottom: 1px solid #eee; font-size: 13px; }
-.fac-tabla-lineas tr:last-child td { border-bottom: none; }
-.fac-totales        { margin-left: auto; max-width: 240px; border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; }
-.fac-totales .fac-fila-total { padding: 7px 12px; font-size: 13px; color: #333; }
-.fac-totales .fac-fila-total:not(:last-child) { border-bottom: 1px solid #e0e0e0; }
-.fac-totales .fac-total-final { background: #222; color: white; font-size: 15px; font-weight: 900; }
-.fac-notas          { margin-top: 14px; font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 10px; }
-.fac-pie-legal      { margin-top: 18px; font-size: 11px; color: #aaa; text-align: center; border-top: 1px solid #f0f0f0; padding-top: 10px; }
+.fac-emisor { font-size: 12.5px; color: #333; flex: 1; }
+.fac-emisor-nombre { font-size: 1.1rem; font-weight: 800; color: #111; display: block; margin-bottom: 6px; }
+.fac-emisor-datos  { font-size: 11.5px; color: #555; line-height: 1.7; }
+.fac-titulo-doc    { text-align: right; flex-shrink: 0; }
+.fac-numero-grande { font-size: 1.7rem; font-weight: 900; color: #1a1a2e; letter-spacing: 2px; }
+.fac-meta-item     { font-size: 12px; color: #444; margin-top: 4px; }
+.fac-meta-item span { color: #888; }
+.fac-receptor      { border: 1px solid #dde; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; font-size: 12.5px; background: #f8f9fc; }
+.fac-receptor-titulo { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: 700; margin-bottom: 6px; }
+.fac-tabla-lineas  { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+.fac-tabla-lineas th { background: #1a1a2e; color: white; padding: 8px 12px; font-size: 11px; text-align: left; text-transform: uppercase; letter-spacing: .5px; }
+.fac-tabla-lineas td { padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 12.5px; }
+.fac-tabla-lineas tr:last-child td { border-bottom: 2px solid #dde; }
+.fac-tabla-lineas tr:nth-child(even) td { background: #fafafa; }
+.fac-totales       { margin-left: auto; max-width: 260px; border: 1px solid #dde; border-radius: 6px; overflow: hidden; }
+.fac-totales .fac-fila-total { padding: 7px 14px; font-size: 13px; color: #333; display: flex; justify-content: space-between; }
+.fac-totales .fac-fila-total:not(:last-child) { border-bottom: 1px solid #eee; }
+.fac-totales .fac-total-final { background: #1a1a2e; color: white; font-size: 15px; font-weight: 900; padding: 10px 14px; }
+.fac-pago { margin-top: 14px; padding: 10px 14px; background: #f8f9fc; border: 1px solid #dde; border-radius: 6px; font-size: 12px; color: #444; }
+.fac-notas { margin-top: 14px; font-size: 12px; color: #666; border-top: 1px solid #eee; padding-top: 10px; font-style: italic; }
+.fac-pie-legal { margin-top: 20px; font-size: 10.5px; color: #aaa; text-align: center; border-top: 1px solid #eee; padding-top: 12px; line-height: 1.6; }
 
 /* ============================================================
    PANTALLA DE LOGIN / REGISTRO
