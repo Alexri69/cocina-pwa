@@ -13,7 +13,7 @@ if ('serviceWorker' in navigator) {
 
 // ---- Tema claro / oscuro ----
 
-function _aplicarTema(tema) {
+function aplicarTema(tema) {
   document.documentElement.setAttribute('data-tema', tema);
   localStorage.setItem('cocina_tema', tema);
   const btn = document.getElementById('btn-tema');
@@ -22,7 +22,7 @@ function _aplicarTema(tema) {
 
 function _toggleTema() {
   const actual = document.documentElement.getAttribute('data-tema') || 'oscuro';
-  _aplicarTema(actual === 'oscuro' ? 'claro' : 'oscuro');
+  aplicarTema(actual === 'oscuro' ? 'claro' : 'oscuro');
 }
 
 // ---- Navegación entre módulos ----
@@ -74,8 +74,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Botones de tema en la sección Config
-  document.getElementById('cfg-btn-tema-osc')?.addEventListener('click', () => _aplicarTema('oscuro'));
-  document.getElementById('cfg-btn-tema-cla')?.addEventListener('click', () => _aplicarTema('claro'));
+  document.getElementById('cfg-btn-tema-osc')?.addEventListener('click', () => aplicarTema('oscuro'));
+  document.getElementById('cfg-btn-tema-cla')?.addEventListener('click', () => aplicarTema('claro'));
 
   // Pestañas de navegación
   document.querySelectorAll('.nav-tab').forEach(btn => {
