@@ -20,6 +20,17 @@
   --sombra:    0 1px 4px rgba(0,0,0,.35);
 }
 
+/* --- Modo claro --- */
+[data-tema="claro"] {
+  --bg:       #f3f4f6;
+  --surface:  #ffffff;
+  --card:     #ffffff;
+  --borde:    #e5e7eb;
+  --texto:    #111827;
+  --texto2:   #6b7280;
+  --sombra:   0 1px 4px rgba(0,0,0,.08);
+}
+
 /* --- Reset --- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -81,6 +92,20 @@ html, body {
   0%,100% { box-shadow: 0 0 0 0 rgba(91,124,246,.5); }
   50%     { box-shadow: 0 0 0 10px rgba(91,124,246,0); }
 }
+
+#btn-tema {
+  background: transparent;
+  color: var(--texto2);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 5px 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all .12s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+#btn-tema:hover { color: var(--texto); border-color: #777; background: rgba(128,128,128,.08); }
 
 #btn-logout {
   background: transparent;
@@ -260,6 +285,28 @@ label { font-size: .8rem; color: var(--texto2); font-weight: 500; }
 .inp:focus    { border-color: var(--acento); outline: none; }
 .inp-select   { cursor: pointer; }
 textarea.inp  { resize: vertical; min-height: 60px; }
+
+/* Tabs voz / manual en etiquetas */
+.etq-modo-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--borde);
+  padding-bottom: 10px;
+}
+.etq-modo-tab {
+  background: transparent;
+  color: var(--texto2);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 5px 14px;
+  font-size: .85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .12s;
+}
+.etq-modo-tab:hover  { color: var(--texto); border-color: #777; }
+.etq-modo-tab.activo { background: var(--acento); color: white; border-color: var(--acento); }
 
 /* ============================================================
    MÓDULO ETIQUETAS

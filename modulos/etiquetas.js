@@ -1,13 +1,11 @@
 // ============================================================
-// modulos/etiquetas.js — Módulo de etiquetado de recipientes
-// Depende de: core/bd.js y core/voz.js
-// Gestiona el flujo guiado por voz para registrar un producto
-// abierto e imprimir su etiqueta de trazabilidad.
+// modulos/etiquetas.js — Etiquetado de recipientes abiertos
+// Depende de: core/bd.js, core/voz.js
+// Ofrece dos modos: flujo guiado por voz y formulario manual.
 // ============================================================
 
 const ModuloEtiquetas = (() => {
 
-  // Los 14 alérgenos de declaración obligatoria (Reg. UE 1169/2011 Anexo II)
   const ALERGENOS = [
     'gluten','crustáceos','huevo','pescado','cacahuetes','soja','leche',
     'frutos de cáscara','apio','mostaza','granos de sésamo',
@@ -25,6 +23,71 @@ const ModuloEtiquetas = (() => {
     cancelado: false,
     producto: {}
   };
+
+  // ----------------------------------------------------------
+  // CAMBIO DE MODO (VOZ / MANUAL)
+  // ----------------------------------------------------------
+
+  function _activarModo(modo) {
+    document.querySelectorAll('.etq-modo-tab').forEach(b =>
+      b.classList.toggle('activo', b.dataset.modo === modo)
+    );
+    document.getElementById('etq-panel-voz').style.display    = modo === 'voz'    ? 'block' : 'none';
+    document.getElementById('etq-panel-manual').style.display = modo === 'manual' ? 'block' : 'none';
+  }
+
+  // ----------------------------------------------------------
+  // MODO MANUAL
+  // ----------------------------------------------------------
+
+  function _renderAlergenos() {
+    const cont = document.getElementById('etq-m-alergenos');
+    if (!cont) return;
+    cont.innerHTML = ALERGENOS.map((a, i) => `
+      <label class="check-alergeno">
+        <input type="checkbox" id="etq-m-al-${i}"> ${a}
+      </label>`).join('');
+  }
+
+  function _setFechaAhora() {
+    const el = document.getElementById('etq-m-apertura');
+    if (!el) return;
+    const ahora = new Date();
+    // datetime-local necesita "YYYY-MM-DDTHH:MM"
+    const pad = n => String(n).padStart(2, '0');
+    el.value = `${ahora.getFullYear()}-${pad(ahora.getMonth()+1)}-${pad(ahora.getDate())}T${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`;
+  }
+
+  async function _generarManual() {
+    const nombre = document.getElementById('etq-m-nombre').value.trim();
+    const lote   = document.getElementById('etq-m-lote').value.trim();
+    const dias   = parseInt(document.getElementById('etq-m-dias').value) || 0;
+    const apert  = document.getElementById('etq-m-apertura').value;
+
+    if (!nombre) { alert('El nombre del producto es obligatorio.'); return; }
+    if (!lote)   { alert('El número de lote es obligatorio.');      return; }
+    if (dias < 1){ alert('Los días de caducidad deben ser al menos 1.'); return; }
+
+    const fechaApertura  = apert ? new Date(apert) : new Date();
+    const fechaCaducidad = new Date(fechaApertura.getTime() + dias * 86400000);
+    const alergenos      = ALERGENOS.filter((_, i) => document.getElementById(`etq-m-al-${i}`)?.checked);
+
+    const producto = {
+      nombre:         VOZ.capitalizarNombre(nombre),
+      lote:           lote.toUpperCase().replace(/\s+/g, ''),
+      diasCaducidad:  dias,
+      fechaApertura:  fechaApertura.toISOString(),
+      fechaCaducidad: fechaCaducidad.toISOString(),
+      alergenos,
+      timestamp: fechaApertura.getTime()
+    };
+
+    try { await BD.guardarProducto({ ...producto }); }
+    catch (e) { console.error('[Etiquetas] Error al guardar:', e); }
+
+    _mostrarEtiqueta(producto);
+    await _actualizarHistorial();
+  }
 
   // ----------------------------------------------------------
   // FLUJO DE VOZ
@@ -157,7 +220,7 @@ const ModuloEtiquetas = (() => {
   }
 
   // ----------------------------------------------------------
-  // ETIQUETA: RENDER
+  // ETIQUETA: RENDER (compartido por voz y manual)
   // ----------------------------------------------------------
 
   function _mostrarEtiqueta(p) {
@@ -258,7 +321,7 @@ const ModuloEtiquetas = (() => {
   }
 
   // ----------------------------------------------------------
-  // UTILIDADES DE UI INTERNAS
+  // UTILIDADES
   // ----------------------------------------------------------
 
   function _setRespuesta(txt) {
@@ -284,16 +347,29 @@ const ModuloEtiquetas = (() => {
   }
 
   // ----------------------------------------------------------
-  // INICIALIZACIÓN DEL MÓDULO
+  // INICIALIZACIÓN
   // ----------------------------------------------------------
 
   async function init() {
+    // Generar checkboxes de alérgenos para el modo manual
+    _renderAlergenos();
+    _setFechaAhora();
+
+    // Historial
     await _actualizarHistorial();
 
+    // Tabs de modo
+    document.querySelectorAll('.etq-modo-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        _activarModo(btn.dataset.modo);
+        if (btn.dataset.modo === 'manual') _setFechaAhora();
+      });
+    });
+
+    // Modo voz
     document.getElementById('etq-btn-nuevo')?.addEventListener('click', () => {
       if (estado.paso === PASOS.INACTIVO) iniciarFlujo();
     });
-
     document.getElementById('etq-btn-cancelar')?.addEventListener('click', () => {
       estado.cancelado = true;
       window.speechSynthesis.cancel();
@@ -303,8 +379,13 @@ const ModuloEtiquetas = (() => {
       _setProgreso(0);
     });
 
+    // Modo manual
+    document.getElementById('etq-m-btn-generar')?.addEventListener('click', _generarManual);
+
+    // Impresión
     document.getElementById('etq-btn-imprimir')?.addEventListener('click', _imprimir);
 
+    // Historial toggle
     document.getElementById('etq-btn-historial')?.addEventListener('click', () => {
       const sec = document.getElementById('etq-seccion-historial');
       const btn = document.getElementById('etq-btn-historial');
@@ -317,6 +398,8 @@ const ModuloEtiquetas = (() => {
     if (!VOZ.soportaVoz()) {
       const btn = document.getElementById('etq-btn-nuevo');
       if (btn) { btn.disabled = true; btn.textContent = '⚠ Voz no soportada (usa Chrome)'; }
+      // Activar manual por defecto si no hay voz
+      _activarModo('manual');
     }
   }
 

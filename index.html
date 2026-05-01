@@ -13,6 +13,11 @@
   <link rel="apple-touch-icon" href="iconos/icono-192.png">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="estilo.css">
+  <script>
+    // Aplicar tema antes de pintar para evitar parpadeo
+    document.documentElement.setAttribute('data-tema',
+      localStorage.getItem('cocina_tema') || 'oscuro');
+  </script>
 </head>
 <body>
 
@@ -86,19 +91,15 @@
 
       <!-- Tres pestañas de navegación -->
       <nav class="nav-tabs" role="navigation" aria-label="Módulos">
-        <button class="nav-tab" data-modulo="etiquetas" aria-label="Módulo de etiquetado">
-          🏷 Etiquetas
-        </button>
-        <button class="nav-tab" data-modulo="menu" aria-label="Módulo de carta y recetas">
-          📋 Carta
-        </button>
-        <button class="nav-tab" data-modulo="facturas" aria-label="Módulo de facturas">
-          🧾 Facturas
-        </button>
+        <button class="nav-tab" data-modulo="etiquetas">🏷 Etiquetas</button>
+        <button class="nav-tab" data-modulo="menu">📋 Carta</button>
+        <button class="nav-tab" data-modulo="facturas">🧾 Facturas</button>
+        <button class="nav-tab" data-modulo="config">⚙ Config</button>
       </nav>
 
-      <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
         <div id="indicador-microfono" aria-label="Estado del micrófono" role="status">🎤</div>
+        <button id="btn-tema" title="Cambiar tema claro/oscuro">🌙</button>
         <button id="btn-logout" title="Cerrar sesión">⏻ Salir</button>
       </div>
     </header>
@@ -112,13 +113,46 @@
       <section aria-label="Control de voz">
 
         <div class="tarjeta">
-          <div class="tarjeta-titulo">Nuevo Registro por Voz</div>
-          <button id="etq-btn-nuevo" class="btn btn-primario" type="button">
-            ▶ Nuevo Producto
-          </button>
-          <button id="etq-btn-cancelar" class="btn btn-secundario" type="button" style="margin-top:12px">
-            ✖ Cancelar
-          </button>
+          <!-- Tabs voz / manual -->
+          <div class="etq-modo-bar">
+            <button class="etq-modo-tab activo" data-modo="voz">🎤 Voz</button>
+            <button class="etq-modo-tab" data-modo="manual">✏ Manual</button>
+          </div>
+
+          <!-- Panel VOZ -->
+          <div id="etq-panel-voz">
+            <button id="etq-btn-nuevo" class="btn btn-primario" type="button">▶ Nuevo Producto</button>
+            <button id="etq-btn-cancelar" class="btn btn-secundario" type="button" style="margin-top:10px">✖ Cancelar</button>
+          </div>
+
+          <!-- Panel MANUAL -->
+          <div id="etq-panel-manual" style="display:none">
+            <div class="form-grid">
+              <div class="form-grupo form-grupo-full">
+                <label for="etq-m-nombre">Producto *</label>
+                <input id="etq-m-nombre" type="text" class="inp" placeholder="Ej: Salsa Bearnesa">
+              </div>
+              <div class="form-grupo">
+                <label for="etq-m-lote">Nº de lote *</label>
+                <input id="etq-m-lote" type="text" class="inp" placeholder="Ej: L2405">
+              </div>
+              <div class="form-grupo">
+                <label for="etq-m-dias">Días de caducidad *</label>
+                <input id="etq-m-dias" type="number" class="inp" min="1" step="1" placeholder="Ej: 3">
+              </div>
+              <div class="form-grupo form-grupo-full">
+                <label for="etq-m-apertura">Fecha y hora de apertura</label>
+                <input id="etq-m-apertura" type="datetime-local" class="inp">
+              </div>
+              <div class="form-grupo form-grupo-full">
+                <label>Alérgenos que contiene:</label>
+                <div class="grid-alergenos-check" id="etq-m-alergenos"></div>
+              </div>
+            </div>
+            <div class="form-acciones">
+              <button id="etq-m-btn-generar" class="btn btn-primario-sm">✔ Generar etiqueta</button>
+            </div>
+          </div>
         </div>
 
         <div class="tarjeta" style="margin-top:16px">
@@ -374,6 +408,81 @@
     </main>
 
     <!-- =====================================================
+         MÓDULO 4: CONFIGURACIÓN
+         ===================================================== -->
+    <main id="modulo-config" class="modulo-seccion" role="main" style="display:none">
+      <div class="modulo-cabecera-inner">
+        <h2 class="modulo-h2">Configuración</h2>
+      </div>
+
+      <div class="tarjeta" style="max-width:680px">
+        <div class="tarjeta-titulo">Datos de la Empresa</div>
+        <p style="font-size:.8rem;color:var(--texto2);margin-bottom:14px">
+          Aparecerán en el encabezado de las facturas. Obligatorio para facturas legales en España.
+        </p>
+        <div class="form-grid">
+          <div class="form-grupo form-grupo-full">
+            <label for="cfg-razon">Razón social / Nombre *</label>
+            <input id="cfg-razon" type="text" class="inp" placeholder="Mi Restaurante S.L.">
+          </div>
+          <div class="form-grupo">
+            <label for="cfg-nif">NIF / CIF *</label>
+            <input id="cfg-nif" type="text" class="inp" placeholder="B12345678">
+          </div>
+          <div class="form-grupo">
+            <label for="cfg-tel">Teléfono</label>
+            <input id="cfg-tel" type="tel" class="inp" placeholder="+34 928 000 000">
+          </div>
+          <div class="form-grupo form-grupo-full">
+            <label for="cfg-dir">Dirección</label>
+            <input id="cfg-dir" type="text" class="inp" placeholder="Calle Mayor 1, Local 2">
+          </div>
+          <div class="form-grupo">
+            <label for="cfg-cp">Código postal</label>
+            <input id="cfg-cp" type="text" class="inp" placeholder="35001">
+          </div>
+          <div class="form-grupo">
+            <label for="cfg-ciudad">Ciudad</label>
+            <input id="cfg-ciudad" type="text" class="inp" placeholder="Las Palmas de Gran Canaria">
+          </div>
+          <div class="form-grupo">
+            <label for="cfg-provincia">Provincia / Isla</label>
+            <input id="cfg-provincia" type="text" class="inp" placeholder="Las Palmas">
+          </div>
+          <div class="form-grupo">
+            <label for="cfg-pais">País</label>
+            <input id="cfg-pais" type="text" class="inp" value="España">
+          </div>
+          <div class="form-grupo">
+            <label for="cfg-email">Email</label>
+            <input id="cfg-email" type="email" class="inp" placeholder="info@restaurante.com">
+          </div>
+          <div class="form-grupo">
+            <label for="cfg-web">Web</label>
+            <input id="cfg-web" type="url" class="inp" placeholder="https://restaurante.com">
+          </div>
+          <div class="form-grupo">
+            <label for="cfg-igic">IGIC / IVA por defecto (%)</label>
+            <input id="cfg-igic" type="number" class="inp" value="7" min="0" max="100" step="0.1">
+          </div>
+        </div>
+        <div class="form-acciones" style="align-items:center">
+          <button id="cfg-btn-guardar" class="btn btn-primario-sm">💾 Guardar configuración</button>
+          <span id="cfg-msg" style="font-size:.85rem;color:var(--ok)"></span>
+        </div>
+      </div>
+
+      <div class="tarjeta" style="max-width:680px;margin-top:16px">
+        <div class="tarjeta-titulo">Apariencia</div>
+        <div style="display:flex;align-items:center;gap:14px;padding-top:4px">
+          <span style="font-size:.9rem;color:var(--texto2)">Tema:</span>
+          <button id="cfg-btn-tema-osc" class="btn-secundario-sm">🌙 Oscuro</button>
+          <button id="cfg-btn-tema-cla" class="btn-secundario-sm">☀ Claro</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- =====================================================
          PIE DE PÁGINA
          ===================================================== -->
     <footer class="pie" role="contentinfo">
@@ -393,6 +502,7 @@
   <script src="modulos/menu.js"></script>
   <script src="modulos/facturas.js"></script>
   <script src="modulos/auth.js"></script>
+  <script src="modulos/config.js"></script>
   <script src="app.js"></script>
 
 </body>

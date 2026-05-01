@@ -1,7 +1,5 @@
 // ============================================================
 // app.js — Coordinador principal de la PWA Cocina
-// Registra el Service Worker, abre la BD y gestiona la
-// navegación entre los tres módulos: Etiquetas, Menú, Facturas.
 // ============================================================
 
 // ---- Service Worker ----
@@ -13,31 +11,32 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// ---- Tema claro / oscuro ----
+
+function _aplicarTema(tema) {
+  document.documentElement.setAttribute('data-tema', tema);
+  localStorage.setItem('cocina_tema', tema);
+  const btn = document.getElementById('btn-tema');
+  if (btn) btn.textContent = tema === 'oscuro' ? '🌙' : '☀';
+}
+
+function _toggleTema() {
+  const actual = document.documentElement.getAttribute('data-tema') || 'oscuro';
+  _aplicarTema(actual === 'oscuro' ? 'claro' : 'oscuro');
+}
+
 // ---- Navegación entre módulos ----
 
-/** Módulo activo actualmente */
 let _moduloActivo = null;
 
-/**
- * Activa el módulo indicado: muestra su sección, oculta las demás
- * y marca la pestaña de navegación como activa.
- * @param {string} id - 'etiquetas' | 'menu' | 'facturas'
- */
 function navegarA(id) {
-  // Ocultar todos los módulos
   document.querySelectorAll('.modulo-seccion').forEach(sec => sec.style.display = 'none');
-  // Mostrar el módulo seleccionado
   const seccion = document.getElementById('modulo-' + id);
   if (seccion) seccion.style.display = 'block';
-
-  // Actualizar estado visual de las pestañas
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.classList.toggle('activo', btn.dataset.modulo === id);
   });
-
   _moduloActivo = id;
-
-  // Guardar el módulo activo en sessionStorage para recargas
   sessionStorage.setItem('moduloActivo', id);
 }
 
@@ -45,7 +44,12 @@ function navegarA(id) {
 
 document.addEventListener('DOMContentLoaded', async () => {
 
-  // Abrir la base de datos antes de inicializar ningún módulo
+  // Sincronizar icono del botón de tema con el tema ya aplicado por el inline script del <head>
+  const temaActual = document.documentElement.getAttribute('data-tema') || 'oscuro';
+  const btnTema = document.getElementById('btn-tema');
+  if (btnTema) btnTema.textContent = temaActual === 'oscuro' ? '🌙' : '☀';
+
+  // Abrir IndexedDB (para el módulo de etiquetas)
   try {
     await BD.abrirBaseDeDatos();
   } catch (e) {
@@ -54,25 +58,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // Autenticar al usuario (bloquea hasta que el login sea correcto)
+  // Autenticar (bloquea hasta que el login sea correcto)
   await ModuloAuth.init();
 
-  // Inicializar cada módulo (registra sus event listeners y carga datos)
+  // Inicializar módulos
   await ModuloEtiquetas.init();
   await ModuloMenu.init();
   await ModuloFacturas.init();
+  await ModuloConfig.init();
 
-  // Botón de cierre de sesión
+  // Botones de cabecera
+  document.getElementById('btn-tema')?.addEventListener('click', _toggleTema);
   document.getElementById('btn-logout')?.addEventListener('click', () => {
     if (confirm('¿Cerrar sesión?')) { SB.logout(); location.reload(); }
   });
 
-  // Conectar pestañas de navegación
+  // Botones de tema en la sección Config
+  document.getElementById('cfg-btn-tema-osc')?.addEventListener('click', () => _aplicarTema('oscuro'));
+  document.getElementById('cfg-btn-tema-cla')?.addEventListener('click', () => _aplicarTema('claro'));
+
+  // Pestañas de navegación
   document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.addEventListener('click', () => navegarA(btn.dataset.modulo));
   });
 
-  // Restaurar el módulo que estaba activo antes de una recarga, o mostrar Etiquetas
+  // Restaurar módulo activo
   const moduloGuardado = sessionStorage.getItem('moduloActivo') || 'facturas';
   navegarA(moduloGuardado);
 });

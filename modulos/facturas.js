@@ -196,10 +196,24 @@ const ModuloFacturas = (() => {
         <td class="td-num">${(l.subtotal || 0).toFixed(2)} €</td>
       </tr>`).join('');
 
+    const cfg = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
+    const emisorNombre = cfg.razonSocial || 'MI RESTAURANTE';
+    const emisorLineas = [
+      cfg.nif       ? `NIF/CIF: ${_esc(cfg.nif)}`    : null,
+      cfg.direccion ? _esc(cfg.direccion)              : null,
+      [cfg.cp, cfg.ciudad].filter(Boolean).join(' ')  || null,
+      cfg.provincia ? _esc(cfg.provincia)              : null,
+      cfg.telefono  ? `Tel: ${_esc(cfg.telefono)}`    : null,
+      cfg.email     ? _esc(cfg.email)                  : null,
+    ].filter(Boolean).join('<br>');
+
     div.innerHTML = `
       <div class="factura-imprimible">
         <div class="fac-cabecera-print">
-          <div class="fac-emisor"><strong>RESTAURANTE</strong><br><small>NIF: — · Canarias</small></div>
+          <div class="fac-emisor">
+            <strong>${_esc(emisorNombre)}</strong>
+            ${emisorLineas ? '<br><small>' + emisorLineas + '</small>' : ''}
+          </div>
           <div class="fac-titulo-doc">
             <div class="fac-numero-grande">FACTURA</div>
             <div>Nº ${_esc(f.numero)}</div>
