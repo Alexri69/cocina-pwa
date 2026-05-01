@@ -73,6 +73,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Restaurar el módulo que estaba activo antes de una recarga, o mostrar Etiquetas
-  const moduloGuardado = sessionStorage.getItem('moduloActivo') || 'etiquetas';
+  const moduloGuardado = sessionStorage.getItem('moduloActivo') || 'facturas';
   navegarA(moduloGuardado);
 });
