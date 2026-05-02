@@ -237,6 +237,12 @@ const ModuloEtiquetas = (() => {
 
     _mostrarEtiqueta(estado.producto);
     await _actualizarHistorial();
+    // Asegurarse de que el historial esté visible para que el usuario pueda imprimir luego
+    const secHist = document.getElementById('etq-seccion-historial');
+    const btnHist = document.getElementById('etq-btn-historial');
+    if (secHist) secHist.style.display = 'block';
+    if (btnHist) btnHist.textContent = '▲ Ocultar historial';
+
     await VOZ.hablar('Producto registrado. ¿Deseas imprimir la etiqueta?');
     try {
       const r = await VOZ.escuchar();
@@ -332,18 +338,40 @@ const ModuloEtiquetas = (() => {
   // HISTORIAL
   // ----------------------------------------------------------
 
+  let _historial = [];
+
   async function _actualizarHistorial() {
     const lista = document.getElementById('etq-lista-historial');
     if (!lista) return;
     const productos = await BD.obtenerProductos();
+    _historial = productos;
     if (!productos.length) { lista.innerHTML = '<p class="texto-vacio">No hay productos registrados todavía.</p>'; return; }
-    lista.innerHTML = productos.map(p => {
+    lista.innerHTML = productos.map((p, i) => {
       const c = VOZ.calcularColorCaducidad(p.fechaCaducidad);
       return `<div class="item-historial ${c}">
-        <strong>${p.nombre}</strong> — Lote: ${p.lote}<br>
+        <div><strong>${p.nombre}</strong> — Lote: ${p.lote}</div>
         <small>Caduca: ${VOZ.formatearFecha(p.fechaCaducidad)}</small>
+        <div class="card-acciones" style="margin-top:6px">
+          <button class="btn-mini btn-ver"   onclick="ModuloEtiquetas._verEtiqueta(${i})">👁 Ver etiqueta</button>
+          <button class="btn-mini btn-pagar" onclick="ModuloEtiquetas._imprimirEtiqueta(${i})">🖨 Imprimir</button>
+        </div>
       </div>`;
     }).join('');
+  }
+
+  function _verEtiqueta(idx) {
+    const p = _historial[idx];
+    if (!p) return;
+    _mostrarEtiqueta(p);
+    document.getElementById('etq-seccion-etiqueta')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  async function _imprimirEtiqueta(idx) {
+    const p = _historial[idx];
+    if (!p) return;
+    _mostrarEtiqueta(p);
+    await new Promise(r => setTimeout(r, 200));
+    window.print();
   }
 
   // ----------------------------------------------------------
@@ -437,6 +465,6 @@ const ModuloEtiquetas = (() => {
     };
   }
 
-  return { init, verificarCaducidades };
+  return { init, verificarCaducidades, _verEtiqueta, _imprimirEtiqueta };
 
 })();
