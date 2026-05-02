@@ -35,9 +35,12 @@ const SB = (() => {
 
   function _uid() {
     if (_sesion?.user_id) return _sesion.user_id;
-    // Fallback: decodificar el JWT para obtener el sub (user id)
+    // Fallback: decodificar el JWT (base64url → base64 estándar antes de atob)
     try {
-      const payload = JSON.parse(atob(_sesion.access_token.split('.')[1]));
+      const b64url  = _sesion.access_token.split('.')[1];
+      const b64     = b64url.replace(/-/g, '+').replace(/_/g, '/');
+      const padded  = b64 + '='.repeat((4 - b64.length % 4) % 4);
+      const payload = JSON.parse(atob(padded));
       return payload.sub ?? null;
     } catch { return null; }
   }

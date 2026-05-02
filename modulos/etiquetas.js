@@ -264,7 +264,10 @@ const ModuloEtiquetas = (() => {
   async function _finalizar() {
     estado.paso = PASOS.GUARDADO;
     try { await SB.guardarProducto({ ...estado.producto }); }
-    catch (e) { console.error('[Etiquetas] Error al guardar:', e); }
+    catch (e) {
+      console.error('[Etiquetas] Error al guardar:', e);
+      await VOZ.hablar('Error al guardar el producto. Comprueba la conexión.');
+    }
 
     _mostrarEtiqueta(estado.producto);
     await _actualizarHistorial();
