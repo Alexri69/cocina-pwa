@@ -82,7 +82,7 @@ const ModuloEtiquetas = (() => {
       timestamp: fechaApertura.getTime()
     };
 
-    try { await BD.guardarProducto({ ...producto }); }
+    try { await SB.guardarProducto({ ...producto }); }
     catch (e) { console.error('[Etiquetas] Error al guardar:', e); }
 
     _mostrarEtiqueta(producto);
@@ -263,7 +263,7 @@ const ModuloEtiquetas = (() => {
 
   async function _finalizar() {
     estado.paso = PASOS.GUARDADO;
-    try { await BD.guardarProducto({ ...estado.producto }); }
+    try { await SB.guardarProducto({ ...estado.producto }); }
     catch (e) { console.error('[Etiquetas] Error al guardar:', e); }
 
     _mostrarEtiqueta(estado.producto);
@@ -374,7 +374,7 @@ const ModuloEtiquetas = (() => {
   async function _actualizarHistorial() {
     const lista = document.getElementById('etq-lista-historial');
     if (!lista) return;
-    const productos = await BD.obtenerProductos();
+    const productos = await SB.obtenerProductos();
     _historial = productos;
     if (!productos.length) { lista.innerHTML = '<p class="texto-vacio">No hay productos registrados todavía.</p>'; return; }
     lista.innerHTML = productos.map((p, i) => {
@@ -383,11 +383,20 @@ const ModuloEtiquetas = (() => {
         <div><strong>${p.nombre}</strong> — Lote: ${p.lote}</div>
         <small>Caduca: ${VOZ.formatearFecha(p.fechaCaducidad)}</small>
         <div class="card-acciones" style="margin-top:6px">
-          <button class="btn-mini btn-ver"   onclick="ModuloEtiquetas._verEtiqueta(${i})">👁 Ver etiqueta</button>
+          <button class="btn-mini btn-ver"   onclick="ModuloEtiquetas._verEtiqueta(${i})">👁 Ver</button>
           <button class="btn-mini btn-pagar" onclick="ModuloEtiquetas._imprimirEtiqueta(${i})">🖨 Imprimir</button>
+          <button class="btn-mini btn-borrar" onclick="ModuloEtiquetas._borrarProducto(${i})">🗑</button>
         </div>
       </div>`;
     }).join('');
+  }
+
+  async function _borrarProducto(idx) {
+    const p = _historial[idx];
+    if (!p) return;
+    if (!confirm(`¿Eliminar "${p.nombre}" — Lote ${p.lote}?`)) return;
+    await SB.eliminarProducto(p.id);
+    await _actualizarHistorial();
   }
 
   function _verEtiqueta(idx) {
@@ -489,13 +498,13 @@ const ModuloEtiquetas = (() => {
   }
 
   async function verificarCaducidades() {
-    const productos = await BD.obtenerProductos();
+    const productos = await SB.obtenerProductos();
     return {
       caducados: productos.filter(p => VOZ.calcularColorCaducidad(p.fechaCaducidad) === 'rojo'),
       proximos:  productos.filter(p => VOZ.calcularColorCaducidad(p.fechaCaducidad) === 'amarillo'),
     };
   }
 
-  return { init, verificarCaducidades, _verEtiqueta, _imprimirEtiqueta };
+  return { init, verificarCaducidades, _verEtiqueta, _imprimirEtiqueta, _borrarProducto };
 
 })();

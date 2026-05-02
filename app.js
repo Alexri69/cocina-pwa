@@ -49,14 +49,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnTema = document.getElementById('btn-tema');
   if (btnTema) btnTema.textContent = temaActual === 'oscuro' ? '🌙' : '☀';
 
-  // Abrir IndexedDB (para el módulo de etiquetas)
-  try {
-    await BD.abrirBaseDeDatos();
-  } catch (e) {
-    console.error('[App] Error crítico al abrir IndexedDB:', e);
-    alert('Error al acceder a la base de datos local. Recarga la página.');
-    return;
-  }
+  // IndexedDB ya no es crítico (productos migrados a Supabase)
+  try { await BD.abrirBaseDeDatos(); } catch (e) { console.warn('[App] IndexedDB no disponible:', e); }
 
   // Autenticar (bloquea hasta que el login sea correcto)
   await ModuloAuth.init();

@@ -173,6 +173,37 @@ const SB = (() => {
   };
 
   // ----------------------------------------------------------
+  // PRODUCTOS (etiquetas de trazabilidad)
+  // ----------------------------------------------------------
+
+  function _productoDeBD(p) {
+    if (!p) return null;
+    const { dias_caducidad, fecha_apertura, fecha_caducidad, ...resto } = p;
+    return { ...resto, diasCaducidad: dias_caducidad, fechaApertura: fecha_apertura, fechaCaducidad: fecha_caducidad };
+  }
+
+  function _productoParaBD(p) {
+    const { diasCaducidad, fechaApertura, fechaCaducidad, id, user_id, ...resto } = p;
+    return { ...resto, dias_caducidad: diasCaducidad, fecha_apertura: fechaApertura, fecha_caducidad: fechaCaducidad };
+  }
+
+  async function obtenerProductos() {
+    try {
+      const datos = await _get('productos', '?select=*&order=timestamp.desc').then(arr => (arr || []).map(_productoDeBD));
+      _CACHE.guardar('productos', datos);
+      return datos;
+    } catch (e) {
+      const cache = _CACHE.leer('productos');
+      if (cache !== null) return cache;
+      throw e;
+    }
+  }
+
+  const guardarProducto    = (p)  => _post('productos', _productoParaBD(p)).then(r => _productoDeBD(_primero(r)));
+  const actualizarProducto = (p)  => _patch('productos', p.id, _productoParaBD(p)).then(r => _productoDeBD(_primero(r)));
+  const eliminarProducto   = (id) => _delete('productos', id);
+
+  // ----------------------------------------------------------
   // INGREDIENTES
   // ----------------------------------------------------------
 
@@ -318,7 +349,8 @@ const SB = (() => {
   // ----------------------------------------------------------
 
   async function exportarTodo() {
-    const [ings, platos, bebidas, todasFac] = await Promise.all([
+    const [prods, ings, platos, bebidas, todasFac] = await Promise.all([
+      _get('productos',    '?select=*&order=timestamp.desc'),
       _get('ingredientes', '?select=*&order=timestamp.desc'),
       _get('platos',       '?select=*&order=timestamp.desc'),
       _get('bebidas',      '?select=*&order=timestamp.desc'),
@@ -326,6 +358,7 @@ const SB = (() => {
     ]);
     const strip = arr => (arr || []).map(({ user_id, ...r }) => r);
     return {
+      productos:    strip(prods).map(_productoDeBD),
       ingredientes: strip(ings),
       platos:       strip(platos),
       bebidas:      strip(bebidas),
@@ -333,7 +366,7 @@ const SB = (() => {
     };
   }
 
-  async function restaurarDatos({ ingredientes = [], platos = [], bebidas = [], facturas = [] }) {
+  async function restaurarDatos({ productos = [], ingredientes = [], platos = [], bebidas = [], facturas = [] }) {
     const hdrs  = _cab({ 'Prefer': 'return=minimal,resolution=merge-duplicates' });
     const upsert = (tabla, arr) => arr.length
       ? _req(tabla, { method: 'POST', headers: hdrs, body: JSON.stringify(arr) })
@@ -346,6 +379,7 @@ const SB = (() => {
       return id ? { id, ...conv } : conv;
     });
 
+    await upsert('productos',    productos.map(_productoParaBD));
     await upsert('ingredientes', ingredientes);
     await upsert('platos',       platos);
     await upsert('bebidas',      bebidas);
@@ -387,6 +421,8 @@ const SB = (() => {
   return {
     // Auth
     isLoggedIn, login, signup, logout, refrescarSesion,
+    // Productos (etiquetas)
+    obtenerProductos, guardarProducto, actualizarProducto, eliminarProducto,
     // Ingredientes
     obtenerIngredientes, obtenerIngrediente,
     guardarIngrediente, actualizarIngrediente, eliminarIngrediente,
