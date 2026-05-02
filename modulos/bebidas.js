@@ -78,19 +78,27 @@ const ModuloBebidas = (() => {
   async function _guardarBebida() {
     const nombre = document.getElementById('beb-nombre').value.trim();
     if (!nombre) { alert('El nombre de la bebida es obligatorio.'); return; }
-    const datos = {
-      nombre,
-      descripcion: document.getElementById('beb-desc').value.trim(),
-      precio:      parseFloat(document.getElementById('beb-precio').value) || 0,
-      categoria:   document.getElementById('beb-categoria').value || 'otro',
-    };
-    if (_idEditando !== null) {
-      await SB.actualizarBebida({ id: _idEditando, ...datos });
-    } else {
-      await SB.guardarBebida(datos);
+    const btn = document.getElementById('beb-btn-guardar');
+    if (btn) btn.disabled = true;
+    try {
+      const datos = {
+        nombre,
+        descripcion: document.getElementById('beb-desc').value.trim(),
+        precio:      parseFloat(document.getElementById('beb-precio').value) || 0,
+        categoria:   document.getElementById('beb-categoria').value || 'otro',
+      };
+      if (_idEditando !== null) {
+        await SB.actualizarBebida({ id: _idEditando, ...datos });
+      } else {
+        await SB.guardarBebida(datos);
+      }
+      _resetForm();
+      await _renderLista();
+    } catch (e) {
+      alert('Error al guardar la bebida: ' + e.message);
+    } finally {
+      if (btn) btn.disabled = false;
     }
-    _resetForm();
-    await _renderLista();
   }
 
   function _resetForm() {
