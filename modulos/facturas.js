@@ -7,16 +7,15 @@ const ModuloFacturas = (() => {
 
   let _idFacturaActual  = null;
   let _lineas           = [];
-  let _tipoVista        = 'factura';  // sub-tab: 'factura' | 'presupuesto' | 'bebidas'
+  let _tipoVista        = 'factura';  // sub-tab: 'factura' | 'presupuesto'
   let _tipoActual       = 'factura';
-  let _idBebidaEditando = null;
 
   // ----------------------------------------------------------
   // VISTAS
   // ----------------------------------------------------------
 
   function _mostrarVista(cual) {
-    ['fac-vista-lista', 'fac-vista-formulario', 'fac-vista-detalle', 'fac-vista-bebidas'].forEach(id => {
+    ['fac-vista-lista', 'fac-vista-formulario', 'fac-vista-detalle'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = id === 'fac-vista-' + cual ? 'block' : 'none';
     });
@@ -29,7 +28,6 @@ const ModuloFacturas = (() => {
   function _actualizarSubTabs() {
     document.getElementById('fac-tab-facturas')    ?.classList.toggle('activo', _tipoVista === 'factura');
     document.getElementById('fac-tab-presupuestos')?.classList.toggle('activo', _tipoVista === 'presupuesto');
-    document.getElementById('fac-tab-bebidas')     ?.classList.toggle('activo', _tipoVista === 'bebidas');
     const btnFac  = document.getElementById('fac-btn-nueva');
     const btnPres = document.getElementById('fac-btn-nuevo-pres');
     if (btnFac)  btnFac.style.display  = _tipoVista === 'factura'     ? '' : 'none';
@@ -445,88 +443,6 @@ const ModuloFacturas = (() => {
   }
 
   // ----------------------------------------------------------
-  // GESTIÓN DE BEBIDAS (sub-pestaña dentro de Facturas)
-  // ----------------------------------------------------------
-
-  const _CATS_BEB = {
-    agua:'💧 Agua', refresco:'🥤 Refrescos', cerveza:'🍺 Cerveza',
-    vino:'🍷 Vinos', licor:'🥃 Licores', cafe:'☕ Cafés', zumo:'🍊 Zumos', otro:'🫗 Otros'
-  };
-
-  async function _renderListaBebidas() {
-    const lista = document.getElementById('fac-beb-lista');
-    if (!lista) return;
-    lista.innerHTML = '<p class="texto-vacio">Cargando…</p>';
-    try {
-      const items = await SB.obtenerBebidas();
-      if (!items?.length) { lista.innerHTML = '<p class="texto-vacio">No hay bebidas. Añade la primera.</p>'; return; }
-      lista.innerHTML = items.map(b => `
-        <div class="card-plato" data-id="${b.id}">
-          <div class="card-plato-cabecera">
-            <div class="card-plato-nombre">${_esc(b.nombre)}</div>
-            <div class="card-plato-precio">${b.precio > 0 ? b.precio.toFixed(2) + ' €' : ''}</div>
-          </div>
-          ${b.descripcion ? `<div class="card-plato-desc">${_esc(b.descripcion)}</div>` : ''}
-          <div class="card-plato-ingredientes">${_CATS_BEB[b.categoria] ?? b.categoria}</div>
-          <div class="card-acciones">
-            <button class="btn-mini btn-editar" onclick="ModuloFacturas._editarBebida('${b.id}')">✏ Editar</button>
-            <button class="btn-mini btn-borrar" onclick="ModuloFacturas._borrarBebida('${b.id}','${b.nombre.replace(/'/g,"\\'")}')">🗑 Eliminar</button>
-          </div>
-        </div>`).join('');
-    } catch (e) { lista.innerHTML = `<p class="texto-vacio error-texto">Error: ${e.message}</p>`; }
-  }
-
-  async function _editarBebida(id) {
-    const b = await SB.obtenerBebida(id);
-    if (!b) return;
-    _idBebidaEditando = id;
-    document.getElementById('fac-beb-nombre').value    = b.nombre;
-    document.getElementById('fac-beb-desc').value      = b.descripcion || '';
-    document.getElementById('fac-beb-precio').value    = b.precio > 0 ? b.precio : '';
-    document.getElementById('fac-beb-categoria').value = b.categoria || 'otro';
-    document.getElementById('fac-beb-form-titulo').textContent = `Editar: ${b.nombre}`;
-    document.getElementById('fac-beb-btn-guardar').textContent = '💾 Actualizar Bebida';
-    document.getElementById('fac-beb-btn-cancelar').style.display = 'inline-flex';
-    document.getElementById('fac-beb-nombre').focus();
-  }
-
-  async function _borrarBebida(id, nombre) {
-    if (!confirm(`¿Eliminar la bebida "${nombre}"?`)) return;
-    await SB.eliminarBebida(id);
-    await _renderListaBebidas();
-  }
-
-  async function _guardarBebida() {
-    const nombre = document.getElementById('fac-beb-nombre').value.trim();
-    if (!nombre) { alert('El nombre es obligatorio.'); return; }
-    const datos = {
-      nombre,
-      descripcion: document.getElementById('fac-beb-desc').value.trim(),
-      precio:      parseFloat(document.getElementById('fac-beb-precio').value) || 0,
-      categoria:   document.getElementById('fac-beb-categoria').value || 'otro',
-    };
-    if (_idBebidaEditando) {
-      await SB.actualizarBebida({ id: _idBebidaEditando, ...datos });
-    } else {
-      await SB.guardarBebida(datos);
-    }
-    _resetFormBebida();
-    await _renderListaBebidas();
-    await _renderSelectorPlatos(); // refresca el selector en el formulario
-  }
-
-  function _resetFormBebida() {
-    _idBebidaEditando = null;
-    document.getElementById('fac-beb-nombre').value    = '';
-    document.getElementById('fac-beb-desc').value      = '';
-    document.getElementById('fac-beb-precio').value    = '';
-    document.getElementById('fac-beb-categoria').value = 'refresco';
-    document.getElementById('fac-beb-form-titulo').textContent = 'Añadir Bebida';
-    document.getElementById('fac-beb-btn-guardar').textContent = '✔ Guardar Bebida';
-    document.getElementById('fac-beb-btn-cancelar').style.display = 'none';
-  }
-
-  // ----------------------------------------------------------
   // COMPARTIR (Email / WhatsApp)
   // ----------------------------------------------------------
 
@@ -622,11 +538,6 @@ const ModuloFacturas = (() => {
     document.getElementById('fac-tab-presupuestos')?.addEventListener('click', async () => {
       _tipoVista = 'presupuesto'; _actualizarSubTabs(); _mostrarVista('lista'); await _renderLista();
     });
-    document.getElementById('fac-tab-bebidas')?.addEventListener('click', async () => {
-      _tipoVista = 'bebidas'; _actualizarSubTabs(); _resetFormBebida(); _mostrarVista('bebidas'); await _renderListaBebidas();
-    });
-    document.getElementById('fac-beb-btn-guardar') ?.addEventListener('click', _guardarBebida);
-    document.getElementById('fac-beb-btn-cancelar')?.addEventListener('click', _resetFormBebida);
 
     document.getElementById('fac-btn-nueva')     ?.addEventListener('click', () => _abrirFormulario(null, 'factura'));
     document.getElementById('fac-btn-nuevo-pres') ?.addEventListener('click', () => _abrirFormulario(null, 'presupuesto'));
@@ -655,8 +566,7 @@ const ModuloFacturas = (() => {
   return {
     init, verFactura, editarFactura, togglePagada, borrarFactura,
     aceptarPresupuesto, compartirEmail, compartirWhatsApp,
-    _actualizarLinea, _eliminarLinea,
-    _editarBebida, _borrarBebida
+    _actualizarLinea, _eliminarLinea
   };
 
 })();
