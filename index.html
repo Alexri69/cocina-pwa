@@ -281,88 +281,101 @@
       <!-- ---- Sub-sección: PLATOS ---- -->
       <div id="menu-sub-platos">
 
-        <!-- Formulario de nuevo plato / editar plato -->
-        <div class="tarjeta">
-          <div class="tarjeta-titulo">Añadir / Editar Plato</div>
-          <div class="form-grid">
-            <div class="form-grupo">
-              <label for="plato-nombre">Nombre del plato *</label>
-              <input id="plato-nombre" type="text" class="inp" placeholder="Ej: Ensalada César">
-            </div>
-            <div class="form-grupo">
-              <label for="plato-precio">Precio (€)</label>
-              <input id="plato-precio" type="number" class="inp" placeholder="12.50" min="0" step="0.01">
-            </div>
-            <div class="form-grupo form-grupo-full">
-              <label for="plato-desc">Descripción</label>
-              <textarea id="plato-desc" class="inp" rows="2" placeholder="Descripción breve del plato"></textarea>
-            </div>
-            <div class="form-grupo form-grupo-full">
-              <label>Ingredientes (marca los que contiene)</label>
-              <div id="plato-selector-ingredientes" class="grid-ingredientes">
-                <!-- ModuloMenu._renderSelectorIngredientes() lo rellena -->
-              </div>
-            </div>
-            <div class="form-grupo form-grupo-full">
-              <label>Alérgenos calculados automáticamente:</label>
-              <div id="plato-alergenos-calculados" class="badges-alergenos">
-                <span class="badge-sin-alergenos">Ninguno</span>
-              </div>
-            </div>
+        <!-- Vista: lista de platos -->
+        <div id="menu-platos-lista">
+          <div class="vista-list-bar">
+            <span>Platos en la Carta</span>
+            <button id="plato-btn-nuevo" class="btn-primario-sm">➕ Nuevo Plato</button>
           </div>
-          <div class="form-acciones">
-            <button id="plato-btn-guardar" class="btn btn-primario-sm">✔ Guardar Plato</button>
-            <button id="plato-btn-cancelar-edicion" class="btn btn-secundario-sm" style="display:none">✖ Cancelar edición</button>
-          </div>
+          <div id="menu-lista-platos"></div>
         </div>
 
-        <!-- Lista de platos -->
-        <div class="tarjeta" style="margin-top:16px">
-          <div class="tarjeta-titulo">Platos en la Carta</div>
-          <div id="menu-lista-platos"></div>
+        <!-- Vista: formulario nuevo/editar plato -->
+        <div id="menu-platos-form" style="display:none">
+          <div class="tarjeta">
+            <div class="tarjeta-titulo vista-form-bar">
+              <button id="plato-btn-volver" class="btn-volver">← Volver</button>
+              <span id="plato-form-titulo">Nuevo Plato</span>
+            </div>
+            <div class="form-grid">
+              <div class="form-grupo">
+                <label for="plato-nombre">Nombre del plato *</label>
+                <input id="plato-nombre" type="text" class="inp" placeholder="Ej: Ensalada César">
+              </div>
+              <div class="form-grupo">
+                <label for="plato-precio">Precio (€)</label>
+                <input id="plato-precio" type="number" class="inp" placeholder="12.50" min="0" step="0.01">
+              </div>
+              <div class="form-grupo form-grupo-full">
+                <label for="plato-desc">Descripción</label>
+                <textarea id="plato-desc" class="inp" rows="2" placeholder="Descripción breve del plato"></textarea>
+              </div>
+              <div class="form-grupo form-grupo-full">
+                <label>Ingredientes (marca los que contiene)</label>
+                <div id="plato-selector-ingredientes" class="grid-ingredientes"></div>
+              </div>
+              <div class="form-grupo form-grupo-full">
+                <label>Alérgenos calculados automáticamente:</label>
+                <div id="plato-alergenos-calculados" class="badges-alergenos">
+                  <span class="badge-sin-alergenos">Ninguno</span>
+                </div>
+              </div>
+            </div>
+            <div class="form-acciones">
+              <button id="plato-btn-guardar" class="btn btn-primario-sm">✔ Guardar Plato</button>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- ---- Sub-sección: INGREDIENTES ---- -->
       <div id="menu-sub-ingredientes" style="display:none">
 
-        <div class="tarjeta">
-          <div class="tarjeta-titulo">Añadir / Editar Ingrediente</div>
-          <div class="form-grid">
-            <div class="form-grupo form-grupo-full">
-              <label for="ing-nombre">Nombre del ingrediente *</label>
-              <input id="ing-nombre" type="text" class="inp" placeholder="Ej: Harina de trigo">
-            </div>
-            <div class="form-grupo form-grupo-full">
-              <label>Alérgenos que contiene:</label>
-              <!-- 14 checkboxes de alérgenos -->
-              <div class="grid-alergenos-check">
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-gluten">            🌾 Gluten</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-crustáceos">        🦞 Crustáceos</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-huevo">             🥚 Huevo</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-pescado">           🐟 Pescado</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-cacahuetes">        🥜 Cacahuetes</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-soja">              🌱 Soja</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-leche">             🥛 Leche</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-frutos-de-cáscara"> 🌰 Frutos cáscara</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-apio">              🌿 Apio</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-mostaza">           🌼 Mostaza</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-granos-de-sésamo">  🫘 Sésamo</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-altramuces">        🌸 Altramuces</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-moluscos">          🐚 Moluscos</label>
-                <label class="check-alergeno"><input type="checkbox" id="ing-al-sulfitos">          🍷 Sulfitos</label>
-              </div>
-            </div>
+        <!-- Vista: lista de ingredientes -->
+        <div id="menu-ings-lista">
+          <div class="vista-list-bar">
+            <span>Ingredientes guardados</span>
+            <button id="ing-btn-nuevo" class="btn-primario-sm">➕ Nuevo Ingrediente</button>
           </div>
-          <div class="form-acciones">
-            <button id="ing-btn-guardar"           class="btn btn-primario-sm">✔ Guardar Ingrediente</button>
-            <button id="ing-btn-cancelar-edicion"  class="btn btn-secundario-sm" style="display:none">✖ Cancelar edición</button>
-          </div>
+          <div id="menu-lista-ingredientes"></div>
         </div>
 
-        <div class="tarjeta" style="margin-top:16px">
-          <div class="tarjeta-titulo">Ingredientes guardados</div>
-          <div id="menu-lista-ingredientes"></div>
+        <!-- Vista: formulario nuevo/editar ingrediente -->
+        <div id="menu-ings-form" style="display:none">
+          <div class="tarjeta">
+            <div class="tarjeta-titulo vista-form-bar">
+              <button id="ing-btn-volver" class="btn-volver">← Volver</button>
+              <span id="ing-form-titulo">Nuevo Ingrediente</span>
+            </div>
+            <div class="form-grid">
+              <div class="form-grupo form-grupo-full">
+                <label for="ing-nombre">Nombre del ingrediente *</label>
+                <input id="ing-nombre" type="text" class="inp" placeholder="Ej: Harina de trigo">
+              </div>
+              <div class="form-grupo form-grupo-full">
+                <label>Alérgenos que contiene:</label>
+                <div class="grid-alergenos-check">
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-gluten">            🌾 Gluten</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-crustáceos">        🦞 Crustáceos</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-huevo">             🥚 Huevo</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-pescado">           🐟 Pescado</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-cacahuetes">        🥜 Cacahuetes</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-soja">              🌱 Soja</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-leche">             🥛 Leche</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-frutos-de-cáscara"> 🌰 Frutos cáscara</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-apio">              🌿 Apio</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-mostaza">           🌼 Mostaza</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-granos-de-sésamo">  🫘 Sésamo</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-altramuces">        🌸 Altramuces</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-moluscos">          🐚 Moluscos</label>
+                  <label class="check-alergeno"><input type="checkbox" id="ing-al-sulfitos">          🍷 Sulfitos</label>
+                </div>
+              </div>
+            </div>
+            <div class="form-acciones">
+              <button id="ing-btn-guardar" class="btn btn-primario-sm">✔ Guardar Ingrediente</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -376,44 +389,53 @@
         <h2 class="modulo-h2">Carta de Bebidas</h2>
       </div>
 
-      <div class="tarjeta">
-        <div class="tarjeta-titulo">Añadir / Editar Bebida</div>
-        <div class="form-grid">
-          <div class="form-grupo">
-            <label for="beb-nombre">Nombre *</label>
-            <input id="beb-nombre" type="text" class="inp" placeholder="Ej: Agua con gas">
-          </div>
-          <div class="form-grupo">
-            <label for="beb-precio">Precio (€)</label>
-            <input id="beb-precio" type="number" class="inp" placeholder="1.50" min="0" step="0.01">
-          </div>
-          <div class="form-grupo">
-            <label for="beb-categoria">Categoría</label>
-            <select id="beb-categoria" class="inp">
-              <option value="agua">💧 Agua</option>
-              <option value="refresco" selected>🥤 Refrescos</option>
-              <option value="cerveza">🍺 Cerveza</option>
-              <option value="vino">🍷 Vinos</option>
-              <option value="licor">🥃 Licores y combinados</option>
-              <option value="cafe">☕ Cafés e infusiones</option>
-              <option value="zumo">🍊 Zumos</option>
-              <option value="otro">🫗 Otros</option>
-            </select>
-          </div>
-          <div class="form-grupo form-grupo-full">
-            <label for="beb-desc">Descripción</label>
-            <textarea id="beb-desc" class="inp" rows="2" placeholder="Descripción opcional"></textarea>
-          </div>
+      <!-- Vista: lista de bebidas -->
+      <div id="beb-lista-vista">
+        <div class="vista-list-bar">
+          <span>Bebidas en la Carta</span>
+          <button id="beb-btn-nuevo" class="btn-primario-sm">➕ Nueva Bebida</button>
         </div>
-        <div class="form-acciones">
-          <button id="beb-btn-guardar" class="btn btn-primario-sm">✔ Guardar Bebida</button>
-          <button id="beb-btn-cancelar" class="btn btn-secundario-sm" style="display:none">✖ Cancelar edición</button>
-        </div>
+        <div id="beb-lista"></div>
       </div>
 
-      <div class="tarjeta" style="margin-top:16px">
-        <div class="tarjeta-titulo">Bebidas en la Carta</div>
-        <div id="beb-lista"></div>
+      <!-- Vista: formulario nuevo/editar bebida -->
+      <div id="beb-form-vista" style="display:none">
+        <div class="tarjeta">
+          <div class="tarjeta-titulo vista-form-bar">
+            <button id="beb-btn-volver" class="btn-volver">← Volver</button>
+            <span id="beb-form-titulo">Nueva Bebida</span>
+          </div>
+          <div class="form-grid">
+            <div class="form-grupo">
+              <label for="beb-nombre">Nombre *</label>
+              <input id="beb-nombre" type="text" class="inp" placeholder="Ej: Agua con gas">
+            </div>
+            <div class="form-grupo">
+              <label for="beb-precio">Precio (€)</label>
+              <input id="beb-precio" type="number" class="inp" placeholder="1.50" min="0" step="0.01">
+            </div>
+            <div class="form-grupo">
+              <label for="beb-categoria">Categoría</label>
+              <select id="beb-categoria" class="inp">
+                <option value="agua">💧 Agua</option>
+                <option value="refresco" selected>🥤 Refrescos</option>
+                <option value="cerveza">🍺 Cerveza</option>
+                <option value="vino">🍷 Vinos</option>
+                <option value="licor">🥃 Licores y combinados</option>
+                <option value="cafe">☕ Cafés e infusiones</option>
+                <option value="zumo">🍊 Zumos</option>
+                <option value="otro">🫗 Otros</option>
+              </select>
+            </div>
+            <div class="form-grupo form-grupo-full">
+              <label for="beb-desc">Descripción</label>
+              <textarea id="beb-desc" class="inp" rows="2" placeholder="Descripción opcional"></textarea>
+            </div>
+          </div>
+          <div class="form-acciones">
+            <button id="beb-btn-guardar" class="btn btn-primario-sm">✔ Guardar Bebida</button>
+          </div>
+        </div>
       </div>
     </main>
 

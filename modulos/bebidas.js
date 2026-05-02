@@ -19,6 +19,15 @@ const ModuloBebidas = (() => {
   let _idEditando = null;
 
   // ----------------------------------------------------------
+  // VISTAS
+  // ----------------------------------------------------------
+
+  function _mostrarVista(v) {
+    document.getElementById('beb-lista-vista').style.display = v === 'lista' ? 'block' : 'none';
+    document.getElementById('beb-form-vista').style.display  = v === 'form'  ? 'block' : 'none';
+  }
+
+  // ----------------------------------------------------------
   // LISTA
   // ----------------------------------------------------------
 
@@ -64,8 +73,8 @@ const ModuloBebidas = (() => {
     document.getElementById('beb-desc').value      = b.descripcion || '';
     document.getElementById('beb-precio').value    = b.precio > 0 ? b.precio : '';
     document.getElementById('beb-categoria').value = b.categoria || 'otro';
-    document.getElementById('beb-btn-guardar').textContent = '💾 Actualizar Bebida';
-    document.getElementById('beb-btn-cancelar').style.display = 'inline-flex';
+    document.getElementById('beb-form-titulo').textContent = '✏ Editar Bebida';
+    _mostrarVista('form');
     document.getElementById('beb-nombre').focus();
   }
 
@@ -73,6 +82,27 @@ const ModuloBebidas = (() => {
     if (!confirm(`¿Eliminar la bebida "${nombre}"?`)) return;
     await SB.eliminarBebida(id);
     await _renderLista();
+  }
+
+  function _nuevaBebidaForm() {
+    _idEditando = null;
+    document.getElementById('beb-nombre').value    = '';
+    document.getElementById('beb-desc').value      = '';
+    document.getElementById('beb-precio').value    = '';
+    document.getElementById('beb-categoria').value = 'refresco';
+    document.getElementById('beb-form-titulo').textContent = 'Nueva Bebida';
+    _mostrarVista('form');
+    document.getElementById('beb-nombre').focus();
+  }
+
+  function _resetForm() {
+    _idEditando = null;
+    document.getElementById('beb-nombre').value    = '';
+    document.getElementById('beb-desc').value      = '';
+    document.getElementById('beb-precio').value    = '';
+    document.getElementById('beb-categoria').value = 'refresco';
+    document.getElementById('beb-form-titulo').textContent = 'Nueva Bebida';
+    _mostrarVista('lista');
   }
 
   async function _guardarBebida() {
@@ -101,23 +131,14 @@ const ModuloBebidas = (() => {
     }
   }
 
-  function _resetForm() {
-    _idEditando = null;
-    document.getElementById('beb-nombre').value    = '';
-    document.getElementById('beb-desc').value      = '';
-    document.getElementById('beb-precio').value    = '';
-    document.getElementById('beb-categoria').value = 'refresco';
-    document.getElementById('beb-btn-guardar').textContent = '✔ Guardar Bebida';
-    document.getElementById('beb-btn-cancelar').style.display = 'none';
-  }
-
   // ----------------------------------------------------------
   // INICIALIZACIÓN
   // ----------------------------------------------------------
 
   async function init() {
+    document.getElementById('beb-btn-nuevo')  ?.addEventListener('click', _nuevaBebidaForm);
+    document.getElementById('beb-btn-volver') ?.addEventListener('click', _resetForm);
     document.getElementById('beb-btn-guardar')?.addEventListener('click', _guardarBebida);
-    document.getElementById('beb-btn-cancelar')?.addEventListener('click', _resetForm);
     await _renderLista();
   }
 

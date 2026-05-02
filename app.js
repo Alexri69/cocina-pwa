@@ -129,18 +129,20 @@ async function _ejecutarBusqueda(q) {
       SB.obtenerPlatos(), SB.obtenerBebidas(), SB.obtenerIngredientes()
     ]);
 
-    const filtrar = (arr, modulo, icono, tipo) =>
-      (arr || [])
-        .filter(i => i.nombre.toLowerCase().includes(q))
-        .map(i => `<div class="busq-item" onclick="navegarA('${modulo}');_cerrarBusqueda()">
-          <span>${icono}</span>
-          <span>${i.nombre}${i.precio > 0 ? ' · ' + i.precio.toFixed(2) + ' €' : ''}</span>
-          <span class="busq-tipo">${tipo}</span>
-        </div>`).join('');
+    const _item = (icono, tipo, accion, i) =>
+      `<div class="busq-item" onclick="${accion}">
+        <span>${icono}</span>
+        <span>${i.nombre}${i.precio > 0 ? ' · ' + i.precio.toFixed(2) + ' €' : ''}</span>
+        <span class="busq-tipo">${tipo}</span>
+      </div>`;
 
-    const html = filtrar(platos, 'menu', '🍽', 'Carta')
-               + filtrar(bebidas, 'bebidas', '🥤', 'Bebidas')
-               + filtrar(ings, 'menu', '🥬', 'Ingrediente');
+    const filtrar = (arr, icono, tipo, accionFn) =>
+      (arr || []).filter(i => i.nombre.toLowerCase().includes(q))
+        .map(i => _item(icono, tipo, accionFn(i), i)).join('');
+
+    const html = filtrar(platos,  '🍽', 'Plato',       i => `navegarA('menu');ModuloMenu.editarPlato('${i.id}');_cerrarBusqueda()`)
+               + filtrar(bebidas, '🥤', 'Bebida',      i => `navegarA('bebidas');ModuloBebidas.editarBebida('${i.id}');_cerrarBusqueda()`)
+               + filtrar(ings,    '🥬', 'Ingrediente', i => `navegarA('menu');ModuloMenu.editarIngrediente('${i.id}');_cerrarBusqueda()`);
 
     res.innerHTML = html || '<p style="padding:16px;color:var(--texto2);text-align:center">Sin resultados para "' + q + '"</p>';
   } catch (e) {

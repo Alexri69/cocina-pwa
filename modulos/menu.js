@@ -1,7 +1,6 @@
 // ============================================================
 // modulos/menu.js — Carta del restaurante: ingredientes y platos
 // Depende de: core/supabase.js
-// Los datos se guardan en Supabase (compartidos entre dispositivos).
 // ============================================================
 
 const ModuloMenu = (() => {
@@ -28,6 +27,20 @@ const ModuloMenu = (() => {
   let _idPlatoEditando       = null;
 
   // ----------------------------------------------------------
+  // VISTAS
+  // ----------------------------------------------------------
+
+  function _mostrarVistaPlatos(v) {
+    document.getElementById('menu-platos-lista').style.display = v === 'lista' ? 'block' : 'none';
+    document.getElementById('menu-platos-form').style.display  = v === 'form'  ? 'block' : 'none';
+  }
+
+  function _mostrarVistaIngs(v) {
+    document.getElementById('menu-ings-lista').style.display = v === 'lista' ? 'block' : 'none';
+    document.getElementById('menu-ings-form').style.display  = v === 'form'  ? 'block' : 'none';
+  }
+
+  // ----------------------------------------------------------
   // SUBTABS
   // ----------------------------------------------------------
 
@@ -36,6 +49,8 @@ const ModuloMenu = (() => {
     document.querySelector(`#modulo-menu .sub-tab[data-subtab="${cual}"]`)?.classList.add('activo');
     document.getElementById('menu-sub-ingredientes').style.display = cual === 'ingredientes' ? 'block' : 'none';
     document.getElementById('menu-sub-platos').style.display       = cual === 'platos'       ? 'block' : 'none';
+    _mostrarVistaPlatos('lista');
+    _mostrarVistaIngs('lista');
   }
 
   // ----------------------------------------------------------
@@ -59,8 +74,8 @@ const ModuloMenu = (() => {
             <div class="badges-alergenos">${badges}</div>
           </div>
           <div class="card-acciones">
-            <button class="btn-mini btn-editar" onclick="ModuloMenu.editarIngrediente('${ing.id}')" title="Editar">✏</button>
-            <button class="btn-mini btn-borrar" onclick="ModuloMenu.borrarIngrediente('${ing.id}','${ing.nombre.replace(/'/g,"\\'")}');" title="Eliminar">🗑</button>
+            <button class="btn-mini btn-editar" onclick="ModuloMenu.editarIngrediente('${ing.id}')" title="Editar">✏ Editar</button>
+            <button class="btn-mini btn-borrar" onclick="ModuloMenu.borrarIngrediente('${ing.id}','${ing.nombre.replace(/'/g,"\\'")}');" title="Eliminar">🗑 Eliminar</button>
           </div>
         </div>`;
       }).join('');
@@ -76,15 +91,15 @@ const ModuloMenu = (() => {
       const cb = document.getElementById('ing-al-' + nombre.replace(/\s+/g, '-'));
       if (cb) cb.checked = ing.alergenos?.includes(nombre) ?? false;
     });
-    document.getElementById('ing-btn-guardar').textContent = '💾 Actualizar Ingrediente';
-    document.getElementById('ing-btn-cancelar-edicion').style.display = 'inline-flex';
+    document.getElementById('ing-form-titulo').textContent = '✏ Editar Ingrediente';
+    _activarSubtab('ingredientes');
+    _mostrarVistaIngs('form');
     document.getElementById('ing-nombre').focus();
   }
 
   async function borrarIngrediente(id, nombre) {
     if (!confirm(`¿Eliminar el ingrediente "${nombre}"?\nSe eliminará también de los platos que lo usen.`)) return;
     await SB.eliminarIngrediente(id);
-    // Recalcular alérgenos en platos afectados
     const platos = await SB.obtenerPlatos();
     for (const plato of platos) {
       if (plato.ingredientes?.some(i => i.id === id)) {
@@ -100,35 +115,51 @@ const ModuloMenu = (() => {
   async function _guardarIngrediente() {
     const nombre = document.getElementById('ing-nombre').value.trim();
     if (!nombre) { alert('El nombre del ingrediente es obligatorio.'); return; }
-    const alergenos = NOMBRES_ALERGENOS.filter(a => {
-      const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-'));
-      return cb?.checked;
-    });
-    if (_idIngredienteEditando !== null) {
-      await SB.actualizarIngrediente({ id: _idIngredienteEditando, nombre, alergenos });
-      // Actualizar nombre y alérgenos en platos que lo usen
-      const platos = await SB.obtenerPlatos();
-      for (const plato of platos) {
-        if (plato.ingredientes?.some(i => i.id === _idIngredienteEditando)) {
-          const ingsActualizados = plato.ingredientes.map(i => i.id === _idIngredienteEditando ? { ...i, nombre } : i);
-          const nuevosAl         = await _calcularAlergenos(ingsActualizados.map(i => i.id));
-          await SB.actualizarPlato({ ...plato, ingredientes: ingsActualizados, alergenos: nuevosAl });
+    const btn = document.getElementById('ing-btn-guardar');
+    if (btn) btn.disabled = true;
+    try {
+      const alergenos = NOMBRES_ALERGENOS.filter(a => {
+        const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-'));
+        return cb?.checked;
+      });
+      if (_idIngredienteEditando !== null) {
+        await SB.actualizarIngrediente({ id: _idIngredienteEditando, nombre, alergenos });
+        const platos = await SB.obtenerPlatos();
+        for (const plato of platos) {
+          if (plato.ingredientes?.some(i => i.id === _idIngredienteEditando)) {
+            const ingsActualizados = plato.ingredientes.map(i => i.id === _idIngredienteEditando ? { ...i, nombre } : i);
+            const nuevosAl         = await _calcularAlergenos(ingsActualizados.map(i => i.id));
+            await SB.actualizarPlato({ ...plato, ingredientes: ingsActualizados, alergenos: nuevosAl });
+          }
         }
+      } else {
+        await SB.guardarIngrediente({ nombre, alergenos });
       }
-    } else {
-      await SB.guardarIngrediente({ nombre, alergenos });
+      _resetFormIngrediente();
+      await _renderIngredientes();
+      await _renderSelectorIngredientes();
+    } catch (e) {
+      alert('Error al guardar el ingrediente: ' + e.message);
+    } finally {
+      if (btn) btn.disabled = false;
     }
-    _resetFormIngrediente();
-    await _renderIngredientes();
-    await _renderSelectorIngredientes();
+  }
+
+  function _nuevoIngredienteForm() {
+    _idIngredienteEditando = null;
+    document.getElementById('ing-nombre').value = '';
+    NOMBRES_ALERGENOS.forEach(a => { const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-')); if (cb) cb.checked = false; });
+    document.getElementById('ing-form-titulo').textContent = 'Nuevo Ingrediente';
+    _mostrarVistaIngs('form');
+    document.getElementById('ing-nombre').focus();
   }
 
   function _resetFormIngrediente() {
     _idIngredienteEditando = null;
     document.getElementById('ing-nombre').value = '';
     NOMBRES_ALERGENOS.forEach(a => { const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-')); if (cb) cb.checked = false; });
-    document.getElementById('ing-btn-guardar').textContent = '✔ Guardar Ingrediente';
-    document.getElementById('ing-btn-cancelar-edicion').style.display = 'none';
+    document.getElementById('ing-form-titulo').textContent = 'Nuevo Ingrediente';
+    _mostrarVistaIngs('lista');
   }
 
   // ----------------------------------------------------------
@@ -207,8 +238,9 @@ const ModuloMenu = (() => {
     const idsPlato = plato.ingredientes?.map(i => i.id) || [];
     document.querySelectorAll('.plato-ing-check').forEach(cb => { cb.checked = idsPlato.includes(cb.value); });
     await _actualizarAlergenos_realtime();
-    document.getElementById('plato-btn-guardar').textContent = '💾 Actualizar Plato';
-    document.getElementById('plato-btn-cancelar-edicion').style.display = 'inline-flex';
+    document.getElementById('plato-form-titulo').textContent = '✏ Editar Plato';
+    _activarSubtab('platos');
+    _mostrarVistaPlatos('form');
     document.getElementById('plato-nombre').focus();
   }
 
@@ -216,6 +248,31 @@ const ModuloMenu = (() => {
     if (!confirm(`¿Eliminar el plato "${nombre}" de la carta?`)) return;
     await SB.eliminarPlato(id);
     await _renderPlatos();
+  }
+
+  function _nuevoPlatoForm() {
+    _idPlatoEditando = null;
+    document.getElementById('plato-nombre').value  = '';
+    document.getElementById('plato-desc').value    = '';
+    document.getElementById('plato-precio').value  = '';
+    document.querySelectorAll('.plato-ing-check').forEach(cb => cb.checked = false);
+    const div = document.getElementById('plato-alergenos-calculados');
+    if (div) div.innerHTML = '<span class="badge-sin-alergenos">Ninguno</span>';
+    document.getElementById('plato-form-titulo').textContent = 'Nuevo Plato';
+    _mostrarVistaPlatos('form');
+    document.getElementById('plato-nombre').focus();
+  }
+
+  function _resetFormPlato() {
+    _idPlatoEditando = null;
+    document.getElementById('plato-nombre').value  = '';
+    document.getElementById('plato-desc').value    = '';
+    document.getElementById('plato-precio').value  = '';
+    document.querySelectorAll('.plato-ing-check').forEach(cb => cb.checked = false);
+    const div = document.getElementById('plato-alergenos-calculados');
+    if (div) div.innerHTML = '<span class="badge-sin-alergenos">Ninguno</span>';
+    document.getElementById('plato-form-titulo').textContent = 'Nuevo Plato';
+    _mostrarVistaPlatos('lista');
   }
 
   async function _guardarPlato() {
@@ -244,18 +301,6 @@ const ModuloMenu = (() => {
     }
   }
 
-  function _resetFormPlato() {
-    _idPlatoEditando = null;
-    document.getElementById('plato-nombre').value  = '';
-    document.getElementById('plato-desc').value    = '';
-    document.getElementById('plato-precio').value  = '';
-    document.querySelectorAll('.plato-ing-check').forEach(cb => cb.checked = false);
-    const div = document.getElementById('plato-alergenos-calculados');
-    if (div) div.innerHTML = '<span class="badge-sin-alergenos">Ninguno</span>';
-    document.getElementById('plato-btn-guardar').textContent = '✔ Guardar Plato';
-    document.getElementById('plato-btn-cancelar-edicion').style.display = 'none';
-  }
-
   // ----------------------------------------------------------
   // INICIALIZACIÓN
   // ----------------------------------------------------------
@@ -264,11 +309,13 @@ const ModuloMenu = (() => {
     document.querySelectorAll('#modulo-menu .sub-tab').forEach(btn => {
       btn.addEventListener('click', () => _activarSubtab(btn.dataset.subtab));
     });
-    _activarSubtab('platos');
-    document.getElementById('ing-btn-guardar')?.addEventListener('click', _guardarIngrediente);
-    document.getElementById('ing-btn-cancelar-edicion')?.addEventListener('click', _resetFormIngrediente);
+    document.getElementById('plato-btn-nuevo')  ?.addEventListener('click', _nuevoPlatoForm);
+    document.getElementById('plato-btn-volver') ?.addEventListener('click', _resetFormPlato);
     document.getElementById('plato-btn-guardar')?.addEventListener('click', _guardarPlato);
-    document.getElementById('plato-btn-cancelar-edicion')?.addEventListener('click', _resetFormPlato);
+    document.getElementById('ing-btn-nuevo')    ?.addEventListener('click', _nuevoIngredienteForm);
+    document.getElementById('ing-btn-volver')   ?.addEventListener('click', _resetFormIngrediente);
+    document.getElementById('ing-btn-guardar')  ?.addEventListener('click', _guardarIngrediente);
+    _activarSubtab('platos');
     await _renderIngredientes();
     await _renderSelectorIngredientes();
     await _renderPlatos();

@@ -128,6 +128,39 @@ html, body {
   background: var(--card); border-radius: 4px; padding: 2px 6px;
 }
 
+/* ---- Vista lista / form (Carta y Bebidas) ---- */
+.vista-list-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0 8px;
+}
+.vista-list-bar span {
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--texto2);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+}
+.vista-form-bar {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+}
+.btn-volver {
+  background: transparent;
+  border: 1px solid var(--borde);
+  color: var(--texto2);
+  border-radius: var(--radio);
+  padding: 3px 10px;
+  font-size: .8rem;
+  cursor: pointer;
+  transition: all .12s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.btn-volver:hover { border-color: #444; color: var(--texto); }
+
 /* Banner sin conexión */
 #offline-banner {
   background: #7c3aed;
