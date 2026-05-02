@@ -102,7 +102,11 @@
         <button class="nav-tab" data-modulo="config">⚙ Config</button>
       </nav>
 
-      <button id="btn-tema" title="Cambiar tema claro/oscuro" style="flex-shrink:0">🌙</button>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <button id="btn-buscar" title="Búsqueda global">🔍</button>
+        <span id="ind-conexion" class="ind-conexion online" title="Conectado"></span>
+        <button id="btn-tema" title="Cambiar tema claro/oscuro">🌙</button>
+      </div>
     </header>
 
     <!-- Banner offline -->
@@ -659,14 +663,6 @@
         </div>
       </div>
 
-      <div class="tarjeta" style="margin-top:16px">
-        <div class="tarjeta-titulo">Apariencia</div>
-        <div style="display:flex;align-items:center;gap:14px;padding-top:4px">
-          <span style="font-size:.9rem;color:var(--texto2)">Tema:</span>
-          <button id="cfg-btn-tema-osc" class="btn-secundario-sm" onclick="aplicarTema('oscuro')">🌙 Oscuro</button>
-          <button id="cfg-btn-tema-cla" class="btn-secundario-sm" onclick="aplicarTema('claro')">☀ Claro</button>
-        </div>
-      </div>
 
       <div class="tarjeta" style="margin-top:16px">
         <div class="tarjeta-titulo">Impresora de Etiquetas</div>
@@ -775,6 +771,17 @@
       <button class="nav-bottom-tab" data-modulo="facturas"><span class="nb-icon">🧾</span>Facturas</button>
       <button class="nav-bottom-tab" data-modulo="config"><span class="nb-icon">⚙</span>Config</button>
     </nav>
+
+    <!-- Overlay de búsqueda global -->
+    <div id="busqueda-overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Búsqueda">
+      <div id="busqueda-modal">
+        <div class="busqueda-cabecera">
+          <input id="busqueda-inp" type="search" class="inp" placeholder="Buscar platos, bebidas, ingredientes…" autocomplete="off">
+          <button id="busqueda-cerrar" title="Cerrar">✕</button>
+        </div>
+        <div id="busqueda-resultados"></div>
+      </div>
+    </div>
 
   </div><!-- #app-principal -->
 

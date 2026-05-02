@@ -61,6 +61,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Autenticar (bloquea hasta que el login sea correcto)
   await ModuloAuth.init();
 
+  // Navegar al módulo correcto inmediatamente para evitar parpadeo
+  navegarA(sessionStorage.getItem('moduloActivo') || 'dashboard');
+
   // Inicializar módulos
   await ModuloEtiquetas.init();
   await ModuloMenu.init();
@@ -77,30 +80,78 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Botón de tema en cabecera
   document.getElementById('btn-tema')?.addEventListener('click', _toggleTema);
 
-  // Botones de tema en la sección Config
-  document.getElementById('cfg-btn-tema-osc')?.addEventListener('click', () => aplicarTema('oscuro'));
-  document.getElementById('cfg-btn-tema-cla')?.addEventListener('click', () => aplicarTema('claro'));
+  // Búsqueda global
+  document.getElementById('btn-buscar')    ?.addEventListener('click', _abrirBusqueda);
+  document.getElementById('busqueda-cerrar')?.addEventListener('click', _cerrarBusqueda);
+  document.getElementById('busqueda-overlay')?.addEventListener('click', e => { if (e.target.id === 'busqueda-overlay') _cerrarBusqueda(); });
+  document.getElementById('busqueda-inp')  ?.addEventListener('input', e => _ejecutarBusqueda(e.target.value));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') _cerrarBusqueda(); });
 
   // Pestañas de navegación (header + barra inferior móvil)
   document.querySelectorAll('.nav-tab, .nav-bottom-tab').forEach(btn => {
     btn.addEventListener('click', () => navegarA(btn.dataset.modulo));
   });
-
-  // Restaurar módulo activo
-  const moduloGuardado = sessionStorage.getItem('moduloActivo') || 'dashboard';
-  navegarA(moduloGuardado);
 });
 
-// ---- Banner offline ----
+// ---- Banner offline + indicador de conexión ----
 
 function _actualizarBannerOffline() {
   const banner = document.getElementById('offline-banner');
-  if (!banner) return;
-  banner.style.display = navigator.onLine ? 'none' : 'block';
+  if (banner) banner.style.display = navigator.onLine ? 'none' : 'block';
+
+  const dot = document.getElementById('ind-conexion');
+  if (dot) {
+    dot.classList.toggle('online',  navigator.onLine);
+    dot.classList.toggle('offline', !navigator.onLine);
+    dot.title = navigator.onLine ? 'Conectado' : 'Sin conexión';
+  }
 }
 
 window.addEventListener('online',  _actualizarBannerOffline);
 window.addEventListener('offline', _actualizarBannerOffline);
+
+// ---- Búsqueda global ----
+
+function _abrirBusqueda() {
+  const ov = document.getElementById('busqueda-overlay');
+  if (ov) { ov.style.display = 'flex'; document.getElementById('busqueda-inp')?.focus(); }
+}
+
+function _cerrarBusqueda() {
+  const ov = document.getElementById('busqueda-overlay');
+  if (ov) { ov.style.display = 'none'; document.getElementById('busqueda-inp').value = ''; }
+  document.getElementById('busqueda-resultados').innerHTML = '';
+}
+
+async function _ejecutarBusqueda(q) {
+  const res = document.getElementById('busqueda-resultados');
+  if (!res) return;
+  q = q.trim().toLowerCase();
+  if (!q) { res.innerHTML = ''; return; }
+
+  try {
+    const [platos, bebidas, ings] = await Promise.all([
+      SB.obtenerPlatos(), SB.obtenerBebidas(), SB.obtenerIngredientes()
+    ]);
+
+    const filtrar = (arr, modulo, icono, tipo) =>
+      (arr || [])
+        .filter(i => i.nombre.toLowerCase().includes(q))
+        .map(i => `<div class="busq-item" onclick="navegarA('${modulo}');_cerrarBusqueda()">
+          <span>${icono}</span>
+          <span>${i.nombre}${i.precio > 0 ? ' · ' + i.precio.toFixed(2) + ' €' : ''}</span>
+          <span class="busq-tipo">${tipo}</span>
+        </div>`).join('');
+
+    const html = filtrar(platos, 'menu', '🍽', 'Carta')
+               + filtrar(bebidas, 'bebidas', '🥤', 'Bebidas')
+               + filtrar(ings, 'menu', '🥬', 'Ingrediente');
+
+    res.innerHTML = html || '<p style="padding:16px;color:var(--texto2);text-align:center">Sin resultados para "' + q + '"</p>';
+  } catch (e) {
+    res.innerHTML = '<p style="padding:16px;color:var(--err)">Error al buscar</p>';
+  }
+}
 
 // ---- Alertas de caducidad ----
 
