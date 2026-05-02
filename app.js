@@ -68,6 +68,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   await ModuloFacturas.init();
   await ModuloConfig.init();
 
+  // Estado de conexión inicial
+  _actualizarBannerOffline();
+
   // Comprobar caducidades y mostrar alertas
   await _comprobarCaducidades();
 
@@ -90,6 +93,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const moduloGuardado = sessionStorage.getItem('moduloActivo') || 'dashboard';
   navegarA(moduloGuardado);
 });
+
+// ---- Banner offline ----
+
+function _actualizarBannerOffline() {
+  const banner = document.getElementById('offline-banner');
+  if (!banner) return;
+  banner.style.display = navigator.onLine ? 'none' : 'block';
+}
+
+window.addEventListener('online',  _actualizarBannerOffline);
+window.addEventListener('offline', _actualizarBannerOffline);
 
 // ---- Alertas de caducidad ----
 

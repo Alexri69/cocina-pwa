@@ -90,6 +90,20 @@ html, body {
 .nav-tab:hover  { background: rgba(255,255,255,.06); color: var(--texto); }
 .nav-tab.activo { background: rgba(91,124,246,.15); color: var(--acento); }
 
+/* Banner sin conexión */
+#offline-banner {
+  background: #7c3aed;
+  color: #fff;
+  text-align: center;
+  padding: 8px 16px;
+  font-size: .85rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+
 /* Badge de alertas en pestañas */
 .tab-badge {
   display: inline-block;
@@ -788,7 +802,7 @@ textarea.inp  { resize: vertical; min-height: 60px; }
   .sub-nav, .nav-tabs, .panel-estado, .contenedor-progreso, .leyenda,
   .modulo-cabecera-inner, #etq-seccion-historial,
   #etq-btn-historial, #fac-btn-volver, #fac-btn-imprimir,
-  #pantalla-login, #btn-logout { display: none !important; }
+  #pantalla-login, #btn-logout, #offline-banner { display: none !important; }
 
   body { background: white; color: black; font-size: 11pt; }
 

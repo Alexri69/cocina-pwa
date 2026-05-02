@@ -126,6 +126,9 @@ const SB = (() => {
   // ----------------------------------------------------------
 
   async function _req(ruta, opciones = {}) {
+    if ((opciones.method || 'GET').toUpperCase() !== 'GET' && !navigator.onLine) {
+      throw new Error('Sin conexión. Los cambios no se pueden guardar sin conexión a internet.');
+    }
     let res = await fetch(`${BASE}/rest/v1/${ruta}`, opciones);
 
     // Si el token expiró, intentamos refrescarlo una vez y reintentamos
@@ -161,11 +164,37 @@ const SB = (() => {
   const _primero = (arr) => Array.isArray(arr) ? arr[0] ?? null : arr;
 
   // ----------------------------------------------------------
+  // CACHÉ OFFLINE (localStorage, clave cocina_c_<tabla>)
+  // ----------------------------------------------------------
+
+  const _CACHE = {
+    guardar: (k, v) => { try { localStorage.setItem('cocina_c_' + k, JSON.stringify(v)); } catch {} },
+    leer:    (k)    => { try { return JSON.parse(localStorage.getItem('cocina_c_' + k)); } catch { return null; } }
+  };
+
+  // ----------------------------------------------------------
   // INGREDIENTES
   // ----------------------------------------------------------
 
-  const obtenerIngredientes   = ()    => _get('ingredientes', '?select=*&order=timestamp.desc');
-  const obtenerIngrediente    = (id)  => _get('ingredientes', `?id=eq.${id}&select=*`).then(_primero);
+  async function obtenerIngredientes() {
+    try {
+      const datos = await _get('ingredientes', '?select=*&order=timestamp.desc');
+      _CACHE.guardar('ingredientes', datos);
+      return datos;
+    } catch (e) {
+      const cache = _CACHE.leer('ingredientes');
+      if (cache !== null) return cache;
+      throw e;
+    }
+  }
+  async function obtenerIngrediente(id) {
+    try { return await _get('ingredientes', `?id=eq.${id}&select=*`).then(_primero); }
+    catch (e) {
+      const cache = _CACHE.leer('ingredientes');
+      if (cache !== null) return cache.find(i => i.id === id) ?? null;
+      throw e;
+    }
+  }
   const guardarIngrediente    = (d)   => _post('ingredientes', { nombre: d.nombre, alergenos: d.alergenos, timestamp: Date.now() }).then(_primero);
   const actualizarIngrediente = (d)   => _patch('ingredientes', d.id, { nombre: d.nombre, alergenos: d.alergenos }).then(_primero);
   const eliminarIngrediente   = (id)  => _delete('ingredientes', id);
@@ -174,8 +203,25 @@ const SB = (() => {
   // PLATOS
   // ----------------------------------------------------------
 
-  const obtenerPlatos   = ()    => _get('platos', '?select=*&order=timestamp.desc');
-  const obtenerPlato    = (id)  => _get('platos', `?id=eq.${id}&select=*`).then(_primero);
+  async function obtenerPlatos() {
+    try {
+      const datos = await _get('platos', '?select=*&order=timestamp.desc');
+      _CACHE.guardar('platos', datos);
+      return datos;
+    } catch (e) {
+      const cache = _CACHE.leer('platos');
+      if (cache !== null) return cache;
+      throw e;
+    }
+  }
+  async function obtenerPlato(id) {
+    try { return await _get('platos', `?id=eq.${id}&select=*`).then(_primero); }
+    catch (e) {
+      const cache = _CACHE.leer('platos');
+      if (cache !== null) return cache.find(p => p.id === id) ?? null;
+      throw e;
+    }
+  }
   const guardarPlato    = (d)   => _post('platos', { nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos, timestamp: Date.now() }).then(_primero);
   const actualizarPlato = (d)   => _patch('platos', d.id, { nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos }).then(_primero);
   const eliminarPlato   = (id)  => _delete('platos', id);
@@ -219,9 +265,38 @@ const SB = (() => {
     };
   }
 
-  const obtenerFacturas     = ()   => _get('facturas', '?select=*&tipo=eq.factura&order=timestamp.desc').then(arr => (arr || []).map(_facturaDeBD));
-  const obtenerPresupuestos = ()   => _get('facturas', '?select=*&tipo=eq.presupuesto&order=timestamp.desc').then(arr => (arr || []).map(_facturaDeBD));
-  const obtenerFactura      = (id) => _get('facturas', `?id=eq.${id}&select=*`).then(arr => _facturaDeBD(_primero(arr)));
+  async function obtenerFacturas() {
+    try {
+      const datos = await _get('facturas', '?select=*&tipo=eq.factura&order=timestamp.desc').then(arr => (arr || []).map(_facturaDeBD));
+      _CACHE.guardar('facturas', datos);
+      return datos;
+    } catch (e) {
+      const cache = _CACHE.leer('facturas');
+      if (cache !== null) return cache;
+      throw e;
+    }
+  }
+  async function obtenerPresupuestos() {
+    try {
+      const datos = await _get('facturas', '?select=*&tipo=eq.presupuesto&order=timestamp.desc').then(arr => (arr || []).map(_facturaDeBD));
+      _CACHE.guardar('presupuestos', datos);
+      return datos;
+    } catch (e) {
+      const cache = _CACHE.leer('presupuestos');
+      if (cache !== null) return cache;
+      throw e;
+    }
+  }
+  async function obtenerFactura(id) {
+    try { return await _get('facturas', `?id=eq.${id}&select=*`).then(arr => _facturaDeBD(_primero(arr))); }
+    catch (e) {
+      const cacheF = _CACHE.leer('facturas')    || [];
+      const cacheP = _CACHE.leer('presupuestos') || [];
+      const found  = [...cacheF, ...cacheP].find(f => f.id === id);
+      if (found) return found;
+      throw e;
+    }
+  }
   const guardarFactura      = (f)  => _post('facturas', _facturaParaBD(f)).then(r => _facturaDeBD(_primero(r)));
   const actualizarFactura   = (f)  => _patch('facturas', f.id, _facturaParaBD(f)).then(r => _facturaDeBD(_primero(r)));
   const borrarFactura       = (id) => _delete('facturas', id);
@@ -281,8 +356,25 @@ const SB = (() => {
   // BEBIDAS
   // ----------------------------------------------------------
 
-  const obtenerBebidas   = ()   => _get('bebidas', '?select=*&order=timestamp.desc');
-  const obtenerBebida    = (id) => _get('bebidas', `?id=eq.${id}&select=*`).then(_primero);
+  async function obtenerBebidas() {
+    try {
+      const datos = await _get('bebidas', '?select=*&order=timestamp.desc');
+      _CACHE.guardar('bebidas', datos);
+      return datos;
+    } catch (e) {
+      const cache = _CACHE.leer('bebidas');
+      if (cache !== null) return cache;
+      throw e;
+    }
+  }
+  async function obtenerBebida(id) {
+    try { return await _get('bebidas', `?id=eq.${id}&select=*`).then(_primero); }
+    catch (e) {
+      const cache = _CACHE.leer('bebidas');
+      if (cache !== null) return cache.find(b => b.id === id) ?? null;
+      throw e;
+    }
+  }
   const guardarBebida    = (d)  => _post('bebidas', { nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', timestamp: Date.now() }).then(_primero);
   const actualizarBebida = (d)  => _patch('bebidas', d.id, { nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro' }).then(_primero);
   const eliminarBebida   = (id) => _delete('bebidas', id);
