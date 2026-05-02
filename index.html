@@ -209,7 +209,7 @@
               </div>
             </div>
             <div class="form-acciones">
-              <button id="etq-m-btn-generar" class="btn btn-primario-sm">✔ Generar etiqueta</button>
+              <button id="etq-m-btn-generar" class="btn btn-primario-sm">💾 Guardar e Imprimir</button>
             </div>
           </div>
         </div>
@@ -813,16 +813,26 @@
   <!-- ========================================================
        SCRIPTS — orden obligatorio: core → modulos → app
        ======================================================== -->
-  <script src="core/bd.js"></script>
-  <script src="core/voz.js"></script>
-  <script src="core/supabase.js"></script>
-  <script src="modulos/etiquetas.js"></script>
-  <script src="modulos/menu.js"></script>
-  <script src="modulos/bebidas.js"></script>
-  <script src="modulos/facturas.js"></script>
-  <script src="modulos/auth.js"></script>
-  <script src="modulos/config.js"></script>
-  <script src="app.js"></script>
+  <script src="core/bd.js?v=26"></script>
+  <script src="core/voz.js?v=26"></script>
+  <script src="core/supabase.js?v=26"></script>
+  <script src="modulos/etiquetas.js?v=26"></script>
+  <script src="modulos/menu.js?v=26"></script>
+  <script src="modulos/bebidas.js?v=26"></script>
+  <script src="modulos/facturas.js?v=26"></script>
+  <script src="modulos/auth.js?v=26"></script>
+  <script src="modulos/config.js?v=26"></script>
+  <script src="app.js?v=26"></script>
+  <script>
+    // Recarga automática cuando el Service Worker se actualiza
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', function(e) {
+        if (e.data && e.data.tipo === 'SW_ACTUALIZADO') {
+          setTimeout(function() { location.reload(); }, 400);
+        }
+      });
+    }
+  </script>
 
 </body>
 </html>

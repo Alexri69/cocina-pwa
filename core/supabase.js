@@ -18,31 +18,41 @@ const SB = (() => {
   // AUTENTICACIÓN
   // ----------------------------------------------------------
 
+  // Extrae el 'sub' (user UUID) del payload de un JWT sin validar firma
+  function _subDeJWT(token) {
+    try {
+      const b64url = (token || '').split('.')[1];
+      if (!b64url) return null;
+      const b64    = b64url.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = b64 + '='.repeat((4 - b64.length % 4) % 4);
+      return JSON.parse(atob(padded)).sub ?? null;
+    } catch { return null; }
+  }
+
   function _cargarSesion() {
     if (_sesion) return;
     try { _sesion = JSON.parse(localStorage.getItem(CLAVE_SESION)); } catch { _sesion = null; }
+    // Si la sesión guardada no tiene user_id, extraerlo del token
+    if (_sesion && !_sesion.user_id) {
+      const sub = _subDeJWT(_sesion.access_token);
+      if (sub) { _sesion.user_id = sub; try { localStorage.setItem(CLAVE_SESION, JSON.stringify(_sesion)); } catch {} }
+    }
   }
 
   function _guardarSesion(datos) {
+    const userId = datos.user?.id ?? _subDeJWT(datos.access_token) ?? null;
     _sesion = {
       access_token:  datos.access_token,
       refresh_token: datos.refresh_token,
       expires_at:    Date.now() + (datos.expires_in || 3600) * 1000,
-      user_id:       datos.user?.id ?? null,
+      user_id:       userId,
     };
     localStorage.setItem(CLAVE_SESION, JSON.stringify(_sesion));
   }
 
   function _uid() {
-    if (_sesion?.user_id) return _sesion.user_id;
-    // Fallback: decodificar el JWT (base64url → base64 estándar antes de atob)
-    try {
-      const b64url  = _sesion.access_token.split('.')[1];
-      const b64     = b64url.replace(/-/g, '+').replace(/_/g, '/');
-      const padded  = b64 + '='.repeat((4 - b64.length % 4) % 4);
-      const payload = JSON.parse(atob(padded));
-      return payload.sub ?? null;
-    } catch { return null; }
+    _cargarSesion();
+    return _sesion?.user_id ?? _subDeJWT(_sesion?.access_token) ?? null;
   }
 
   /** Devuelve true si hay sesión activa y no ha expirado. */
@@ -139,17 +149,23 @@ const SB = (() => {
   // ----------------------------------------------------------
 
   async function _req(ruta, opciones = {}) {
-    if ((opciones.method || 'GET').toUpperCase() !== 'GET' && !navigator.onLine) {
-      throw new Error('Sin conexión. Los cambios no se pueden guardar sin conexión a internet.');
+    let res;
+    try {
+      res = await fetch(`${BASE}/rest/v1/${ruta}`, opciones);
+    } catch (err) {
+      throw new Error('Sin conexión o error de red. Comprueba tu conexión a internet.');
     }
-    let res = await fetch(`${BASE}/rest/v1/${ruta}`, opciones);
 
     // Si el token expiró, intentamos refrescarlo una vez y reintentamos
     if (res.status === 401) {
       const ok = await refrescarSesion();
       if (ok) {
         opciones.headers = { ...opciones.headers, 'Authorization': `Bearer ${_sesion.access_token}` };
-        res = await fetch(`${BASE}/rest/v1/${ruta}`, opciones);
+        try {
+          res = await fetch(`${BASE}/rest/v1/${ruta}`, opciones);
+        } catch (err) {
+          throw new Error('Sin conexión o error de red. Comprueba tu conexión a internet.');
+        }
       } else {
         // No se pudo refrescar: forzar logout y recarga
         logout();
@@ -212,7 +228,16 @@ const SB = (() => {
     }
   }
 
-  const guardarProducto    = (p)  => _post('productos', { ..._productoParaBD(p), user_id: _uid() }).then(r => _productoDeBD(_primero(r)));
+  async function guardarProducto(p) {
+    let uid = _uid();
+    if (!uid) {
+      // Intentar refrescar la sesión para obtener user_id
+      await refrescarSesion();
+      uid = _uid();
+    }
+    if (!uid) throw new Error('Sesión no válida. Cierra sesión y vuelve a entrar.');
+    return _post('productos', { ..._productoParaBD(p), user_id: uid }).then(r => _productoDeBD(_primero(r)));
+  }
   const actualizarProducto = (p)  => _patch('productos', p.id, _productoParaBD(p)).then(r => _productoDeBD(_primero(r)));
   const eliminarProducto   = (id) => _delete('productos', id);
 

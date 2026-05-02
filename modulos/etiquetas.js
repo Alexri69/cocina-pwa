@@ -68,6 +68,11 @@ const ModuloEtiquetas = (() => {
     if (!lote)   { alert('El número de lote es obligatorio.');      return; }
     if (dias < 1){ alert('Los días de caducidad deben ser al menos 1.'); return; }
 
+    // Abrir la ventana de impresión AHORA, mientras el gesto del usuario está activo
+    // (después de un await se pierde el permiso para abrir popups en Chrome)
+    const printWin = window.open('', '_blank', 'width=320,height=400');
+    if (!printWin) { alert('El navegador bloqueó la ventana emergente.\nPermite ventanas emergentes para esta página en la barra de direcciones.'); return; }
+
     const fechaApertura  = apert ? new Date(apert) : new Date();
     const fechaCaducidad = new Date(fechaApertura.getTime() + dias * 86400000);
     const alergenos      = ALERGENOS.filter((_, i) => document.getElementById(`etq-m-al-${i}`)?.checked);
@@ -82,11 +87,29 @@ const ModuloEtiquetas = (() => {
       timestamp: fechaApertura.getTime()
     };
 
-    try { await SB.guardarProducto({ ...producto }); }
-    catch (e) { console.error('[Etiquetas] Error al guardar:', e); }
+    const msgEl = document.getElementById('etq-mensaje');
+    const btn   = document.getElementById('etq-m-btn-generar');
+    if (msgEl) { msgEl.textContent = '⏳ Guardando…'; msgEl.style.color = ''; }
+    if (btn) btn.disabled = true;
+    try {
+      await SB.guardarProducto({ ...producto });
+      if (msgEl) { msgEl.textContent = '✔ Guardado correctamente'; msgEl.style.color = '#27ae60'; }
+    } catch (e) {
+      console.error('[Etiquetas] Error al guardar:', e);
+      if (msgEl) { msgEl.textContent = '❌ Error: ' + e.message; msgEl.style.color = '#e74c3c'; }
+      printWin.close();
+      alert('Error al guardar la etiqueta:\n' + e.message);
+      if (btn) btn.disabled = false;
+      return;
+    } finally {
+      if (btn) btn.disabled = false;
+    }
 
     _mostrarEtiqueta(producto);
     await _actualizarHistorial();
+
+    // Rellenar y lanzar la ventana de impresión
+    _escribirVentanaImpresion(printWin);
   }
 
   // ----------------------------------------------------------
@@ -269,7 +292,9 @@ const ModuloEtiquetas = (() => {
       guardado = true;
     } catch (e) {
       console.error('[Etiquetas] Error al guardar:', e);
-      await VOZ.hablar('Error al guardar el producto. Comprueba la conexión.');
+      const msgEl = document.getElementById('etq-mensaje');
+      if (msgEl) { msgEl.textContent = '❌ Error al guardar: ' + e.message; msgEl.style.color = '#e74c3c'; }
+      await VOZ.hablar('Error al guardar el producto. ' + (navigator.onLine ? 'Hay un problema con el servidor.' : 'Comprueba la conexión a internet.'));
     }
 
     _mostrarEtiqueta(estado.producto);
@@ -325,12 +350,40 @@ const ModuloEtiquetas = (() => {
   // IMPRESIÓN
   // ----------------------------------------------------------
 
+  const _CSS_ETIQUETA = `
+@page{size:62mm auto;margin:2mm}
+body{margin:0;padding:2mm;font-family:Arial,sans-serif}
+.etiqueta{width:58mm;border:2px solid #000;padding:3mm 4mm;font-size:8.5pt}
+.etiqueta-nombre{font-size:12pt;font-weight:700;border-bottom:1px solid #000;padding-bottom:1mm;margin-bottom:2mm}
+.etiqueta-lote,.etiqueta-fecha{margin:1mm 0}
+.etiqueta-caducidad{padding:2mm 3mm;margin:2mm 0;border-radius:2px;font-weight:700;color:#fff;font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.verde{background:#27ae60!important}.amarillo{background:#e67e22!important}.rojo{background:#e74c3c!important}
+.etiqueta-alergenos{font-weight:700;font-size:8pt;margin-top:2mm}
+.etiqueta-normativa{font-size:6.5pt;text-align:right;color:#888;margin-top:1mm}`;
+
+  function _escribirVentanaImpresion(win) {
+    const preview = document.getElementById('etq-preview');
+    if (!preview?.innerHTML) { win.close(); return; }
+    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><style>${_CSS_ETIQUETA}</style></head><body>${preview.innerHTML}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 500);
+  }
+
+  function _abrirVentanaImpresion() {
+    const preview = document.getElementById('etq-preview');
+    if (!preview?.innerHTML) { alert('Primero genera una etiqueta.'); return; }
+    const win = window.open('', '_blank', 'width=320,height=400');
+    if (!win) { alert('El navegador bloqueó la ventana emergente.\nPermite ventanas emergentes para este sitio en la barra de direcciones.'); return; }
+    _escribirVentanaImpresion(win);
+  }
+
   async function _imprimir() {
     if (navigator.bluetooth) {
       try { await _imprimirBluetooth(estado.producto); return; }
-      catch (e) { console.warn('[Impresora] Bluetooth falló, usando window.print:', e); }
+      catch (e) { console.warn('[Impresora] Bluetooth falló, usando ventana emergente:', e); }
     }
-    window.print();
+    _abrirVentanaImpresion();
   }
 
   async function _imprimirBluetooth(p) {
@@ -415,7 +468,7 @@ const ModuloEtiquetas = (() => {
     if (!p) return;
     _mostrarEtiqueta(p);
     await new Promise(r => setTimeout(r, 200));
-    window.print();
+    _abrirVentanaImpresion();
   }
 
   // ----------------------------------------------------------
