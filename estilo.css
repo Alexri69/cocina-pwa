@@ -91,14 +91,6 @@ html, body {
 .nav-tab:hover  { background: rgba(255,255,255,.06); color: var(--texto); }
 .nav-tab.activo { background: rgba(91,124,246,.15); color: var(--acento); }
 
-/* Indicador de conexión (punto verde/rojo en cabecera) */
-.ind-conexion {
-  width: 10px; height: 10px; border-radius: 50%;
-  display: inline-block; flex-shrink: 0;
-  transition: background .3s;
-}
-.ind-conexion.online  { background: #4ade80; box-shadow: 0 0 4px #4ade8088; }
-.ind-conexion.offline { background: #f87171; box-shadow: 0 0 4px #f8717188; }
 
 /* Overlay de búsqueda global */
 #busqueda-overlay {
@@ -206,7 +198,8 @@ html, body {
   50%     { box-shadow: 0 0 0 10px rgba(91,124,246,0); }
 }
 
-#btn-tema {
+/* Botones de cabecera (tema, búsqueda, conexión) */
+.cab-btn {
   background: transparent;
   color: var(--texto2);
   border: 1px solid var(--borde);
@@ -217,22 +210,15 @@ html, body {
   transition: all .12s;
   flex-shrink: 0;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
 }
-#btn-tema:hover { color: var(--texto); border-color: #777; background: rgba(128,128,128,.08); }
+.cab-btn:hover { color: var(--texto); border-color: #777; background: rgba(128,128,128,.08); }
+.cab-btn.online  { color: #4ade80; }
+.cab-btn.offline { color: #f87171; }
 
-#btn-logout {
-  background: transparent;
-  color: var(--texto2);
-  border: 1px solid var(--borde);
-  border-radius: var(--radio);
-  padding: 5px 12px;
-  font-size: .8rem;
-  cursor: pointer;
-  transition: all .12s;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-#btn-logout:hover { color: var(--texto); border-color: #444; background: rgba(255,255,255,.04); }
 
 /* ============================================================
    LAYOUT

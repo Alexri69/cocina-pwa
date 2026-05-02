@@ -103,7 +103,8 @@ function _actualizarBannerOffline() {
   if (dot) {
     dot.classList.toggle('online',  navigator.onLine);
     dot.classList.toggle('offline', !navigator.onLine);
-    dot.title = navigator.onLine ? 'Conectado' : 'Sin conexión';
+    dot.title       = navigator.onLine ? 'Conectado' : 'Sin conexión';
+    dot.textContent = '●';
   }
 }
 
