@@ -263,25 +263,26 @@ const ModuloEtiquetas = (() => {
 
   async function _finalizar() {
     estado.paso = PASOS.GUARDADO;
-    try { await SB.guardarProducto({ ...estado.producto }); }
-    catch (e) {
+    let guardado = false;
+    try {
+      await SB.guardarProducto({ ...estado.producto });
+      guardado = true;
+    } catch (e) {
       console.error('[Etiquetas] Error al guardar:', e);
       await VOZ.hablar('Error al guardar el producto. Comprueba la conexión.');
     }
 
     _mostrarEtiqueta(estado.producto);
-    await _actualizarHistorial();
-    // Asegurarse de que el historial esté visible para que el usuario pueda imprimir luego
-    const secHist = document.getElementById('etq-seccion-historial');
-    const btnHist = document.getElementById('etq-btn-historial');
-    if (secHist) secHist.style.display = 'block';
-    if (btnHist) btnHist.textContent = '▲ Ocultar historial';
 
-    await VOZ.hablar('Producto registrado. ¿Deseas imprimir la etiqueta?');
-    try {
-      const r = await VOZ.escuchar();
-      if (VOZ.detectarSiNo(r) === true) { await VOZ.hablar('Enviando a la impresora.'); await _imprimir(); }
-    } catch { /* sin respuesta: no imprimir */ }
+    if (guardado) {
+      await _actualizarHistorial();
+      const secHist = document.getElementById('etq-seccion-historial');
+      const btnHist = document.getElementById('etq-btn-historial');
+      if (secHist) secHist.style.display = 'block';
+      if (btnHist) btnHist.textContent = '▲ Ocultar historial';
+      await VOZ.hablar('Producto guardado. Puedes imprimir cuando quieras.');
+    }
+
     _reiniciar();
   }
 
