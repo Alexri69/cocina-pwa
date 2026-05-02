@@ -190,19 +190,50 @@ const ModuloEtiquetas = (() => {
   async function _pasoAlergeno() {
     await VOZ.hablar('¿Qué alérgenos contiene? Di los que tiene, por ejemplo: gluten y leche. O di ninguno.');
     try {
-      const r          = await VOZ.escuchar();
-      const detectados = _detectarAlergenos(r);
-      const confirmar  = detectados.length
-        ? `He anotado: ${detectados.join(', ')}.`
-        : 'Sin alérgenos declarados.';
-      await VOZ.hablar(confirmar);
-      estado.producto.alergenos = detectados;
+      const r = await VOZ.escuchar();
+      estado.producto.alergenos = _detectarAlergenos(r);
+    } catch {
+      await VOZ.hablar('No te he escuchado. ¿Qué alérgenos contiene?');
+      return _pasoAlergeno();
+    }
+    await _confirmarAlergenos();
+  }
+
+  async function _confirmarAlergenos() {
+    const lista   = estado.producto.alergenos;
+    const resumen = lista.length
+      ? `He anotado: ${lista.join(', ')}. ¿Falta alguno?`
+      : 'Sin alérgenos anotados. ¿Falta alguno?';
+    await VOZ.hablar(resumen);
+
+    try {
+      const r  = await VOZ.escuchar();
+      const sn = VOZ.detectarSiNo(r);
+
+      if (sn === true) {
+        await VOZ.hablar('¿Cuál?');
+        try {
+          const r2     = await VOZ.escuchar();
+          const nuevos = _detectarAlergenos(r2);
+          if (nuevos.length) {
+            nuevos.forEach(a => { if (!estado.producto.alergenos.includes(a)) estado.producto.alergenos.push(a); });
+          } else {
+            await VOZ.hablar('No he reconocido ese alérgeno. Prueba de nuevo.');
+          }
+        } catch {
+          await VOZ.hablar('No te he escuchado.');
+        }
+        return _confirmarAlergenos(); // vuelve a confirmar sin reiniciar el proceso
+      }
+
+      // sn === false o null → dar por terminado
       estado.paso = PASOS.CONFIRMAR;
       _setProgreso(ALERGENOS.length);
       await _despachar();
+
     } catch {
-      await VOZ.hablar('No te he escuchado. ¿Qué alérgenos contiene?');
-      await _pasoAlergeno();
+      await VOZ.hablar('Responde sí si falta alguno, o no para continuar.');
+      return _confirmarAlergenos();
     }
   }
 
