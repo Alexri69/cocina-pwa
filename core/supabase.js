@@ -27,10 +27,13 @@ const SB = (() => {
     _sesion = {
       access_token:  datos.access_token,
       refresh_token: datos.refresh_token,
-      expires_at:    Date.now() + (datos.expires_in || 3600) * 1000
+      expires_at:    Date.now() + (datos.expires_in || 3600) * 1000,
+      user_id:       datos.user?.id ?? null,
     };
     localStorage.setItem(CLAVE_SESION, JSON.stringify(_sesion));
   }
+
+  const _uid = () => _sesion?.user_id ?? null;
 
   /** Devuelve true si hay sesión activa y no ha expirado. */
   function isLoggedIn() {
@@ -199,7 +202,7 @@ const SB = (() => {
     }
   }
 
-  const guardarProducto    = (p)  => _post('productos', _productoParaBD(p)).then(r => _productoDeBD(_primero(r)));
+  const guardarProducto    = (p)  => _post('productos', { ..._productoParaBD(p), user_id: _uid() }).then(r => _productoDeBD(_primero(r)));
   const actualizarProducto = (p)  => _patch('productos', p.id, _productoParaBD(p)).then(r => _productoDeBD(_primero(r)));
   const eliminarProducto   = (id) => _delete('productos', id);
 
@@ -226,7 +229,7 @@ const SB = (() => {
       throw e;
     }
   }
-  const guardarIngrediente    = (d)   => _post('ingredientes', { nombre: d.nombre, alergenos: d.alergenos, timestamp: Date.now() }).then(_primero);
+  const guardarIngrediente    = (d)   => _post('ingredientes', { nombre: d.nombre, alergenos: d.alergenos, timestamp: Date.now(), user_id: _uid() }).then(_primero);
   const actualizarIngrediente = (d)   => _patch('ingredientes', d.id, { nombre: d.nombre, alergenos: d.alergenos }).then(_primero);
   const eliminarIngrediente   = (id)  => _delete('ingredientes', id);
 
@@ -253,7 +256,7 @@ const SB = (() => {
       throw e;
     }
   }
-  const guardarPlato    = (d)   => _post('platos', { nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos, timestamp: Date.now() }).then(_primero);
+  const guardarPlato    = (d)   => _post('platos', { nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos, timestamp: Date.now(), user_id: _uid() }).then(_primero);
   const actualizarPlato = (d)   => _patch('platos', d.id, { nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos }).then(_primero);
   const eliminarPlato   = (id)  => _delete('platos', id);
 
@@ -328,7 +331,7 @@ const SB = (() => {
       throw e;
     }
   }
-  const guardarFactura      = (f)  => _post('facturas', _facturaParaBD(f)).then(r => _facturaDeBD(_primero(r)));
+  const guardarFactura      = (f)  => _post('facturas', { ..._facturaParaBD(f), user_id: _uid() }).then(r => _facturaDeBD(_primero(r)));
   const actualizarFactura   = (f)  => _patch('facturas', f.id, _facturaParaBD(f)).then(r => _facturaDeBD(_primero(r)));
   const borrarFactura       = (id) => _delete('facturas', id);
 
@@ -409,7 +412,7 @@ const SB = (() => {
       throw e;
     }
   }
-  const guardarBebida    = (d)  => _post('bebidas', { nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', timestamp: Date.now() }).then(_primero);
+  const guardarBebida    = (d)  => _post('bebidas', { nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', timestamp: Date.now(), user_id: _uid() }).then(_primero);
   const actualizarBebida = (d)  => _patch('bebidas', d.id, { nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro' }).then(_primero);
   const eliminarBebida   = (id) => _delete('bebidas', id);
 
