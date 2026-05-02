@@ -62,6 +62,7 @@ html, body {
 }
 
 .cabecera-izq { display: flex; align-items: baseline; gap: 10px; flex-shrink: 0; }
+.cabecera-der { display: flex; align-items: center; gap: 10px; flex-shrink: 0; margin-left: auto; }
 .cabecera-titulo    { font-size: 1rem; font-weight: 700; letter-spacing: -.3px; }
 .cabecera-subtitulo { font-size: .7rem; color: var(--texto2); }
 

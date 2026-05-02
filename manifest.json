@@ -1,7 +1,7 @@
 {
-  "name": "Cocina Etiquetas — Trazabilidad",
-  "short_name": "Etiquetas",
-  "description": "Gestión de etiquetado de recipientes abiertos. Cumple Reg. UE 1169/2011 y RD 126/2015.",
+  "name": "Cocina",
+  "short_name": "Cocina",
+  "description": "Gestión de cocina profesional: etiquetado, carta, bebidas y facturas. Cumple Reg. UE 1169/2011 y RD 126/2015.",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",
