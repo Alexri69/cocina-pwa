@@ -42,20 +42,40 @@ const VOZ = (() => {
    *   - Resuelve con el texto reconocido.
    *   - Rechaza si hay error o silencio prolongado.
    */
-  function escuchar() {
+  function escuchar(timeoutMs = 9000) {
     return new Promise((ok, err) => {
       if (!SpeechRecognition) {
         err(new Error('Reconocimiento de voz no soportado en este navegador.'));
         return;
       }
-      const r        = new SpeechRecognition();
-      r.lang          = 'es-ES';
-      r.interimResults= false; // Solo resultados finales: más fiables
+      const r = new SpeechRecognition();
+      r.lang            = 'es-ES';
+      r.interimResults  = false;
       r.maxAlternatives = 1;
-      r.continuous    = false; // Parar tras la primera frase
+      r.continuous      = true; // No se corta en pausas cortas
 
-      r.onresult = (e) => ok(e.results[0][0].transcript.trim().toLowerCase());
-      r.onerror  = (e) => err(new Error(e.error));
+      let resuelto = false;
+
+      const _ok  = (txt) => { if (resuelto) return; resuelto = true; clearTimeout(tOut); try { r.stop(); } catch {} ok(txt); };
+      const _err = (e)   => { if (resuelto) return; resuelto = true; clearTimeout(tOut); try { r.stop(); } catch {} err(e); };
+
+      // Tiempo máximo de espera por si no llega ningún resultado
+      const tOut = setTimeout(() => _err(new Error('timeout')), timeoutMs);
+
+      r.onresult = (e) => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            _ok(e.results[i][0].transcript.trim().toLowerCase());
+            return;
+          }
+        }
+      };
+
+      r.onerror = (e) => {
+        if (e.error === 'no-speech') return; // ignorar silencio, seguir esperando
+        _err(new Error(e.error));
+      };
+
       r.start();
     });
   }

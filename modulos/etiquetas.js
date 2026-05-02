@@ -162,22 +162,48 @@ const ModuloEtiquetas = (() => {
     } catch { await VOZ.hablar('No he entendido los días. Di solo el número.'); await _pasoDias(); }
   }
 
+  // Detecta qué alérgenos del listado oficial aparecen en el texto libre del usuario
+  function _detectarAlergenos(texto) {
+    const t = texto.toLowerCase();
+    if (/ninguno|no (contiene|tiene)|sin alérgeno|libre/.test(t)) return [];
+
+    const sinonimos = {
+      'gluten':            ['gluten','trigo','cebada','avena','centeno','espelta'],
+      'crustáceos':        ['crustáceo','crustaceo','marisco','gamba','langosta','cangrejo','langostino'],
+      'huevo':             ['huevo'],
+      'pescado':           ['pescado','atún','atun','salmón','salmon','bacalao','merluza','boquerón'],
+      'cacahuetes':        ['cacahuete','maní','mani'],
+      'soja':              ['soja','soya'],
+      'leche':             ['leche','lácteo','lacteo','lactosa','mantequilla','queso','nata','yogur'],
+      'frutos de cáscara': ['cáscara','cascara','nuez','nueces','almendra','avellana','pistacho','anacardo','piñón','castaña'],
+      'apio':              ['apio'],
+      'mostaza':           ['mostaza'],
+      'granos de sésamo':  ['sésamo','sesamo','tahini'],
+      'altramuces':        ['altramuz','altramuces'],
+      'moluscos':          ['molusco','calamar','pulpo','mejillón','ostra','berberecho'],
+      'sulfitos':          ['sulfito','sulfuroso','azufre'],
+    };
+
+    return ALERGENOS.filter(a => (sinonimos[a] || [a]).some(k => t.includes(k)));
+  }
+
   async function _pasoAlergeno() {
-    const nombre = ALERGENOS[estado.indiceAlergeno];
-    await VOZ.hablar(`¿Contiene ${nombre}?`);
+    await VOZ.hablar('¿Qué alérgenos contiene? Di los que tiene, por ejemplo: gluten y leche. O di ninguno.');
     try {
-      const r  = await VOZ.escuchar();
-      const sn = VOZ.detectarSiNo(r);
-      if (sn === null) {
-        await VOZ.hablar(`No he entendido. Responde sí o no. ¿Contiene ${nombre}?`);
-        return _pasoAlergeno();
-      }
-      if (sn) estado.producto.alergenos.push(nombre);
-      estado.indiceAlergeno++;
-      _setProgreso(estado.indiceAlergeno);
-      if (estado.indiceAlergeno >= ALERGENOS.length) estado.paso = PASOS.CONFIRMAR;
+      const r          = await VOZ.escuchar();
+      const detectados = _detectarAlergenos(r);
+      const confirmar  = detectados.length
+        ? `He anotado: ${detectados.join(', ')}.`
+        : 'Sin alérgenos declarados.';
+      await VOZ.hablar(confirmar);
+      estado.producto.alergenos = detectados;
+      estado.paso = PASOS.CONFIRMAR;
+      _setProgreso(ALERGENOS.length);
       await _despachar();
-    } catch { await VOZ.hablar(`No he captado la respuesta. ¿Contiene ${nombre}? Sí o no.`); await _pasoAlergeno(); }
+    } catch {
+      await VOZ.hablar('No te he escuchado. ¿Qué alérgenos contiene?');
+      await _pasoAlergeno();
+    }
   }
 
   async function _pasoConfirmar() {
