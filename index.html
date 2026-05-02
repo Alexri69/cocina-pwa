@@ -86,7 +86,9 @@
     <header class="cabecera" role="banner">
       <div class="cabecera-izq">
         <button class="cabecera-titulo-btn" onclick="navegarA('dashboard')" title="Inicio">
-          <span>🍽</span><span class="cabecera-titulo">Cocina</span>
+          <span id="cabecera-logo-emoji">🍽</span>
+          <img id="cabecera-logo-img" style="display:none;height:32px;object-fit:contain;border-radius:4px" alt="logo">
+          <span class="cabecera-titulo" id="cabecera-titulo">Cocina</span>
         </button>
         <div class="cabecera-subtitulo">Reg. UE 1169/2011 · RD 126/2015</div>
       </div>
@@ -100,11 +102,7 @@
         <button class="nav-tab" data-modulo="config">⚙ Config</button>
       </nav>
 
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-        <div id="indicador-microfono" aria-label="Estado del micrófono" role="status">🎤</div>
-        <button id="btn-tema" title="Cambiar tema claro/oscuro">🌙</button>
-        <button id="btn-logout" title="Cerrar sesión">⏻ Salir</button>
-      </div>
+      <button id="btn-tema" title="Cambiar tema claro/oscuro" style="flex-shrink:0">🌙</button>
     </header>
 
     <!-- Banner offline -->
@@ -643,6 +641,18 @@
             <input id="cfg-iban" type="text" class="inp" placeholder="ES00 0000 0000 00 0000000000">
           </div>
         </div>
+          <div class="form-grupo form-grupo-full">
+            <label>Logo del restaurante</label>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <img id="cfg-logo-preview" style="height:48px;object-fit:contain;display:none;border-radius:4px" alt="logo">
+              <label class="btn btn-secundario-sm" style="cursor:pointer;margin:0">
+                📷 Subir logo
+                <input id="cfg-logo-input" type="file" accept="image/*" style="display:none">
+              </label>
+              <button id="cfg-logo-quitar" class="btn btn-secundario-sm" style="display:none;color:var(--err);border-color:var(--err)">✕ Quitar logo</button>
+            </div>
+          </div>
+
         <div class="form-acciones" style="align-items:center">
           <button id="cfg-btn-guardar" class="btn btn-primario-sm">💾 Guardar configuración</button>
           <span id="cfg-msg" style="font-size:.85rem;color:var(--ok)"></span>
@@ -736,6 +746,14 @@
           </label>
           <span id="bkp-msg" style="font-size:.85rem;color:var(--ok)"></span>
         </div>
+      </div>
+
+      <div class="tarjeta" style="margin-top:16px">
+        <div class="tarjeta-titulo">Sesión</div>
+        <p style="font-size:.85rem;color:var(--texto2);margin-bottom:14px">
+          Tu sesión se mantiene activa. Ciérrala si usas un dispositivo compartido.
+        </p>
+        <button id="cfg-btn-logout" class="btn btn-secundario-sm" style="color:var(--err);border-color:var(--err)">⏻ Cerrar sesión</button>
       </div>
 
       </div><!-- fin wrapper config -->

@@ -74,11 +74,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Comprobar caducidades y mostrar alertas
   await _comprobarCaducidades();
 
-  // Botones de cabecera
+  // Botón de tema en cabecera
   document.getElementById('btn-tema')?.addEventListener('click', _toggleTema);
-  document.getElementById('btn-logout')?.addEventListener('click', () => {
-    if (confirm('¿Cerrar sesión?')) { SB.logout(); location.reload(); }
-  });
 
   // Botones de tema en la sección Config
   document.getElementById('cfg-btn-tema-osc')?.addEventListener('click', () => aplicarTema('oscuro'));

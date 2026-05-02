@@ -5,8 +5,9 @@
 
 const ModuloConfig = (() => {
 
-  const CLAVE_EMP = 'cocina_empresa_config';
-  const CLAVE_IMP = 'cocina_impresora_config';
+  const CLAVE_EMP  = 'cocina_empresa_config';
+  const CLAVE_IMP  = 'cocina_impresora_config';
+  const CLAVE_LOGO = 'cocina_logo';
 
   function obtenerConfig() {
     try { return JSON.parse(localStorage.getItem(CLAVE_EMP)) || {}; }
@@ -16,6 +17,47 @@ const ModuloConfig = (() => {
   function obtenerConfigImpresora() {
     try { return JSON.parse(localStorage.getItem(CLAVE_IMP)) || {}; }
     catch { return {}; }
+  }
+
+  // --- Cabecera dinámica (nombre + logo) ---
+
+  function _actualizarCabecera() {
+    const cfg   = obtenerConfig();
+    const titulo = document.getElementById('cabecera-titulo');
+    if (titulo) titulo.textContent = cfg.razonSocial || 'Cocina';
+
+    const logo = localStorage.getItem(CLAVE_LOGO);
+    const img  = document.getElementById('cabecera-logo-img');
+    const emo  = document.getElementById('cabecera-logo-emoji');
+    if (img && emo) {
+      if (logo) { img.src = logo; img.style.display = ''; emo.style.display = 'none'; }
+      else       { img.style.display = 'none'; emo.style.display = ''; }
+    }
+  }
+
+  function _cargarLogoEnUI() {
+    const logo    = localStorage.getItem(CLAVE_LOGO);
+    const preview = document.getElementById('cfg-logo-preview');
+    const quitar  = document.getElementById('cfg-logo-quitar');
+    if (preview) { preview.src = logo || ''; preview.style.display = logo ? '' : 'none'; }
+    if (quitar)  quitar.style.display = logo ? '' : 'none';
+  }
+
+  function _subirLogo(archivo) {
+    if (!archivo) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      localStorage.setItem(CLAVE_LOGO, e.target.result);
+      _cargarLogoEnUI();
+      _actualizarCabecera();
+    };
+    reader.readAsDataURL(archivo);
+  }
+
+  function _quitarLogo() {
+    localStorage.removeItem(CLAVE_LOGO);
+    _cargarLogoEnUI();
+    _actualizarCabecera();
   }
 
   // --- Empresa ---
@@ -63,8 +105,8 @@ const ModuloConfig = (() => {
     };
     localStorage.setItem(CLAVE_EMP, JSON.stringify(datos));
     _mostrarMsg('cfg-msg', '✔ Guardado');
+    _actualizarCabecera();
 
-    // Actualizar nombre en el dashboard si existe
     const dashNombre = document.getElementById('dash-nombre-restaurante');
     if (dashNombre && datos.razonSocial) dashNombre.textContent = datos.razonSocial;
   }
@@ -200,20 +242,24 @@ const ModuloConfig = (() => {
   async function init() {
     _cargarEnFormulario();
     _cargarImpresora();
+    _actualizarCabecera();
+    _cargarLogoEnUI();
 
-    // Mostrar nombre del restaurante en dashboard
     const cfg = obtenerConfig();
-    if (cfg.razonSocial) {
-      const dashNombre = document.getElementById('dash-nombre-restaurante');
-      if (dashNombre) dashNombre.textContent = cfg.razonSocial;
-    }
+    const dashNombre = document.getElementById('dash-nombre-restaurante');
+    if (dashNombre && cfg.razonSocial) dashNombre.textContent = cfg.razonSocial;
 
-    document.getElementById('cfg-btn-guardar')?.addEventListener('click', _guardarDesdeFormulario);
-    document.getElementById('imp-btn-guardar')?.addEventListener('click', _guardarImpresora);
-    document.getElementById('imp-btn-test')?.addEventListener('click', _testImpresora);
-    document.getElementById('imp-conexion')?.addEventListener('change', e => _toggleConexion(e.target.value));
-    document.getElementById('bkp-btn-exportar')?.addEventListener('click', _exportar);
+    document.getElementById('cfg-btn-guardar')  ?.addEventListener('click', _guardarDesdeFormulario);
+    document.getElementById('imp-btn-guardar')  ?.addEventListener('click', _guardarImpresora);
+    document.getElementById('imp-btn-test')     ?.addEventListener('click', _testImpresora);
+    document.getElementById('imp-conexion')     ?.addEventListener('change', e => _toggleConexion(e.target.value));
+    document.getElementById('bkp-btn-exportar') ?.addEventListener('click', _exportar);
     document.getElementById('bkp-input-archivo')?.addEventListener('change', e => _importar(e.target.files[0]));
+    document.getElementById('cfg-logo-input')   ?.addEventListener('change', e => _subirLogo(e.target.files[0]));
+    document.getElementById('cfg-logo-quitar')  ?.addEventListener('click', _quitarLogo);
+    document.getElementById('cfg-btn-logout')   ?.addEventListener('click', () => {
+      if (confirm('¿Cerrar sesión?')) { SB.logout(); location.reload(); }
+    });
   }
 
   return { init, obtenerConfig, obtenerConfigImpresora };
