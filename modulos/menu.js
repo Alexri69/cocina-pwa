@@ -319,6 +319,6 @@ const ModuloMenu = (() => {
     await _renderPlatos();
   }
 
-  return { init, editarIngrediente, borrarIngrediente, editarPlato, borrarPlato, nuevoPlatoForm: _nuevoPlatoForm, nuevoIngredienteForm: _nuevoIngredienteForm };
+  return { init, editarIngrediente, borrarIngrediente, editarPlato, borrarPlato, nuevoPlatoForm: _nuevoPlatoForm, nuevoIngredienteForm: _nuevoIngredienteForm, cancelarPlatoForm: _resetFormPlato, cancelarIngredienteForm: _resetFormIngrediente };
 
 })();

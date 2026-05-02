@@ -143,6 +143,6 @@ const ModuloBebidas = (() => {
 
   function _esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-  return { init, editarBebida, borrarBebida, nuevaBebidaForm: _nuevaBebidaForm };
+  return { init, editarBebida, borrarBebida, nuevaBebidaForm: _nuevaBebidaForm, cancelarBebidaForm: _resetForm };
 
 })();
