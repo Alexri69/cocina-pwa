@@ -136,7 +136,6 @@ const ModuloBebidas = (() => {
   // ----------------------------------------------------------
 
   async function init() {
-    document.getElementById('beb-btn-nuevo')  ?.addEventListener('click', _nuevaBebidaForm);
     document.getElementById('beb-btn-volver') ?.addEventListener('click', _resetForm);
     document.getElementById('beb-btn-guardar')?.addEventListener('click', _guardarBebida);
     await _renderLista();
@@ -144,6 +143,6 @@ const ModuloBebidas = (() => {
 
   function _esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-  return { init, editarBebida, borrarBebida };
+  return { init, editarBebida, borrarBebida, nuevaBebidaForm: _nuevaBebidaForm };
 
 })();

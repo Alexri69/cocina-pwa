@@ -309,10 +309,8 @@ const ModuloMenu = (() => {
     document.querySelectorAll('#modulo-menu .sub-tab').forEach(btn => {
       btn.addEventListener('click', () => _activarSubtab(btn.dataset.subtab));
     });
-    document.getElementById('plato-btn-nuevo')  ?.addEventListener('click', _nuevoPlatoForm);
     document.getElementById('plato-btn-volver') ?.addEventListener('click', _resetFormPlato);
     document.getElementById('plato-btn-guardar')?.addEventListener('click', _guardarPlato);
-    document.getElementById('ing-btn-nuevo')    ?.addEventListener('click', _nuevoIngredienteForm);
     document.getElementById('ing-btn-volver')   ?.addEventListener('click', _resetFormIngrediente);
     document.getElementById('ing-btn-guardar')  ?.addEventListener('click', _guardarIngrediente);
     _activarSubtab('platos');
@@ -321,6 +319,6 @@ const ModuloMenu = (() => {
     await _renderPlatos();
   }
 
-  return { init, editarIngrediente, borrarIngrediente, editarPlato, borrarPlato };
+  return { init, editarIngrediente, borrarIngrediente, editarPlato, borrarPlato, nuevoPlatoForm: _nuevoPlatoForm, nuevoIngredienteForm: _nuevoIngredienteForm };
 
 })();
