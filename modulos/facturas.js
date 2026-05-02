@@ -95,6 +95,8 @@ const ModuloFacturas = (() => {
               ${f.pagada ? '↩ Pendiente' : '✔ Pagada'}
              </button>`
         }
+        <button class="btn-mini btn-email" onclick="ModuloFacturas.compartirEmail('${f.id}')" title="Enviar por email">📧</button>
+        <button class="btn-mini btn-wa"    onclick="ModuloFacturas.compartirWhatsApp('${f.id}')" title="Enviar por WhatsApp">💬</button>
         <button class="btn-mini btn-borrar" onclick="ModuloFacturas.borrarFactura('${f.id}','${f.numero}')">🗑</button>
       </div>
     </div>`;
@@ -525,6 +527,84 @@ const ModuloFacturas = (() => {
   }
 
   // ----------------------------------------------------------
+  // COMPARTIR (Email / WhatsApp)
+  // ----------------------------------------------------------
+
+  function _textoFactura(f) {
+    const cfg     = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
+    const empresa = cfg.razonSocial || 'Mi Restaurante';
+    const esPres  = f.tipo === 'presupuesto';
+    const impNom  = (cfg.regimen || 'igic') === 'iva' ? 'IVA' : 'IGIC';
+    const lineas  = (f.lineas || []).map(l =>
+      `  ${l.descripcion} x${l.cantidad} — ${(l.subtotal || 0).toFixed(2)} €`).join('\n');
+    const irpf    = (f.retencionIrpf || 0) > 0
+      ? `\nRetención IRPF (${f.retencionIrpf}%): −${(f.cuotaIrpf || 0).toFixed(2)} €` : '';
+    const venc    = f.vencimiento
+      ? `\n${esPres ? 'Válido hasta' : 'Vencimiento'}: ${VOZ.formatearFechaSolo(f.vencimiento)}` : '';
+    return { empresa, esPres, impNom, lineas, irpf, venc };
+  }
+
+  function _compartirEmail(f) {
+    const { empresa, esPres, impNom, lineas, irpf, venc } = _textoFactura(f);
+    const cfg    = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
+    const asunto = `${esPres ? 'Presupuesto' : 'Factura'} ${f.numero} — ${empresa}`;
+    const cuerpo = [
+      `Estimado/a ${f.cliente},`,
+      '',
+      `Le enviamos ${esPres ? 'el presupuesto' : 'la factura'} nº ${f.numero} con fecha ${VOZ.formatearFechaSolo(f.fecha)}.`,
+      '',
+      'CONCEPTOS:',
+      lineas,
+      '',
+      `Base imponible: ${f.subtotal.toFixed(2)} €`,
+      `${impNom} (${f.porcentajeIgic}%): ${f.cuotaIgic.toFixed(2)} €`,
+      irpf,
+      `TOTAL: ${f.total.toFixed(2)} €`,
+      venc,
+      f.notas ? `\nNotas: ${f.notas}` : '',
+      '',
+      'Atentamente,',
+      empresa,
+      cfg.telefono ? `Tel: ${cfg.telefono}` : '',
+      cfg.email    ? cfg.email : '',
+    ].filter(l => l !== '').join('\n').replace(/\n{3,}/g, '\n\n').trim();
+
+    window.location.href = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+  }
+
+  function _compartirWhatsApp(f) {
+    const { empresa, esPres, impNom, lineas, irpf, venc } = _textoFactura(f);
+    const msg = [
+      `*${esPres ? 'PRESUPUESTO' : 'FACTURA'} ${f.numero}*`,
+      `_${empresa}_`,
+      '',
+      `*Cliente:* ${f.cliente}`,
+      `*Fecha:* ${VOZ.formatearFechaSolo(f.fecha)}`,
+      '',
+      lineas,
+      '',
+      `Base imponible: ${f.subtotal.toFixed(2)} €`,
+      `${impNom} (${f.porcentajeIgic}%): ${f.cuotaIgic.toFixed(2)} €`,
+      irpf,
+      `*TOTAL: ${f.total.toFixed(2)} €*`,
+      venc,
+      f.notas ? `\n_Notas: ${f.notas}_` : '',
+    ].filter(l => l !== '').join('\n').replace(/\n{3,}/g, '\n\n').trim();
+
+    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+  }
+
+  async function compartirEmail(id) {
+    const f = await SB.obtenerFactura(id);
+    if (f) _compartirEmail(f);
+  }
+
+  async function compartirWhatsApp(id) {
+    const f = await SB.obtenerFactura(id);
+    if (f) _compartirWhatsApp(f);
+  }
+
+  // ----------------------------------------------------------
   // UTILIDADES
   // ----------------------------------------------------------
 
@@ -555,6 +635,8 @@ const ModuloFacturas = (() => {
     document.getElementById('fac-btn-volver')    ?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
     document.getElementById('fac-btn-imprimir')  ?.addEventListener('click', () => window.print());
     document.getElementById('fac-btn-convertir') ?.addEventListener('click', _convertirAFactura);
+    document.getElementById('fac-btn-email')     ?.addEventListener('click', async () => { const f = await SB.obtenerFactura(_idFacturaActual); if (f) _compartirEmail(f); });
+    document.getElementById('fac-btn-whatsapp')  ?.addEventListener('click', async () => { const f = await SB.obtenerFactura(_idFacturaActual); if (f) _compartirWhatsApp(f); });
     document.getElementById('fac-btn-add-linea') ?.addEventListener('click', () => _agregarLinea());
     document.getElementById('fac-selector-platos')?.addEventListener('change', (e) => {
       const opt = e.target.selectedOptions[0];
@@ -572,7 +654,7 @@ const ModuloFacturas = (() => {
 
   return {
     init, verFactura, editarFactura, togglePagada, borrarFactura,
-    aceptarPresupuesto,
+    aceptarPresupuesto, compartirEmail, compartirWhatsApp,
     _actualizarLinea, _eliminarLinea,
     _editarBebida, _borrarBebida
   };

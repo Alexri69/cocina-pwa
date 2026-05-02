@@ -468,9 +468,20 @@ html, body {
   font-size: .8rem; cursor: pointer;
   transition: all .12s; white-space: nowrap;
 }
-.btn-mini:hover   { background: rgba(255,255,255,.05); color: var(--texto); border-color: #444; }
-.btn-editar:hover { border-color: var(--acento); color: var(--acento); }
-.btn-borrar:hover { border-color: var(--err);    color: var(--err); }
+.btn-mini:hover    { background: rgba(255,255,255,.05); color: var(--texto); border-color: #444; }
+.btn-editar:hover  { border-color: var(--acento); color: var(--acento); }
+.btn-borrar:hover  { border-color: var(--err);    color: var(--err); }
+.btn-email:hover   { border-color: #60a5fa; color: #60a5fa; }
+.btn-wa:hover      { border-color: #4ade80; color: #4ade80; }
+
+/* Botón WhatsApp (acción principal) */
+.btn-wa {
+  background: #25d366; color: #fff; border: none;
+  padding: 8px 14px; border-radius: var(--radio);
+  font-size: .875rem; font-weight: 600; cursor: pointer;
+  transition: background .12s;
+}
+.btn-wa:hover { background: #1db954; }
 .btn-ver:hover    { border-color: var(--ok);     color: var(--ok); }
 .btn-pagar:hover  { border-color: var(--ok);     color: var(--ok); }
 
