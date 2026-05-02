@@ -33,7 +33,14 @@ const SB = (() => {
     localStorage.setItem(CLAVE_SESION, JSON.stringify(_sesion));
   }
 
-  const _uid = () => _sesion?.user_id ?? null;
+  function _uid() {
+    if (_sesion?.user_id) return _sesion.user_id;
+    // Fallback: decodificar el JWT para obtener el sub (user id)
+    try {
+      const payload = JSON.parse(atob(_sesion.access_token.split('.')[1]));
+      return payload.sub ?? null;
+    } catch { return null; }
+  }
 
   /** Devuelve true si hay sesión activa y no ha expirado. */
   function isLoggedIn() {

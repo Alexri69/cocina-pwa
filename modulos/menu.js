@@ -221,19 +221,27 @@ const ModuloMenu = (() => {
   async function _guardarPlato() {
     const nombre = document.getElementById('plato-nombre').value.trim();
     if (!nombre) { alert('El nombre del plato es obligatorio.'); return; }
-    const desc         = document.getElementById('plato-desc').value.trim();
-    const precio       = parseFloat(document.getElementById('plato-precio').value) || 0;
-    const checks       = [...document.querySelectorAll('.plato-ing-check:checked')];
-    const ingredientes = checks.map(cb => ({ id: cb.value, nombre: cb.dataset.nombre }));
-    const alergenos    = await _calcularAlergenos(ingredientes.map(i => i.id));
-    const datos        = { nombre, descripcion: desc, precio, ingredientes, alergenos };
-    if (_idPlatoEditando !== null) {
-      await SB.actualizarPlato({ id: _idPlatoEditando, ...datos });
-    } else {
-      await SB.guardarPlato(datos);
+    const btn = document.getElementById('plato-btn-guardar');
+    if (btn) btn.disabled = true;
+    try {
+      const desc         = document.getElementById('plato-desc').value.trim();
+      const precio       = parseFloat(document.getElementById('plato-precio').value) || 0;
+      const checks       = [...document.querySelectorAll('.plato-ing-check:checked')];
+      const ingredientes = checks.map(cb => ({ id: cb.value, nombre: cb.dataset.nombre }));
+      const alergenos    = await _calcularAlergenos(ingredientes.map(i => i.id));
+      const datos        = { nombre, descripcion: desc, precio, ingredientes, alergenos };
+      if (_idPlatoEditando !== null) {
+        await SB.actualizarPlato({ id: _idPlatoEditando, ...datos });
+      } else {
+        await SB.guardarPlato(datos);
+      }
+      _resetFormPlato();
+      await _renderPlatos();
+    } catch (e) {
+      alert('Error al guardar el plato: ' + e.message);
+    } finally {
+      if (btn) btn.disabled = false;
     }
-    _resetFormPlato();
-    await _renderPlatos();
   }
 
   function _resetFormPlato() {
