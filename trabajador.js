@@ -1,9 +1,9 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v26: network-first para HTML, auto-reload al actualizar SW
+// v27: network-first para HTML, auto-reload al actualizar SW
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v26';
+const NOMBRE_CACHE = 'cocina-etiquetas-v27';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',

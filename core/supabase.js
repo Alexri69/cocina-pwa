@@ -231,11 +231,41 @@ const SB = (() => {
   async function guardarProducto(p) {
     let uid = _uid();
     if (!uid) {
-      // Intentar refrescar la sesión para obtener user_id
       await refrescarSesion();
       uid = _uid();
     }
     if (!uid) throw new Error('Sesión no válida. Cierra sesión y vuelve a entrar.');
+
+    // Verificar contra Supabase que la sesión es realmente válida (auth.uid() != null)
+    // Si /auth/v1/user falla con el token actual, el JWT no es de usuario real
+    try {
+      const r = await fetch(`${BASE}/auth/v1/user`, {
+        headers: { 'apikey': ANON, 'Authorization': `Bearer ${_sesion.access_token}` }
+      });
+      if (!r.ok) {
+        // Intentar refrescar y reintentar verificación
+        const ok = await refrescarSesion();
+        if (ok) {
+          const r2 = await fetch(`${BASE}/auth/v1/user`, {
+            headers: { 'apikey': ANON, 'Authorization': `Bearer ${_sesion.access_token}` }
+          });
+          if (!r2.ok) {
+            logout();
+            throw new Error('Tu sesión no es válida en el servidor. Acabamos de cerrarla — recarga la página e inicia sesión de nuevo.');
+          }
+          uid = _uid();
+        } else {
+          logout();
+          throw new Error('Tu sesión ha expirado. Recarga la página e inicia sesión de nuevo.');
+        }
+      }
+    } catch (err) {
+      // Si el error es de red (no de validación), seguimos adelante para que cache/offline funcione
+      if (err.message?.includes('sesión')) throw err;
+      console.warn('[SB] No se pudo verificar la sesión (error de red):', err);
+    }
+
+    console.log('[SB] guardarProducto: enviando con user_id =', uid);
     return _post('productos', { ..._productoParaBD(p), user_id: uid }).then(r => _productoDeBD(_primero(r)));
   }
   const actualizarProducto = (p)  => _patch('productos', p.id, _productoParaBD(p)).then(r => _productoDeBD(_primero(r)));
