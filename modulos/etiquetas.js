@@ -100,7 +100,9 @@ const ModuloEtiquetas = (() => {
     }
 
     _mostrarEtiqueta(producto);
+    _paginaActual = 0;
     await _actualizarHistorial();
+    _revisarYAvisar();
   }
 
   function _cerrarPreview() {
@@ -307,10 +309,7 @@ const ModuloEtiquetas = (() => {
 
     if (guardado) {
       await _actualizarHistorial();
-      const secHist = document.getElementById('etq-seccion-historial');
-      const btnHist = document.getElementById('etq-btn-historial');
-      if (secHist) secHist.style.display = 'block';
-      if (btnHist) btnHist.textContent = '▲ Ocultar historial';
+      _revisarYAvisar();
       await VOZ.hablar('Producto guardado. Puedes imprimir cuando quieras.');
     }
 
@@ -429,29 +428,164 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
   }
 
   // ----------------------------------------------------------
-  // HISTORIAL
+  // HISTORIAL — paginación, alertas y notificaciones
   // ----------------------------------------------------------
 
-  let _historial = [];
+  const POR_PAGINA = 10;
+  let _historial    = [];
+  let _paginaActual = 0;
 
   async function _actualizarHistorial() {
-    const lista = document.getElementById('etq-lista-historial');
+    const lista     = document.getElementById('etq-lista-historial');
+    const info      = document.getElementById('etq-historial-info');
+    const pag       = document.getElementById('etq-paginacion');
+    const pagInfo   = document.getElementById('etq-pag-info');
+    const btnPrev   = document.getElementById('etq-pag-anterior');
+    const btnNext   = document.getElementById('etq-pag-siguiente');
     if (!lista) return;
+
     const productos = await SB.obtenerProductos();
     _historial = productos;
-    if (!productos.length) { lista.innerHTML = '<p class="texto-vacio">No hay productos registrados todavía.</p>'; return; }
-    lista.innerHTML = productos.map((p, i) => {
+
+    if (!productos.length) {
+      lista.innerHTML = '<p class="texto-vacio">No hay productos registrados todavía.</p>';
+      if (info) info.textContent = '';
+      if (pag)  pag.style.display = 'none';
+      _mostrarAlertasCaducidad([]);
+      return;
+    }
+
+    if (info) info.textContent = `(${productos.length})`;
+    _mostrarAlertasCaducidad(productos);
+
+    const totalPag = Math.ceil(productos.length / POR_PAGINA);
+    if (_paginaActual >= totalPag) _paginaActual = Math.max(0, totalPag - 1);
+
+    const inicio = _paginaActual * POR_PAGINA;
+    const pagina = productos.slice(inicio, inicio + POR_PAGINA);
+
+    lista.innerHTML = pagina.map(p => {
+      const idxGlobal = productos.indexOf(p);
       const c = VOZ.calcularColorCaducidad(p.fechaCaducidad);
-      return `<div class="item-historial ${c}">
+      return `<div class="item-historial ${c}" role="listitem">
         <div><strong>${p.nombre}</strong> — Lote: ${p.lote}</div>
         <small>Caduca: ${VOZ.formatearFecha(p.fechaCaducidad)}</small>
         <div class="card-acciones" style="margin-top:6px">
-          <button class="btn-mini btn-ver"   onclick="ModuloEtiquetas._verEtiqueta(${i})">👁 Ver</button>
-          <button class="btn-mini btn-pagar" onclick="ModuloEtiquetas._imprimirEtiqueta(${i})">🖨 Imprimir</button>
-          <button class="btn-mini btn-borrar" onclick="ModuloEtiquetas._borrarProducto(${i})">🗑</button>
+          <button class="btn-mini btn-ver"    onclick="ModuloEtiquetas._verEtiqueta(${idxGlobal})">👁 Ver</button>
+          <button class="btn-mini btn-pagar"  onclick="ModuloEtiquetas._imprimirEtiqueta(${idxGlobal})">🖨 Imprimir</button>
+          <button class="btn-mini btn-borrar" onclick="ModuloEtiquetas._borrarProducto(${idxGlobal})">🗑</button>
         </div>
       </div>`;
     }).join('');
+
+    if (totalPag > 1) {
+      if (pag)     pag.style.display = 'flex';
+      if (pagInfo) pagInfo.textContent = `Página ${_paginaActual + 1} de ${totalPag}`;
+      if (btnPrev) btnPrev.disabled = _paginaActual === 0;
+      if (btnNext) btnNext.disabled = _paginaActual === totalPag - 1;
+    } else {
+      if (pag) pag.style.display = 'none';
+    }
+  }
+
+  function _mostrarAlertasCaducidad(productos) {
+    const cont = document.getElementById('etq-alertas-caducidad');
+    if (!cont) return;
+    const caducados = productos.filter(p => VOZ.calcularColorCaducidad(p.fechaCaducidad) === 'rojo');
+    const proximos  = productos.filter(p => VOZ.calcularColorCaducidad(p.fechaCaducidad) === 'amarillo');
+    if (!caducados.length && !proximos.length) { cont.style.display = 'none'; cont.innerHTML = ''; return; }
+
+    let html = '';
+    if (caducados.length) {
+      html += `<div class="item-historial rojo" style="margin:0 0 8px 0">
+        ✖ <strong>${caducados.length} producto${caducados.length === 1 ? ' caducado' : 's caducados'}</strong>
+      </div>`;
+    }
+    if (proximos.length) {
+      html += `<div class="item-historial amarillo" style="margin:0">
+        ⚡ <strong>${proximos.length} producto${proximos.length === 1 ? '' : 's'}</strong> a punto de caducar
+      </div>`;
+    }
+    cont.innerHTML = html;
+    cont.style.display = 'block';
+  }
+
+  // ----------------------------------------------------------
+  // NOTIFICACIONES DEL NAVEGADOR
+  // ----------------------------------------------------------
+
+  let _avisadas       = new Set();          // ids ya avisados en esta sesión
+  let _intervaloAvisos = null;
+
+  function _actualizarBtnNotif() {
+    const btn = document.getElementById('etq-btn-notificaciones');
+    if (!btn) return;
+    if (!('Notification' in window))               { btn.style.display = 'none'; return; }
+    if (Notification.permission === 'granted')      btn.textContent = '🔔 Avisos activos';
+    else if (Notification.permission === 'denied')  btn.textContent = '🔕 Avisos bloqueados';
+    else                                            btn.textContent = '🔔 Activar avisos';
+  }
+
+  async function _activarNotificaciones() {
+    if (!('Notification' in window)) { alert('Tu navegador no soporta notificaciones.'); return; }
+    if (Notification.permission === 'granted') {
+      _revisarYAvisar();
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      alert('Has bloqueado las notificaciones. Reactívalas desde el icono del candado en la barra de direcciones.');
+      return;
+    }
+    const r = await Notification.requestPermission();
+    _actualizarBtnNotif();
+    if (r === 'granted') {
+      try {
+        new Notification('Cocina · Avisos activados', {
+          body: 'Te avisaremos cuando los productos estén a punto de caducar.',
+          icon: 'iconos/icono-192.png'
+        });
+      } catch {}
+      _revisarYAvisar();
+      _iniciarRevisionPeriodica();
+    }
+  }
+
+  async function _revisarYAvisar() {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const productos = _historial.length ? _historial : await SB.obtenerProductos();
+
+    productos.forEach(p => {
+      const c = VOZ.calcularColorCaducidad(p.fechaCaducidad);
+      if (c !== 'rojo' && c !== 'amarillo') return;
+      const clave = p.id + '-' + c;
+      if (_avisadas.has(clave)) return;
+      _avisadas.add(clave);
+      try {
+        if (c === 'rojo') {
+          new Notification('✖ Producto caducado', {
+            body: `${p.nombre} (Lote ${p.lote}) caducó el ${VOZ.formatearFecha(p.fechaCaducidad)}`,
+            icon: 'iconos/icono-192.png',
+            tag:  'caducado-' + p.id,
+            requireInteraction: true
+          });
+        } else {
+          new Notification('⚡ A punto de caducar', {
+            body: `${p.nombre} (Lote ${p.lote}) caduca el ${VOZ.formatearFecha(p.fechaCaducidad)}`,
+            icon: 'iconos/icono-192.png',
+            tag:  'proximo-' + p.id
+          });
+        }
+      } catch (e) { console.warn('[Etiquetas] No se pudo crear notificación:', e); }
+    });
+  }
+
+  function _iniciarRevisionPeriodica() {
+    if (_intervaloAvisos) clearInterval(_intervaloAvisos);
+    // Cada 30 min revisamos productos y avisamos si entran en rojo/amarillo
+    _intervaloAvisos = setInterval(async () => {
+      await _actualizarHistorial();   // refresca caducidades
+      _revisarYAvisar();
+    }, 30 * 60 * 1000);
   }
 
   async function _borrarProducto(idx) {
@@ -543,15 +677,22 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     document.getElementById('etq-btn-imprimir')?.addEventListener('click', _imprimir);
     document.getElementById('etq-btn-cerrar-preview')?.addEventListener('click', _cerrarPreview);
 
-    // Historial toggle
-    document.getElementById('etq-btn-historial')?.addEventListener('click', () => {
-      const sec = document.getElementById('etq-seccion-historial');
-      const btn = document.getElementById('etq-btn-historial');
-      if (!sec) return;
-      const visible = sec.style.display !== 'none';
-      sec.style.display = visible ? 'none' : 'block';
-      if (btn) btn.textContent = visible ? '▼ Ver historial' : '▲ Ocultar historial';
+    // Paginación del historial
+    document.getElementById('etq-pag-anterior')?.addEventListener('click', () => {
+      if (_paginaActual > 0) { _paginaActual--; _actualizarHistorial(); }
     });
+    document.getElementById('etq-pag-siguiente')?.addEventListener('click', () => {
+      _paginaActual++;
+      _actualizarHistorial();
+    });
+
+    // Notificaciones
+    document.getElementById('etq-btn-notificaciones')?.addEventListener('click', _activarNotificaciones);
+    _actualizarBtnNotif();
+    if ('Notification' in window && Notification.permission === 'granted') {
+      _revisarYAvisar();
+      _iniciarRevisionPeriodica();
+    }
 
     if (!VOZ.soportaVoz()) {
       const btn = document.getElementById('etq-btn-nuevo');

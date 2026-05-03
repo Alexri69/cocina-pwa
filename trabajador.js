@@ -1,9 +1,9 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v29: vuelve a stale-while-revalidate para evitar cuelgues
+// v30: vuelve a stale-while-revalidate para evitar cuelgues
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v29';
+const NOMBRE_CACHE = 'cocina-etiquetas-v30';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',

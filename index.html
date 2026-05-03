@@ -182,6 +182,12 @@
           <div id="etq-panel-voz">
             <button id="etq-btn-nuevo" class="btn btn-primario" type="button">▶ Nuevo Producto</button>
             <button id="etq-btn-cancelar" class="btn btn-secundario" type="button" style="margin-top:10px">✖ Cancelar</button>
+            <div id="etq-respuesta" style="margin-top:12px;min-height:18px;font-style:italic;color:var(--texto2);font-size:0.9rem"></div>
+            <div class="contenedor-progreso" id="etq-progreso-cont"
+                 role="progressbar" aria-valuemin="0" aria-valuemax="14" aria-valuenow="0">
+              <div id="etq-progreso-barra"></div>
+            </div>
+            <div id="etq-progreso-texto" style="font-size:0.8rem;color:var(--texto2);text-align:center"></div>
           </div>
 
           <!-- Panel MANUAL -->
@@ -212,22 +218,10 @@
               <button id="etq-m-btn-generar" class="btn btn-primario-sm">💾 Guardar etiqueta</button>
             </div>
           </div>
-        </div>
 
-        <div class="tarjeta" style="margin-top:16px">
-          <div class="tarjeta-titulo">Estado</div>
-          <div class="panel-estado" role="status" aria-live="polite">
-            <div id="etq-mensaje" class="mensaje-info">
-              Listo. Pulsa "Nuevo Producto" para iniciar el registro.
-            </div>
-            <div id="etq-respuesta"></div>
-          </div>
-          <div class="contenedor-progreso"
-               id="etq-progreso-cont"
-               role="progressbar" aria-valuemin="0" aria-valuemax="14" aria-valuenow="0">
-            <div id="etq-progreso-barra"></div>
-          </div>
-          <div id="etq-progreso-texto"></div>
+          <!-- Mensaje compartido (voz / manual) -->
+          <div id="etq-mensaje" class="mensaje-info" role="status" aria-live="polite"
+               style="margin-top:12px;text-align:center;font-size:0.9rem;min-height:20px"></div>
         </div>
 
         <div class="tarjeta" style="margin-top:16px">
@@ -260,10 +254,16 @@
         </div>
 
         <div class="tarjeta" style="margin-top:16px">
-          <div class="tarjeta-titulo">Historial (últimos 20)</div>
-          <button id="etq-btn-historial" class="btn btn-historial" type="button">▼ Ver historial</button>
-          <div id="etq-seccion-historial" style="display:none; margin-top:12px" role="list">
-            <div id="etq-lista-historial"></div>
+          <div class="tarjeta-titulo" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <span>Historial <span id="etq-historial-info" style="font-size:0.75rem;color:var(--texto2);font-weight:400"></span></span>
+            <button id="etq-btn-notificaciones" class="btn-mini" type="button" style="font-size:0.8rem;font-weight:400">🔔 Activar avisos</button>
+          </div>
+          <div id="etq-alertas-caducidad" style="display:none;margin-bottom:12px"></div>
+          <div id="etq-lista-historial" role="list"></div>
+          <div id="etq-paginacion" style="display:none;margin-top:14px;justify-content:center;align-items:center;gap:14px">
+            <button id="etq-pag-anterior" class="btn-mini" type="button">◀ Anterior</button>
+            <span id="etq-pag-info" style="font-size:0.85rem;color:var(--texto2)"></span>
+            <button id="etq-pag-siguiente" class="btn-mini" type="button">Siguiente ▶</button>
           </div>
         </div>
 
@@ -818,16 +818,16 @@
   <!-- ========================================================
        SCRIPTS — orden obligatorio: core → modulos → app
        ======================================================== -->
-  <script src="core/bd.js?v=29"></script>
-  <script src="core/voz.js?v=29"></script>
-  <script src="core/supabase.js?v=29"></script>
-  <script src="modulos/etiquetas.js?v=29"></script>
-  <script src="modulos/menu.js?v=29"></script>
-  <script src="modulos/bebidas.js?v=29"></script>
-  <script src="modulos/facturas.js?v=29"></script>
-  <script src="modulos/auth.js?v=29"></script>
-  <script src="modulos/config.js?v=29"></script>
-  <script src="app.js?v=29"></script>
+  <script src="core/bd.js?v=30"></script>
+  <script src="core/voz.js?v=30"></script>
+  <script src="core/supabase.js?v=30"></script>
+  <script src="modulos/etiquetas.js?v=30"></script>
+  <script src="modulos/menu.js?v=30"></script>
+  <script src="modulos/bebidas.js?v=30"></script>
+  <script src="modulos/facturas.js?v=30"></script>
+  <script src="modulos/auth.js?v=30"></script>
+  <script src="modulos/config.js?v=30"></script>
+  <script src="app.js?v=30"></script>
   <script>
     // Recarga automática cuando el Service Worker se actualiza
     if ('serviceWorker' in navigator) {
