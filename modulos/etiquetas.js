@@ -68,11 +68,6 @@ const ModuloEtiquetas = (() => {
     if (!lote)   { alert('El número de lote es obligatorio.');      return; }
     if (dias < 1){ alert('Los días de caducidad deben ser al menos 1.'); return; }
 
-    // Abrir la ventana de impresión AHORA, mientras el gesto del usuario está activo
-    // (después de un await se pierde el permiso para abrir popups en Chrome)
-    const printWin = window.open('', '_blank', 'width=320,height=400');
-    if (!printWin) { alert('El navegador bloqueó la ventana emergente.\nPermite ventanas emergentes para esta página en la barra de direcciones.'); return; }
-
     const fechaApertura  = apert ? new Date(apert) : new Date();
     const fechaCaducidad = new Date(fechaApertura.getTime() + dias * 86400000);
     const alergenos      = ALERGENOS.filter((_, i) => document.getElementById(`etq-m-al-${i}`)?.checked);
@@ -97,7 +92,6 @@ const ModuloEtiquetas = (() => {
     } catch (e) {
       console.error('[Etiquetas] Error al guardar:', e);
       if (msgEl) { msgEl.textContent = '❌ Error: ' + e.message; msgEl.style.color = '#e74c3c'; }
-      printWin.close();
       alert('Error al guardar la etiqueta:\n' + e.message);
       if (btn) btn.disabled = false;
       return;
@@ -107,9 +101,21 @@ const ModuloEtiquetas = (() => {
 
     _mostrarEtiqueta(producto);
     await _actualizarHistorial();
+  }
 
-    // Rellenar y lanzar la ventana de impresión
-    _escribirVentanaImpresion(printWin);
+  function _cerrarPreview() {
+    _ocultarEtiqueta();
+    // Limpiar formulario manual para que esté listo para la siguiente etiqueta
+    document.getElementById('etq-m-nombre').value = '';
+    document.getElementById('etq-m-lote').value   = '';
+    document.getElementById('etq-m-dias').value   = '';
+    ALERGENOS.forEach((_, i) => {
+      const ck = document.getElementById(`etq-m-al-${i}`);
+      if (ck) ck.checked = false;
+    });
+    _setFechaAhora();
+    const msgEl = document.getElementById('etq-mensaje');
+    if (msgEl) { msgEl.textContent = 'Listo para la siguiente etiqueta.'; msgEl.style.color = ''; }
   }
 
   // ----------------------------------------------------------
@@ -535,6 +541,7 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
 
     // Impresión
     document.getElementById('etq-btn-imprimir')?.addEventListener('click', _imprimir);
+    document.getElementById('etq-btn-cerrar-preview')?.addEventListener('click', _cerrarPreview);
 
     // Historial toggle
     document.getElementById('etq-btn-historial')?.addEventListener('click', () => {

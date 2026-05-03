@@ -209,7 +209,7 @@
               </div>
             </div>
             <div class="form-acciones">
-              <button id="etq-m-btn-generar" class="btn btn-primario-sm">💾 Guardar e Imprimir</button>
+              <button id="etq-m-btn-generar" class="btn btn-primario-sm">💾 Guardar etiqueta</button>
             </div>
           </div>
         </div>
@@ -248,9 +248,14 @@
           <div class="tarjeta">
             <div class="tarjeta-titulo">Vista Previa de Etiqueta</div>
             <div id="etq-preview"></div>
-            <button id="etq-btn-imprimir" class="btn btn-imprimir" type="button" style="margin-top:16px">
-              🖨 Imprimir Etiqueta
-            </button>
+            <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+              <button id="etq-btn-imprimir" class="btn btn-imprimir" type="button" style="flex:1;min-width:160px">
+                🖨 Imprimir Etiqueta
+              </button>
+              <button id="etq-btn-cerrar-preview" class="btn btn-secundario" type="button" style="flex:0 0 auto">
+                ✕ Cerrar
+              </button>
+            </div>
           </div>
         </div>
 
@@ -813,16 +818,16 @@
   <!-- ========================================================
        SCRIPTS — orden obligatorio: core → modulos → app
        ======================================================== -->
-  <script src="core/bd.js?v=28"></script>
-  <script src="core/voz.js?v=28"></script>
-  <script src="core/supabase.js?v=28"></script>
-  <script src="modulos/etiquetas.js?v=28"></script>
-  <script src="modulos/menu.js?v=28"></script>
-  <script src="modulos/bebidas.js?v=28"></script>
-  <script src="modulos/facturas.js?v=28"></script>
-  <script src="modulos/auth.js?v=28"></script>
-  <script src="modulos/config.js?v=28"></script>
-  <script src="app.js?v=28"></script>
+  <script src="core/bd.js?v=29"></script>
+  <script src="core/voz.js?v=29"></script>
+  <script src="core/supabase.js?v=29"></script>
+  <script src="modulos/etiquetas.js?v=29"></script>
+  <script src="modulos/menu.js?v=29"></script>
+  <script src="modulos/bebidas.js?v=29"></script>
+  <script src="modulos/facturas.js?v=29"></script>
+  <script src="modulos/auth.js?v=29"></script>
+  <script src="modulos/config.js?v=29"></script>
+  <script src="app.js?v=29"></script>
   <script>
     // Recarga automática cuando el Service Worker se actualiza
     if ('serviceWorker' in navigator) {
