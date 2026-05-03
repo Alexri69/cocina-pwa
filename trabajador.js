@@ -1,24 +1,24 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v27: network-first para HTML, auto-reload al actualizar SW
+// v28: vuelve a stale-while-revalidate para evitar cuelgues
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v27';
+const NOMBRE_CACHE = 'cocina-etiquetas-v28';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
   './estilo.css',
   './manifest.json',
-  './core/bd.js?v=26',
-  './core/voz.js?v=26',
-  './core/supabase.js?v=26',
-  './modulos/etiquetas.js?v=26',
-  './modulos/menu.js?v=26',
-  './modulos/bebidas.js?v=26',
-  './modulos/facturas.js?v=26',
-  './modulos/auth.js?v=26',
-  './modulos/config.js?v=26',
-  './app.js?v=26',
+  './core/bd.js?v=28',
+  './core/voz.js?v=28',
+  './core/supabase.js?v=28',
+  './modulos/etiquetas.js?v=28',
+  './modulos/menu.js?v=28',
+  './modulos/bebidas.js?v=28',
+  './modulos/facturas.js?v=28',
+  './modulos/auth.js?v=28',
+  './modulos/config.js?v=28',
+  './app.js?v=28',
   './iconos/icono-192.png',
   './iconos/icono-512.png'
 ];
@@ -35,7 +35,7 @@ self.addEventListener('install', (e) => {
   );
 });
 
-// ---- ACTIVATE: limpiar cachés antiguas y avisar a los clientes para recargar ----
+// ---- ACTIVATE: limpiar cachés antiguas y avisar a los clientes ----
 self.addEventListener('activate', (e) => {
   self.clients.claim();
   e.waitUntil(
@@ -46,32 +46,11 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// ---- FETCH: network-first para HTML, cache-first para el resto ----
+// ---- FETCH: stale-while-revalidate (cache-first, actualiza en bg) ----
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   if (!e.request.url.startsWith(self.location.origin)) return;
 
-  const url = e.request.url;
-  const esHTML = e.request.headers.get('Accept')?.includes('text/html')
-    || url.endsWith('.html')
-    || url === self.location.origin + '/'
-    || url === self.location.origin;
-
-  if (esHTML) {
-    // Network-first para HTML: siempre la versión más reciente del servidor
-    e.respondWith(
-      fetch(e.request).then(res => {
-        if (res?.status === 200) {
-          const copia = res.clone();
-          caches.open(NOMBRE_CACHE).then(c => c.put(e.request, copia));
-        }
-        return res;
-      }).catch(() => caches.match(e.request))
-    );
-    return;
-  }
-
-  // Cache-first con stale-while-revalidate para JS/CSS/imágenes
   e.respondWith(
     caches.match(e.request).then(cached => {
       const red = fetch(e.request).then(res => {
