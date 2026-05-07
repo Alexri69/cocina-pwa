@@ -309,7 +309,7 @@ const ModuloMenu = (() => {
     const btn = document.getElementById('plato-pdf-seleccion');
     if (!btn) return;
     const n = _platoSeleccionados.size;
-    btn.textContent = `📄 PDF (${n})`;
+    btn.textContent = `📄 PDF de seleccionados (${n})`;
     btn.disabled = n === 0;
   }
 
@@ -337,19 +337,36 @@ const ModuloMenu = (() => {
     </article>`;
   }
 
-  function _generarPdfPlatos(platos, titulo) {
+  function _datosEmpresa() {
+    try {
+      if (typeof ModuloConfig !== 'undefined' && ModuloConfig.obtenerConfig) {
+        return ModuloConfig.obtenerConfig() || {};
+      }
+      return JSON.parse(localStorage.getItem('cocina_empresa_config') || '{}');
+    } catch { return {}; }
+  }
+
+  function _generarPdfPlatos(platos, subtitulo) {
     if (!platos?.length) { alert('No hay platos para generar el PDF.'); return; }
     const win = window.open('', '_blank', 'width=900,height=900');
     if (!win) { alert('El navegador bloqueó la ventana emergente.\nPermite ventanas emergentes para esta página.'); return; }
-    const fecha = new Date().toLocaleDateString('es-ES');
-    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${_esc(titulo)}</title>
+
+    const emp    = _datosEmpresa();
+    const nombre = emp.razonSocial || 'Cocina';
+    const dir    = [emp.direccion, emp.cp, emp.ciudad, emp.provincia].filter(Boolean).join(', ');
+    const contacto = [emp.telefono, emp.email, emp.web].filter(Boolean).join(' · ');
+    const fecha  = new Date().toLocaleDateString('es-ES');
+
+    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${_esc(nombre)} — ${_esc(subtitulo)}</title>
 <style>
 @page { size: A4; margin: 18mm 16mm; }
 * { box-sizing: border-box; }
 body { font-family: Arial, Helvetica, sans-serif; color:#222; margin:0; padding:0; }
-.cabecera { text-align:center; border-bottom:2px solid #c0392b; padding-bottom:10px; margin-bottom:18px; }
-.cabecera h1 { margin:0 0 4px 0; color:#c0392b; font-size:22pt; }
-.cabecera .fecha { font-size:9pt; color:#666; }
+.cabecera { text-align:center; border-bottom:2px solid #c0392b; padding-bottom:12px; margin-bottom:18px; }
+.cabecera .restaurante { font-size:24pt; font-weight:700; color:#c0392b; letter-spacing:1px; margin:0 0 4px 0; }
+.cabecera .datos-emp { font-size:8.5pt; color:#666; margin:2px 0; }
+.cabecera h1 { margin:10px 0 2px 0; color:#222; font-size:16pt; font-weight:600; }
+.cabecera .fecha { font-size:9pt; color:#888; }
 .plato-pdf { padding:14px 0; border-bottom:1px dashed #bbb; page-break-inside:avoid; }
 .plato-pdf:last-child { border-bottom:none; }
 .plato-pdf-cab { display:flex; justify-content:space-between; align-items:baseline; gap:14px; margin-bottom:6px; }
@@ -366,11 +383,14 @@ body { font-family: Arial, Helvetica, sans-serif; color:#222; margin:0; padding:
 .pie { text-align:center; font-size:8pt; color:#888; margin-top:24px; padding-top:8px; border-top:1px solid #ccc; }
 </style></head><body>
 <div class="cabecera">
-  <h1>${_esc(titulo)}</h1>
-  <div class="fecha">Generado el ${fecha} · ${platos.length} plato${platos.length === 1 ? '' : 's'}</div>
+  <div class="restaurante">${_esc(nombre)}</div>
+  ${dir      ? `<div class="datos-emp">${_esc(dir)}</div>` : ''}
+  ${contacto ? `<div class="datos-emp">${_esc(contacto)}</div>` : ''}
+  <h1>${_esc(subtitulo)}</h1>
+  <div class="fecha">${fecha} · ${platos.length} plato${platos.length === 1 ? '' : 's'}</div>
 </div>
 ${platos.map(_platoToHtml).join('')}
-<div class="pie">Reg. UE 1169/2011 · RD 126/2015</div>
+<div class="pie">${_esc(nombre)} · Reg. UE 1169/2011 · RD 126/2015</div>
 </body></html>`);
     win.document.close();
     win.focus();

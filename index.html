@@ -294,9 +294,12 @@
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0">
             <input id="plato-buscador" type="search" class="inp" placeholder="🔍 Buscar plato…" style="flex:1;min-width:180px">
-            <button id="plato-pdf-seleccion" class="btn btn-secundario-sm" type="button" disabled style="white-space:nowrap">📄 PDF (0)</button>
+            <button id="plato-pdf-seleccion" class="btn btn-secundario-sm" type="button" disabled style="white-space:nowrap" title="Marca platos con la casilla a la izquierda de su nombre y pulsa aquí para generar un PDF con todos juntos">📄 PDF de seleccionados (0)</button>
             <button id="plato-pdf-todos" class="btn btn-secundario-sm" type="button" style="white-space:nowrap">📄 PDF carta completa</button>
           </div>
+          <p style="font-size:0.8rem;color:var(--texto2);margin:0 0 10px 0">
+            💡 Marca la casilla del nombre de cada plato para incluirlo en un PDF combinado, o usa el botón 📄 PDF de cada plato para imprimir solo ese.
+          </p>
           <div id="menu-lista-platos"></div>
         </div>
 
@@ -825,16 +828,16 @@
   <!-- ========================================================
        SCRIPTS — orden obligatorio: core → modulos → app
        ======================================================== -->
-  <script src="core/bd.js?v=32"></script>
-  <script src="core/voz.js?v=32"></script>
-  <script src="core/supabase.js?v=32"></script>
-  <script src="modulos/etiquetas.js?v=32"></script>
-  <script src="modulos/menu.js?v=32"></script>
-  <script src="modulos/bebidas.js?v=32"></script>
-  <script src="modulos/facturas.js?v=32"></script>
-  <script src="modulos/auth.js?v=32"></script>
-  <script src="modulos/config.js?v=32"></script>
-  <script src="app.js?v=32"></script>
+  <script src="core/bd.js?v=33"></script>
+  <script src="core/voz.js?v=33"></script>
+  <script src="core/supabase.js?v=33"></script>
+  <script src="modulos/etiquetas.js?v=33"></script>
+  <script src="modulos/menu.js?v=33"></script>
+  <script src="modulos/bebidas.js?v=33"></script>
+  <script src="modulos/facturas.js?v=33"></script>
+  <script src="modulos/auth.js?v=33"></script>
+  <script src="modulos/config.js?v=33"></script>
+  <script src="app.js?v=33"></script>
   <script>
     // Recarga automática cuando el Service Worker se actualiza
     if ('serviceWorker' in navigator) {
