@@ -377,9 +377,9 @@ ${platos.map(_platoToHtml).join('')}
     setTimeout(() => { win.print(); }, 600);
   }
 
-  async function imprimirPlato(id) {
-    const plato = _todosPlatos.find(p => p.id === id) || await SB.obtenerPlato(id);
-    if (!plato) return;
+  function imprimirPlato(id) {
+    const plato = _todosPlatos.find(p => p.id === id);
+    if (!plato) { alert('No se ha encontrado el plato. Recarga la página.'); return; }
     _generarPdfPlatos([plato], plato.nombre);
   }
 
