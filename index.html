@@ -292,6 +292,11 @@
             <span>Platos en la Carta</span>
             <button class="btn-primario-sm" onclick="ModuloMenu.nuevoPlatoForm()">➕ Nuevo Plato</button>
           </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0">
+            <input id="plato-buscador" type="search" class="inp" placeholder="🔍 Buscar plato…" style="flex:1;min-width:180px">
+            <button id="plato-pdf-seleccion" class="btn btn-secundario-sm" type="button" disabled style="white-space:nowrap">📄 PDF (0)</button>
+            <button id="plato-pdf-todos" class="btn btn-secundario-sm" type="button" style="white-space:nowrap">📄 PDF carta completa</button>
+          </div>
           <div id="menu-lista-platos"></div>
         </div>
 
@@ -317,6 +322,7 @@
               </div>
               <div class="form-grupo form-grupo-full">
                 <label>Ingredientes (marca los que contiene)</label>
+                <input id="plato-selector-buscador" type="search" class="inp" placeholder="🔍 Buscar ingrediente…" style="margin-bottom:8px">
                 <div id="plato-selector-ingredientes" class="grid-ingredientes"></div>
               </div>
               <div class="form-grupo form-grupo-full">
@@ -343,6 +349,7 @@
             <span>Ingredientes guardados</span>
             <button class="btn-primario-sm" onclick="ModuloMenu.nuevoIngredienteForm()">➕ Nuevo Ingrediente</button>
           </div>
+          <input id="ing-buscador" type="search" class="inp" placeholder="🔍 Buscar ingrediente…" style="margin:10px 0">
           <div id="menu-lista-ingredientes"></div>
         </div>
 
@@ -818,16 +825,16 @@
   <!-- ========================================================
        SCRIPTS — orden obligatorio: core → modulos → app
        ======================================================== -->
-  <script src="core/bd.js?v=30"></script>
-  <script src="core/voz.js?v=30"></script>
-  <script src="core/supabase.js?v=30"></script>
-  <script src="modulos/etiquetas.js?v=30"></script>
-  <script src="modulos/menu.js?v=30"></script>
-  <script src="modulos/bebidas.js?v=30"></script>
-  <script src="modulos/facturas.js?v=30"></script>
-  <script src="modulos/auth.js?v=30"></script>
-  <script src="modulos/config.js?v=30"></script>
-  <script src="app.js?v=30"></script>
+  <script src="core/bd.js?v=31"></script>
+  <script src="core/voz.js?v=31"></script>
+  <script src="core/supabase.js?v=31"></script>
+  <script src="modulos/etiquetas.js?v=31"></script>
+  <script src="modulos/menu.js?v=31"></script>
+  <script src="modulos/bebidas.js?v=31"></script>
+  <script src="modulos/facturas.js?v=31"></script>
+  <script src="modulos/auth.js?v=31"></script>
+  <script src="modulos/config.js?v=31"></script>
+  <script src="app.js?v=31"></script>
   <script>
     // Recarga automática cuando el Service Worker se actualiza
     if ('serviceWorker' in navigator) {
