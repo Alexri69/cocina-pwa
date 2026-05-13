@@ -284,7 +284,10 @@ const ModuloFacturas = (() => {
   function _renderDetalle(f) {
     const div = document.getElementById('fac-detalle-contenido');
     if (!div) return;
+    div.innerHTML = _buildDetalleHTML(f);
+  }
 
+  function _buildDetalleHTML(f) {
     const cfg          = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
     const emisorNombre = cfg.razonSocial || 'MI RESTAURANTE';
     const regimen      = cfg.regimen || 'igic';
@@ -333,7 +336,7 @@ const ModuloFacturas = (() => {
          </div>`
       : '';
 
-    div.innerHTML = `
+    return `
       <div class="factura-imprimible">
         <div class="fac-cabecera-print">
           <div class="fac-emisor">
@@ -460,64 +463,135 @@ const ModuloFacturas = (() => {
     return { empresa, esPres, impNom, lineas, irpf, venc };
   }
 
-  function _compartirEmail(f) {
-    const { empresa, esPres, impNom, lineas, irpf, venc } = _textoFactura(f);
+  // ----------------------------------------------------------
+  // GENERACIÓN DE PDF Y COMPARTIR COMO ARCHIVO
+  // ----------------------------------------------------------
+
+  function _nombreArchivoPdf(f) {
+    const tipo = f.tipo === 'presupuesto' ? 'Presupuesto' : 'Factura';
+    return `${tipo}_${f.numero}_${(f.cliente || '').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+  }
+
+  async function _generarPdfBlob(f) {
+    if (typeof html2pdf === 'undefined') {
+      throw new Error('La librería para crear PDFs aún no se ha cargado. Espera un momento e inténtalo de nuevo.');
+    }
+    // Renderizar la factura en un contenedor temporal fuera de pantalla (pero presente en el DOM
+    // para que html2canvas pueda leer estilos calculados)
+    const cont = document.createElement('div');
+    cont.style.cssText = 'position:fixed;left:-99999px;top:0;width:210mm;background:white;color:#222;padding:15mm;font-family:Arial,Helvetica,sans-serif;';
+    cont.innerHTML = _buildDetalleHTML(f);
+    document.body.appendChild(cont);
+
+    try {
+      const blob = await html2pdf().set({
+        margin:      [10, 10, 10, 10],
+        filename:    _nombreArchivoPdf(f),
+        image:       { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:   { mode: ['avoid-all', 'css'] }
+      }).from(cont).output('blob');
+      return blob;
+    } finally {
+      cont.remove();
+    }
+  }
+
+  function _mostrarLoadingCompartir(mostrar) {
+    let el = document.getElementById('fac-compartir-loading');
+    if (mostrar) {
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'fac-compartir-loading';
+        el.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;color:white;font-size:1.1rem;';
+        el.innerHTML = '<div style="background:#222;padding:24px 36px;border-radius:8px;text-align:center"><div style="font-size:2rem;margin-bottom:8px">📄</div>Generando PDF…</div>';
+        document.body.appendChild(el);
+      }
+    } else if (el) {
+      el.remove();
+    }
+  }
+
+  function _descargarBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  async function _compartirArchivo(f, opciones) {
+    const { texto, asunto, urlFallback, app } = opciones;
+    _mostrarLoadingCompartir(true);
+    let blob;
+    try {
+      blob = await _generarPdfBlob(f);
+    } catch (e) {
+      _mostrarLoadingCompartir(false);
+      alert('Error al generar el PDF:\n' + e.message);
+      return;
+    }
+    _mostrarLoadingCompartir(false);
+
+    const filename = _nombreArchivoPdf(f);
+    const file     = new File([blob], filename, { type: 'application/pdf' });
+
+    // 1) Web Share API con archivo (funciona en móvil y Chrome desktop reciente)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: asunto, text: texto });
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return;  // usuario canceló
+        console.warn('[Facturas] Web Share falló, usando descarga:', err);
+      }
+    }
+
+    // 2) Fallback: descargar PDF + abrir email/WhatsApp para que adjunte
+    _descargarBlob(blob, filename);
+    alert(`Se ha descargado "${filename}".\nAhora se abrirá ${app}. Adjunta el archivo descargado y envía el mensaje.`);
+    window.open(urlFallback, '_blank');
+  }
+
+  async function _compartirEmail(f) {
+    const { empresa, esPres } = _textoFactura(f);
     const cfg    = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
     const asunto = `${esPres ? 'Presupuesto' : 'Factura'} ${f.numero} — ${empresa}`;
-    const cuerpo = [
+    const texto  = [
       `Estimado/a ${f.cliente},`,
       '',
-      `Le enviamos ${esPres ? 'el presupuesto' : 'la factura'} nº ${f.numero} con fecha ${VOZ.formatearFechaSolo(f.fecha)}.`,
-      '',
-      'CONCEPTOS:',
-      lineas,
-      '',
-      `Base imponible: ${f.subtotal.toFixed(2)} €`,
-      `${impNom} (${f.porcentajeIgic}%): ${f.cuotaIgic.toFixed(2)} €`,
-      irpf,
-      `TOTAL: ${f.total.toFixed(2)} €`,
-      venc,
-      f.notas ? `\nNotas: ${f.notas}` : '',
+      `Le adjunto ${esPres ? 'el presupuesto' : 'la factura'} nº ${f.numero} con fecha ${VOZ.formatearFechaSolo(f.fecha)}.`,
+      `Importe total: ${f.total.toFixed(2)} €.`,
       '',
       'Atentamente,',
       empresa,
       cfg.telefono ? `Tel: ${cfg.telefono}` : '',
       cfg.email    ? cfg.email : '',
-    ].filter(l => l !== '').join('\n').replace(/\n{3,}/g, '\n\n').trim();
-
-    window.location.href = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+    ].filter(l => l !== '').join('\n').trim();
+    const urlFallback = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}`;
+    await _compartirArchivo(f, { asunto, texto, urlFallback, app: 'tu cliente de correo' });
   }
 
-  function _compartirWhatsApp(f) {
-    const { empresa, esPres, impNom, lineas, irpf, venc } = _textoFactura(f);
-    const msg = [
-      `*${esPres ? 'PRESUPUESTO' : 'FACTURA'} ${f.numero}*`,
-      `_${empresa}_`,
-      '',
-      `*Cliente:* ${f.cliente}`,
-      `*Fecha:* ${VOZ.formatearFechaSolo(f.fecha)}`,
-      '',
-      lineas,
-      '',
-      `Base imponible: ${f.subtotal.toFixed(2)} €`,
-      `${impNom} (${f.porcentajeIgic}%): ${f.cuotaIgic.toFixed(2)} €`,
-      irpf,
-      `*TOTAL: ${f.total.toFixed(2)} €*`,
-      venc,
-      f.notas ? `\n_Notas: ${f.notas}_` : '',
-    ].filter(l => l !== '').join('\n').replace(/\n{3,}/g, '\n\n').trim();
-
-    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+  async function _compartirWhatsApp(f) {
+    const { empresa, esPres } = _textoFactura(f);
+    const tipoDoc = esPres ? 'presupuesto' : 'factura';
+    const texto = `Hola ${f.cliente},\nTe adjunto el ${tipoDoc} ${f.numero} (${f.total.toFixed(2)} €).\nUn saludo,\n${empresa}`;
+    const urlFallback = 'https://wa.me/?text=' + encodeURIComponent(texto);
+    await _compartirArchivo(f, { asunto: `${esPres ? 'Presupuesto' : 'Factura'} ${f.numero}`, texto, urlFallback, app: 'WhatsApp' });
   }
 
   async function compartirEmail(id) {
     const f = await SB.obtenerFactura(id);
-    if (f) _compartirEmail(f);
+    if (f) await _compartirEmail(f);
   }
 
   async function compartirWhatsApp(id) {
     const f = await SB.obtenerFactura(id);
-    if (f) _compartirWhatsApp(f);
+    if (f) await _compartirWhatsApp(f);
   }
 
   // ----------------------------------------------------------
@@ -546,8 +620,8 @@ const ModuloFacturas = (() => {
     document.getElementById('fac-btn-volver')    ?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
     document.getElementById('fac-btn-imprimir')  ?.addEventListener('click', () => window.print());
     document.getElementById('fac-btn-convertir') ?.addEventListener('click', _convertirAFactura);
-    document.getElementById('fac-btn-email')     ?.addEventListener('click', async () => { const f = await SB.obtenerFactura(_idFacturaActual); if (f) _compartirEmail(f); });
-    document.getElementById('fac-btn-whatsapp')  ?.addEventListener('click', async () => { const f = await SB.obtenerFactura(_idFacturaActual); if (f) _compartirWhatsApp(f); });
+    document.getElementById('fac-btn-email')     ?.addEventListener('click', async () => { const f = await SB.obtenerFactura(_idFacturaActual); if (f) await _compartirEmail(f); });
+    document.getElementById('fac-btn-whatsapp')  ?.addEventListener('click', async () => { const f = await SB.obtenerFactura(_idFacturaActual); if (f) await _compartirWhatsApp(f); });
     document.getElementById('fac-btn-add-linea') ?.addEventListener('click', () => _agregarLinea());
     document.getElementById('fac-selector-platos')?.addEventListener('change', (e) => {
       const opt = e.target.selectedOptions[0];
