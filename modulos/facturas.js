@@ -479,10 +479,37 @@ const ModuloFacturas = (() => {
     // Renderizar la factura en un contenedor temporal visible (en posición fixed top:0/left:0
     // pero cubierto por el overlay de "Generando PDF" con z-index:9999). Estar en pantalla
     // es necesario para que html2canvas capture bien los estilos y dimensiones.
+    //
+    // IMPORTANTE: forzamos colores claros explícitos sobreescribiendo las variables CSS,
+    // porque si el tema oscuro está activo, el texto sale blanco sobre fondo blanco.
     const cont = document.createElement('div');
-    cont.style.cssText = 'position:fixed;top:0;left:0;width:794px;background:#ffffff;color:#111;z-index:1;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.4;';
+    cont.setAttribute('data-tema', 'claro');
+    cont.style.cssText = [
+      'position:fixed','top:0','left:0','width:794px','z-index:1',
+      'background:#ffffff','color:#111',
+      'font-family:Arial,Helvetica,sans-serif','font-size:13px','line-height:1.4',
+      // Overrides de variables del tema para que los hijos hereden colores oscuros sobre blanco
+      '--fondo:#ffffff','--fondo2:#ffffff','--fondo3:#f5f5f5',
+      '--texto:#111111','--texto2:#444444','--texto3:#666666',
+      '--borde:#cccccc','--borde-suave:#e5e5e5',
+      '--ok:#27ae60','--err:#c0392b','--aviso:#e67e22',
+      '--primario:#c0392b','--primario-h:#a03224',
+      '--radio:6px','--radio-sm:4px'
+    ].join(';') + ';';
     cont.innerHTML = _buildDetalleHTML(f);
+    // Forzar fondo blanco y color oscuro en todos los descendientes (por si algún elemento
+    // hardcodea var(--texto) y no resuelve a tiempo)
     document.body.appendChild(cont);
+    cont.querySelectorAll('*').forEach(el => {
+      const cs = getComputedStyle(el);
+      // Si el color del texto es muy claro (cerca de blanco), forzar oscuro
+      const c = cs.color || '';
+      const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (m) {
+        const luminancia = (+m[1] + +m[2] + +m[3]) / 3;
+        if (luminancia > 200) el.style.color = '#222';
+      }
+    });
 
     // Esperar a que el navegador haga layout + paint antes de capturar
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
