@@ -473,69 +473,213 @@ const ModuloFacturas = (() => {
   }
 
   async function _generarPdfBlob(f) {
-    if (typeof html2pdf === 'undefined') {
-      throw new Error('La librería para crear PDFs aún no se ha cargado. Espera un momento e inténtalo de nuevo.');
+    const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+    if (!jsPDFCtor) throw new Error('La librería para crear PDFs aún no se ha cargado. Espera un momento e inténtalo de nuevo.');
+
+    const cfg     = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
+    const empresa = cfg.razonSocial || 'MI RESTAURANTE';
+    const esPres  = f.tipo === 'presupuesto';
+    const impNom  = (cfg.regimen || 'igic') === 'iva' ? 'IVA' : 'IGIC';
+    const leyRef  = (cfg.regimen || 'igic') === 'iva'
+      ? 'Ley 37/1992 del IVA' : 'Ley 20/1991 del IGIC (Canarias)';
+
+    const doc = new jsPDFCtor({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    const PAGINA_W = 210, PAGINA_H = 297;
+    const ML = 15, MR = 15, MT = 18, MB = 20;
+    const W = PAGINA_W - ML - MR;
+    let y = MT;
+
+    const setColor = (rgb) => doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+    const linea = (x1, y1, x2, y2, color, grosor) => {
+      doc.setDrawColor(color[0], color[1], color[2]);
+      doc.setLineWidth(grosor);
+      doc.line(x1, y1, x2, y2);
+    };
+    const checkNuevaPagina = (alturaNecesaria) => {
+      if (y + alturaNecesaria > PAGINA_H - MB) { doc.addPage(); y = MT; }
+    };
+
+    // ----- CABECERA: Empresa izquierda, doc derecha -----
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    setColor([20, 20, 30]);
+    doc.text(empresa, ML, y);
+    let yIzq = y + 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    setColor([85, 85, 85]);
+    const lineasEmpresa = [
+      cfg.nif       ? `NIF/CIF: ${cfg.nif}` : null,
+      cfg.direccion || null,
+      [cfg.cp, cfg.ciudad].filter(Boolean).join(' ') || null,
+      cfg.provincia || null,
+      cfg.telefono  ? `Tel: ${cfg.telefono}` : null,
+      cfg.email     || null,
+      cfg.web       || null,
+    ].filter(Boolean);
+    lineasEmpresa.forEach(t => { doc.text(t, ML, yIzq); yIzq += 4; });
+
+    // Documento (derecha)
+    let yDer = y;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    setColor([192, 57, 43]);
+    doc.text(esPres ? 'PRESUPUESTO' : 'FACTURA', PAGINA_W - MR, yDer, { align: 'right' });
+    yDer += 7;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    setColor([60, 60, 60]);
+    doc.text(`Nº: ${f.numero}`, PAGINA_W - MR, yDer, { align: 'right' }); yDer += 5;
+    doc.text(`Fecha: ${VOZ.formatearFechaSolo(f.fecha)}`, PAGINA_W - MR, yDer, { align: 'right' }); yDer += 5;
+    if (f.vencimiento) {
+      doc.text(`${esPres ? 'Válido hasta' : 'Vencimiento'}: ${VOZ.formatearFechaSolo(f.vencimiento)}`, PAGINA_W - MR, yDer, { align: 'right' });
+      yDer += 5;
     }
-    // Renderizar la factura en un contenedor temporal visible (en posición fixed top:0/left:0
-    // pero cubierto por el overlay de "Generando PDF" con z-index:9999). Estar en pantalla
-    // es necesario para que html2canvas capture bien los estilos y dimensiones.
-    //
-    // IMPORTANTE: forzamos colores claros explícitos sobreescribiendo las variables CSS,
-    // porque si el tema oscuro está activo, el texto sale blanco sobre fondo blanco.
-    const cont = document.createElement('div');
-    cont.setAttribute('data-tema', 'claro');
-    cont.style.cssText = [
-      'position:fixed','top:0','left:0','width:794px','z-index:1',
-      'background:#ffffff','color:#111',
-      'font-family:Arial,Helvetica,sans-serif','font-size:13px','line-height:1.4',
-      // Overrides de variables del tema para que los hijos hereden colores oscuros sobre blanco
-      '--fondo:#ffffff','--fondo2:#ffffff','--fondo3:#f5f5f5',
-      '--texto:#111111','--texto2:#444444','--texto3:#666666',
-      '--borde:#cccccc','--borde-suave:#e5e5e5',
-      '--ok:#27ae60','--err:#c0392b','--aviso:#e67e22',
-      '--primario:#c0392b','--primario-h:#a03224',
-      '--radio:6px','--radio-sm:4px'
-    ].join(';') + ';';
-    cont.innerHTML = _buildDetalleHTML(f);
-    // Forzar fondo blanco y color oscuro en todos los descendientes (por si algún elemento
-    // hardcodea var(--texto) y no resuelve a tiempo)
-    document.body.appendChild(cont);
-    cont.querySelectorAll('*').forEach(el => {
-      const cs = getComputedStyle(el);
-      // Si el color del texto es muy claro (cerca de blanco), forzar oscuro
-      const c = cs.color || '';
-      const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-      if (m) {
-        const luminancia = (+m[1] + +m[2] + +m[3]) / 3;
-        if (luminancia > 200) el.style.color = '#222';
+
+    y = Math.max(yIzq, yDer) + 3;
+    linea(ML, y, PAGINA_W - MR, y, [26, 26, 46], 0.7);
+    y += 7;
+
+    // ----- DATOS DEL CLIENTE -----
+    const altoCliente = 16 + (f.direccion ? 4 : 0);
+    doc.setFillColor(245, 245, 245);
+    doc.rect(ML, y, W, altoCliente, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    setColor([110, 110, 110]);
+    doc.text('DATOS DEL CLIENTE', ML + 3, y + 5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    setColor([20, 20, 20]);
+    doc.text(f.cliente || '—', ML + 3, y + 10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    setColor([70, 70, 70]);
+    const extra = [f.nif ? `NIF/CIF: ${f.nif}` : null].filter(Boolean).join('  ·  ');
+    if (extra) doc.text(extra, ML + 3, y + 14);
+    if (f.direccion) doc.text(f.direccion, ML + 3, y + 18);
+    y += altoCliente + 5;
+
+    // Evento (presupuesto)
+    if (esPres && f.descripcionEvento) {
+      const ev = `Evento: ${f.descripcionEvento}` + (f.fechaEvento ? ` · ${VOZ.formatearFechaSolo(f.fechaEvento)}` : '');
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      setColor([60, 60, 60]);
+      const lineas = doc.splitTextToSize(ev, W);
+      doc.text(lineas, ML, y);
+      y += lineas.length * 4 + 3;
+    }
+
+    // ----- TABLA DE CONCEPTOS -----
+    const headerH = 8;
+    checkNuevaPagina(headerH + 10);
+    doc.setFillColor(26, 26, 46);
+    doc.rect(ML, y, W, headerH, 'F');
+    setColor([255, 255, 255]);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    const colCantX = ML + W - 70;
+    const colPrecX = ML + W - 45;
+    const colImpX  = ML + W - 2;
+    doc.text('Concepto', ML + 2, y + 5.5);
+    doc.text('Cant.',    colCantX + 5,  y + 5.5, { align: 'right' });
+    doc.text('P. Unit.', colPrecX + 5,  y + 5.5, { align: 'right' });
+    doc.text('Importe',  colImpX,       y + 5.5, { align: 'right' });
+    y += headerH;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    setColor([30, 30, 30]);
+    for (const l of (f.lineas || [])) {
+      const descLineas = doc.splitTextToSize(l.descripcion || '', colCantX - ML - 4);
+      const rowH = Math.max(6, descLineas.length * 4.2 + 2);
+      checkNuevaPagina(rowH + 30);
+      doc.text(descLineas, ML + 2, y + 4);
+      doc.text(String(l.cantidad || 0),                     colCantX + 5, y + 4, { align: 'right' });
+      doc.text(`${(l.precioUnitario || 0).toFixed(2)} €`,    colPrecX + 5, y + 4, { align: 'right' });
+      doc.text(`${(l.subtotal       || 0).toFixed(2)} €`,    colImpX,      y + 4, { align: 'right' });
+      y += rowH;
+      linea(ML, y, ML + W, y, [225, 225, 225], 0.2);
+    }
+    y += 5;
+
+    // ----- TOTALES -----
+    checkNuevaPagina(35);
+    const totalsLabelX = ML + W - 60;
+    const totalsValX   = ML + W;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    setColor([70, 70, 70]);
+    doc.text('Base imponible:',                  totalsLabelX, y);
+    doc.text(`${f.subtotal.toFixed(2)} €`,       totalsValX,   y, { align: 'right' });
+    y += 5;
+    doc.text(`${impNom} (${f.porcentajeIgic}%):`, totalsLabelX, y);
+    doc.text(`${f.cuotaIgic.toFixed(2)} €`,       totalsValX,   y, { align: 'right' });
+    y += 5;
+    if ((f.retencionIrpf || 0) > 0) {
+      setColor([192, 57, 43]);
+      doc.text(`Retención IRPF (${f.retencionIrpf}%):`, totalsLabelX, y);
+      doc.text(`-${(f.cuotaIrpf || 0).toFixed(2)} €`,   totalsValX,   y, { align: 'right' });
+      y += 5;
+    }
+    linea(totalsLabelX, y, totalsValX, y, [26, 26, 46], 0.5);
+    y += 3;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    setColor([20, 20, 20]);
+    doc.text(esPres ? 'TOTAL ESTIMADO:' : 'TOTAL A PAGAR:', totalsLabelX, y + 3);
+    doc.text(`${f.total.toFixed(2)} €`, totalsValX, y + 3, { align: 'right' });
+    y += 12;
+
+    // ----- FORMA DE PAGO -----
+    if (!esPres && f.formaPago) {
+      const labels = { efectivo: 'Efectivo', transferencia: 'Transferencia bancaria', tarjeta: 'Tarjeta', cheque: 'Cheque' };
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      setColor([20, 20, 20]);
+      doc.text('Forma de pago: ', ML, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(labels[f.formaPago] || f.formaPago, ML + 32, y);
+      y += 5;
+      if (f.formaPago === 'transferencia' && cfg.iban) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('IBAN: ', ML, y);
+        doc.setFont('helvetica', 'normal');
+        doc.text(cfg.iban, ML + 14, y);
+        y += 5;
       }
-    });
-
-    // Esperar a que el navegador haga layout + paint antes de capturar
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-    try {
-      const blob = await html2pdf().set({
-        margin:      [10, 10, 10, 10],
-        filename:    _nombreArchivoPdf(f),
-        image:       { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-          windowWidth: 794,
-          width: 794,
-          scrollX: 0,
-          scrollY: 0
-        },
-        jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:   { mode: ['avoid-all', 'css'] }
-      }).from(cont).output('blob');
-      return blob;
-    } finally {
-      cont.remove();
+      y += 2;
     }
+
+    // ----- NOTAS -----
+    if (f.notas) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9);
+      setColor([85, 85, 85]);
+      const lineas = doc.splitTextToSize(`Notas: ${f.notas}`, W);
+      checkNuevaPagina(lineas.length * 4 + 4);
+      doc.text(lineas, ML, y);
+      y += lineas.length * 4 + 4;
+    }
+
+    // ----- PIE LEGAL -----
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      linea(ML, PAGINA_H - 14, PAGINA_W - MR, PAGINA_H - 14, [200, 200, 200], 0.3);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      setColor([130, 130, 130]);
+      const pie = esPres
+        ? `Presupuesto sin valor contractual hasta su aceptación formal. Emitido conforme a la ${leyRef}.`
+        : `Factura emitida conforme a la ${leyRef}. Sujeto pasivo: ${empresa}${cfg.nif ? ' · NIF/CIF: ' + cfg.nif : ''}.`;
+      const pieLineas = doc.splitTextToSize(pie, W);
+      doc.text(pieLineas, ML, PAGINA_H - 10);
+      doc.text(`Pág. ${p} / ${totalPages}`, PAGINA_W - MR, PAGINA_H - 6, { align: 'right' });
+    }
+
+    return doc.output('blob');
   }
 
   function _mostrarLoadingCompartir(mostrar) {
