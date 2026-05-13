@@ -476,19 +476,32 @@ const ModuloFacturas = (() => {
     if (typeof html2pdf === 'undefined') {
       throw new Error('La librería para crear PDFs aún no se ha cargado. Espera un momento e inténtalo de nuevo.');
     }
-    // Renderizar la factura en un contenedor temporal fuera de pantalla (pero presente en el DOM
-    // para que html2canvas pueda leer estilos calculados)
+    // Renderizar la factura en un contenedor temporal visible (en posición fixed top:0/left:0
+    // pero cubierto por el overlay de "Generando PDF" con z-index:9999). Estar en pantalla
+    // es necesario para que html2canvas capture bien los estilos y dimensiones.
     const cont = document.createElement('div');
-    cont.style.cssText = 'position:fixed;left:-99999px;top:0;width:210mm;background:white;color:#222;padding:15mm;font-family:Arial,Helvetica,sans-serif;';
+    cont.style.cssText = 'position:fixed;top:0;left:0;width:794px;background:#ffffff;color:#111;z-index:1;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.4;';
     cont.innerHTML = _buildDetalleHTML(f);
     document.body.appendChild(cont);
+
+    // Esperar a que el navegador haga layout + paint antes de capturar
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     try {
       const blob = await html2pdf().set({
         margin:      [10, 10, 10, 10],
         filename:    _nombreArchivoPdf(f),
         image:       { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          windowWidth: 794,
+          width: 794,
+          scrollX: 0,
+          scrollY: 0
+        },
         jsPDF:       { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak:   { mode: ['avoid-all', 'css'] }
       }).from(cont).output('blob');
