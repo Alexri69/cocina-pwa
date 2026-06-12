@@ -184,11 +184,43 @@ const SB = (() => {
     return res.json();
   }
 
-  // CRUD genérico
-  const _get    = (tabla, q = '')  => _req(`${tabla}${q}`, { headers: _cab({ 'Prefer': '' }) });
-  const _post   = (tabla, datos)   => _req(tabla, { method: 'POST',   headers: _cab(), body: JSON.stringify(datos) });
-  const _patch  = (tabla, id, d)   => _req(`${tabla}?id=eq.${id}`, { method: 'PATCH',  headers: _cab(), body: JSON.stringify(d) });
-  const _delete = (tabla, id)      => _req(`${tabla}?id=eq.${id}`, { method: 'DELETE', headers: _cab({ 'Prefer': '' }) });
+  // CRUD genérico (las escrituras se encolan si no hay conexión → outbox)
+  const _get = (tabla, q = '') => _req(`${tabla}${q}`, { headers: _cab({ 'Prefer': '' }) });
+
+  // INSERT: genera un id de cliente para poder reintentar offline sin duplicar.
+  async function _post(tabla, datos) {
+    if (!datos.id && typeof crypto !== 'undefined' && crypto.randomUUID) datos = { id: crypto.randomUUID(), ...datos };
+    try {
+      return await _req(tabla, { method: 'POST', headers: _cab(), body: JSON.stringify(datos) });
+    } catch (e) {
+      if (!_esRed(e)) throw e;
+      _outboxAdd({ metodo: 'POST', tabla, datos });
+      _aplicarACache(tabla, 'POST', datos.id, datos);
+      return [datos]; // respuesta optimista (offline)
+    }
+  }
+
+  async function _patch(tabla, id, d) {
+    try {
+      return await _req(`${tabla}?id=eq.${id}`, { method: 'PATCH', headers: _cab(), body: JSON.stringify(d) });
+    } catch (e) {
+      if (!_esRed(e)) throw e;
+      _outboxAdd({ metodo: 'PATCH', tabla, id, datos: d });
+      _aplicarACache(tabla, 'PATCH', id, { id, ...d });
+      return [{ id, ...d }];
+    }
+  }
+
+  async function _delete(tabla, id) {
+    try {
+      return await _req(`${tabla}?id=eq.${id}`, { method: 'DELETE', headers: _cab({ 'Prefer': '' }) });
+    } catch (e) {
+      if (!_esRed(e)) throw e;
+      _outboxAdd({ metodo: 'DELETE', tabla, id });
+      _aplicarACache(tabla, 'DELETE', id, null);
+      return null;
+    }
+  }
 
   const _primero = (arr) => Array.isArray(arr) ? arr[0] ?? null : arr;
 
@@ -200,6 +232,67 @@ const SB = (() => {
     guardar: (k, v) => { try { localStorage.setItem('cocina_c_' + k, JSON.stringify(v)); } catch {} },
     leer:    (k)    => { try { return JSON.parse(localStorage.getItem('cocina_c_' + k)); } catch { return null; } }
   };
+
+  // ----------------------------------------------------------
+  // COLA DE ESCRITURA OFFLINE (outbox)
+  // Si una escritura falla por falta de red, se guarda aquí y se aplica a la
+  // caché local (UI optimista). flushOutbox() la reintenta al volver la conexión.
+  // ----------------------------------------------------------
+
+  const _OUTBOX_KEY = 'cocina_outbox';
+  const _CACHE_MAP  = { productos: _productoDeBD, facturas: _facturaDeBD };
+
+  function _esRed(e) {
+    return !navigator.onLine || /sin conexión|conexion|\bred\b|failed to fetch|networkerror/i.test(e?.message || '');
+  }
+  function _outboxLeer()      { try { return JSON.parse(localStorage.getItem(_OUTBOX_KEY)) || []; } catch { return []; } }
+  function _outboxEscribir(q) { try { localStorage.setItem(_OUTBOX_KEY, JSON.stringify(q)); } catch {} _avisarPendientes(); }
+  function _outboxAdd(op)     { const q = _outboxLeer(); q.push(op); _outboxEscribir(q); }
+  function pendientes()       { return _outboxLeer().length; }
+  function _avisarPendientes(){ try { window.dispatchEvent(new CustomEvent('cocina:pendientes', { detail: pendientes() })); } catch {} }
+
+  // Refleja la operación en la caché local para que la UI la muestre offline.
+  function _aplicarACache(tabla, op, id, datos) {
+    const claves = tabla === 'facturas'
+      ? (op === 'DELETE' ? ['facturas', 'presupuestos'] : [datos?.tipo === 'presupuesto' ? 'presupuestos' : 'facturas'])
+      : [tabla];
+    for (const clave of claves) {
+      let arr = _CACHE.leer(clave);
+      if (!Array.isArray(arr)) continue;
+      if (op === 'DELETE') {
+        arr = arr.filter(r => r.id !== id);
+      } else {
+        const shaped = _CACHE_MAP[tabla] ? _CACHE_MAP[tabla](datos) : datos;
+        const i = arr.findIndex(r => r.id === id);
+        if (i >= 0) arr[i] = { ...arr[i], ...shaped }; else arr.unshift(shaped);
+      }
+      _CACHE.guardar(clave, arr);
+    }
+  }
+
+  // Reintenta las escrituras pendientes (al volver la conexión / al iniciar).
+  async function flushOutbox() {
+    if (!navigator.onLine) return;
+    const q = _outboxLeer();
+    if (!q.length) return;
+    const restantes = [];
+    for (const op of q) {
+      try {
+        if (op.metodo === 'POST')
+          await _req(`${op.tabla}?on_conflict=id`, { method: 'POST', headers: _cab({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(op.datos) });
+        else if (op.metodo === 'PATCH')
+          await _req(`${op.tabla}?id=eq.${op.id}`, { method: 'PATCH', headers: _cab({ 'Prefer': 'return=minimal' }), body: JSON.stringify(op.datos) });
+        else if (op.metodo === 'DELETE')
+          await _req(`${op.tabla}?id=eq.${op.id}`, { method: 'DELETE', headers: _cab({ 'Prefer': '' }) });
+      } catch (e) {
+        if (_esRed(e)) restantes.push(op); // sigue sin conexión → reintentar luego
+        // otros errores (conflicto/validación) se descartan para no atascar la cola
+      }
+    }
+    _outboxEscribir(restantes);
+  }
+
+  if (typeof window !== 'undefined') window.addEventListener('online', () => flushOutbox());
 
   // ----------------------------------------------------------
   // PRODUCTOS (etiquetas de trazabilidad)
@@ -544,6 +637,8 @@ const SB = (() => {
     exportarTodo, restaurarDatos,
     // Configuración sincronizada
     obtenerConfigRemota, guardarConfigRemota,
+    // Cola de escritura offline
+    flushOutbox, pendientes,
     // Facturas y Presupuestos
     obtenerFacturas, obtenerPresupuestos, obtenerFactura,
     guardarFactura, actualizarFactura, borrarFactura,

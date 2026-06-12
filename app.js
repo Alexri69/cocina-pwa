@@ -52,6 +52,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Autenticar (bloquea hasta que el login sea correcto)
   await ModuloAuth.init();
 
+  // Sincronizar escrituras que quedaran pendientes de una sesión offline anterior
+  SB.flushOutbox();
+
   // Navegar al módulo correcto inmediatamente para evitar parpadeo
   navegarA(sessionStorage.getItem('moduloActivo') || 'dashboard');
 
@@ -87,20 +90,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ---- Banner offline + indicador de conexión ----
 
 function _actualizarBannerOffline() {
+  const pend   = (typeof SB !== 'undefined' && SB.pendientes) ? SB.pendientes() : 0;
   const banner = document.getElementById('offline-banner');
-  if (banner) banner.style.display = navigator.onLine ? 'none' : 'block';
+  if (banner) banner.style.display = (navigator.onLine && !pend) ? 'none' : 'block';
 
   const dot = document.getElementById('ind-conexion');
   if (dot) {
     dot.classList.toggle('online',  navigator.onLine);
     dot.classList.toggle('offline', !navigator.onLine);
-    dot.title       = navigator.onLine ? 'Conectado' : 'Sin conexión';
+    dot.title       = navigator.onLine
+      ? (pend ? `Conectado · ${pend} cambio(s) sincronizando…` : 'Conectado')
+      : (pend ? `Sin conexión · ${pend} cambio(s) en cola` : 'Sin conexión');
     dot.textContent = '●';
   }
 }
 
 window.addEventListener('online',  _actualizarBannerOffline);
 window.addEventListener('offline', _actualizarBannerOffline);
+// El outbox avisa de cambios pendientes (al encolar o al sincronizar)
+window.addEventListener('cocina:pendientes', _actualizarBannerOffline);
 
 // ---- Búsqueda global ----
 
