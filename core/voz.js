@@ -10,6 +10,41 @@ function dinero(n){ return (Number(n) || 0).toFixed(2); }
 // Escapa texto para insertarlo en HTML de forma segura (evita XSS con datos guardados).
 function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+// ── Validadores (devuelven true si está vacío → campos opcionales) ──────────
+function validarEmail(v){
+  if(!v) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim());
+}
+// NIF/NIE/CIF español con dígito de control.
+function validarNif(v){
+  if(!v) return true;
+  v = String(v).toUpperCase().replace(/[\s.\-]/g, '');
+  const L = 'TRWAGMYFPDXBNJZSQVHLCKE';
+  if (/^[0-9]{8}[A-Z]$/.test(v)) return v[8] === L[parseInt(v.slice(0,8),10) % 23];            // DNI
+  if (/^[XYZ][0-9]{7}[A-Z]$/.test(v)) {                                                          // NIE
+    const n = ({ X:'0', Y:'1', Z:'2' }[v[0]]) + v.slice(1,8);
+    return v[8] === L[parseInt(n,10) % 23];
+  }
+  if (/^[ABCDEFGHJNPQRSUVW][0-9]{7}[0-9A-J]$/.test(v)) {                                          // CIF
+    const dig = v.slice(1,8); let par = 0, non = 0;
+    for (let i = 0; i < 7; i++) { const d = +dig[i]; if (i % 2 === 0) { const x = d*2; non += x > 9 ? x-9 : x; } else { par += d; } }
+    const ctrl = (10 - ((par+non) % 10)) % 10;
+    return v[8] === String(ctrl) || v[8] === 'JABCDEFGHI'[ctrl];
+  }
+  return false;
+}
+// IBAN: formato + checksum mód-97.
+function validarIban(v){
+  if(!v) return true;
+  v = String(v).toUpperCase().replace(/\s/g, '');
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$/.test(v)) return false;
+  const re  = v.slice(4) + v.slice(0,4);
+  const num = re.replace(/[A-Z]/g, c => (c.charCodeAt(0) - 55).toString());
+  let rem = 0;
+  for (let i = 0; i < num.length; i++) rem = (rem * 10 + (num.charCodeAt(i) - 48)) % 97;
+  return rem === 1;
+}
+
 const VOZ = (() => {
 
   // Soporte del navegador (Chrome usa el prefijo webkit)

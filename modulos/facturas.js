@@ -222,6 +222,10 @@ const ModuloFacturas = (() => {
     if (!cliente)        { alert('El nombre del cliente es obligatorio.'); return; }
     if (!_lineas.length) { alert('Añade al menos una línea.'); return; }
 
+    const nifCliente = document.getElementById('fac-nif').value.trim();
+    if (nifCliente && !validarNif(nifCliente) &&
+        !confirm('El NIF/CIF del cliente no parece válido.\n\n¿Guardar de todas formas?')) return;
+
     const subtotal       = _lineas.reduce((s, l) => s + (l.subtotal || 0), 0);
     const porcentajeIgic = parseFloat(document.getElementById('fac-iva').value)  || 0;
     const cuotaIgic      = subtotal * porcentajeIgic / 100;

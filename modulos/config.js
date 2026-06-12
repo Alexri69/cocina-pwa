@@ -105,6 +105,12 @@ const ModuloConfig = (() => {
       regimen:     document.getElementById('cfg-regimen')?.value || 'igic',
       igicDefault: parseFloat(document.getElementById('cfg-igic')?.value) || 7,
     };
+    const probl = [];
+    if (!validarNif(datos.nif))     probl.push('NIF/CIF');
+    if (!validarEmail(datos.email)) probl.push('email');
+    if (!validarIban(datos.iban))   probl.push('IBAN');
+    if (probl.length && !confirm(`Estos datos no parecen válidos: ${probl.join(', ')}.\n\n¿Guardar de todas formas?`)) return;
+
     localStorage.setItem(CLAVE_EMP, JSON.stringify(datos));
     _pushRemota();
     _mostrarMsg('cfg-msg', '✔ Guardado');
