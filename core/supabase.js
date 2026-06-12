@@ -316,7 +316,7 @@ const SB = (() => {
       return datos;
     } catch (e) {
       const cache = _CACHE.leer('productos');
-      if (cache !== null) return cache;
+      if (_esRed(e) && cache !== null) return cache;
       throw e;
     }
   }
@@ -374,7 +374,7 @@ const SB = (() => {
       return datos;
     } catch (e) {
       const cache = _CACHE.leer('ingredientes');
-      if (cache !== null) return cache;
+      if (_esRed(e) && cache !== null) return cache;
       throw e;
     }
   }
@@ -382,7 +382,7 @@ const SB = (() => {
     try { return await _get('ingredientes', `?id=eq.${id}&select=*`).then(_primero); }
     catch (e) {
       const cache = _CACHE.leer('ingredientes');
-      if (cache !== null) return cache.find(i => i.id === id) ?? null;
+      if (_esRed(e) && cache !== null) return cache.find(i => i.id === id) ?? null;
       throw e;
     }
   }
@@ -401,7 +401,7 @@ const SB = (() => {
       return datos;
     } catch (e) {
       const cache = _CACHE.leer('platos');
-      if (cache !== null) return cache;
+      if (_esRed(e) && cache !== null) return cache;
       throw e;
     }
   }
@@ -409,7 +409,7 @@ const SB = (() => {
     try { return await _get('platos', `?id=eq.${id}&select=*`).then(_primero); }
     catch (e) {
       const cache = _CACHE.leer('platos');
-      if (cache !== null) return cache.find(p => p.id === id) ?? null;
+      if (_esRed(e) && cache !== null) return cache.find(p => p.id === id) ?? null;
       throw e;
     }
   }
@@ -463,7 +463,7 @@ const SB = (() => {
       return datos;
     } catch (e) {
       const cache = _CACHE.leer('facturas');
-      if (cache !== null) return cache;
+      if (_esRed(e) && cache !== null) return cache;
       throw e;
     }
   }
@@ -474,7 +474,7 @@ const SB = (() => {
       return datos;
     } catch (e) {
       const cache = _CACHE.leer('presupuestos');
-      if (cache !== null) return cache;
+      if (_esRed(e) && cache !== null) return cache;
       throw e;
     }
   }
@@ -484,7 +484,7 @@ const SB = (() => {
       const cacheF = _CACHE.leer('facturas')    || [];
       const cacheP = _CACHE.leer('presupuestos') || [];
       const found  = [...cacheF, ...cacheP].find(f => f.id === id);
-      if (found) return found;
+      if (_esRed(e) && found) return found;
       throw e;
     }
   }
@@ -567,7 +567,7 @@ const SB = (() => {
       return datos;
     } catch (e) {
       const cache = _CACHE.leer('bebidas');
-      if (cache !== null) return cache;
+      if (_esRed(e) && cache !== null) return cache;
       throw e;
     }
   }
@@ -575,7 +575,7 @@ const SB = (() => {
     try { return await _get('bebidas', `?id=eq.${id}&select=*`).then(_primero); }
     catch (e) {
       const cache = _CACHE.leer('bebidas');
-      if (cache !== null) return cache.find(b => b.id === id) ?? null;
+      if (_esRed(e) && cache !== null) return cache.find(b => b.id === id) ?? null;
       throw e;
     }
   }
