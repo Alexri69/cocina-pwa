@@ -491,6 +491,37 @@ const SB = (() => {
   const eliminarBebida   = (id) => _delete('bebidas', id);
 
   // ----------------------------------------------------------
+  // CONFIGURACIÓN (empresa + impresora + logo, 1 fila por usuario)
+  // localStorage sigue siendo la copia local rápida/offline; esto la sincroniza.
+  // ----------------------------------------------------------
+
+  async function obtenerConfigRemota() {
+    const uid = _uid();
+    if (!uid) return null;
+    try {
+      const arr = await _get('config', `?user_id=eq.${uid}&select=empresa,impresora,logo`);
+      return _primero(arr);
+    } catch { return null; }
+  }
+
+  async function guardarConfigRemota({ empresa, impresora, logo }) {
+    const uid = _uid();
+    if (!uid) return;
+    const payload = {
+      user_id:    uid,
+      empresa:    empresa   ?? {},
+      impresora:  impresora ?? {},
+      logo:       logo      ?? null,
+      updated_at: new Date().toISOString(),
+    };
+    return _req('config?on_conflict=user_id', {
+      method:  'POST',
+      headers: _cab({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+      body:    JSON.stringify(payload),
+    });
+  }
+
+  // ----------------------------------------------------------
   // INICIO: cargar sesión al arrancar el script
   // ----------------------------------------------------------
   _cargarSesion();
@@ -511,6 +542,8 @@ const SB = (() => {
     guardarBebida, actualizarBebida, eliminarBebida,
     // Backup
     exportarTodo, restaurarDatos,
+    // Configuración sincronizada
+    obtenerConfigRemota, guardarConfigRemota,
     // Facturas y Presupuestos
     obtenerFacturas, obtenerPresupuestos, obtenerFactura,
     guardarFactura, actualizarFactura, borrarFactura,

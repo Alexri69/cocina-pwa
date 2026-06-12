@@ -50,6 +50,7 @@ const ModuloConfig = (() => {
       localStorage.setItem(CLAVE_LOGO, e.target.result);
       _cargarLogoEnUI();
       _actualizarCabecera();
+      _pushRemota();
     };
     reader.readAsDataURL(archivo);
   }
@@ -58,6 +59,7 @@ const ModuloConfig = (() => {
     localStorage.removeItem(CLAVE_LOGO);
     _cargarLogoEnUI();
     _actualizarCabecera();
+    _pushRemota();
   }
 
   // --- Empresa ---
@@ -104,6 +106,7 @@ const ModuloConfig = (() => {
       igicDefault: parseFloat(document.getElementById('cfg-igic')?.value) || 7,
     };
     localStorage.setItem(CLAVE_EMP, JSON.stringify(datos));
+    _pushRemota();
     _mostrarMsg('cfg-msg', '✔ Guardado');
     _actualizarCabecera();
 
@@ -134,6 +137,7 @@ const ModuloConfig = (() => {
       puerto:   val('imp-puerto') || '9100',
     };
     localStorage.setItem(CLAVE_IMP, JSON.stringify(datos));
+    _pushRemota();
     _mostrarMsg('imp-msg', '✔ Guardado');
   }
 
@@ -215,6 +219,7 @@ const ModuloConfig = (() => {
 
       if (backup.config?.empresa)   localStorage.setItem(CLAVE_EMP, JSON.stringify(backup.config.empresa));
       if (backup.config?.impresora) localStorage.setItem(CLAVE_IMP, JSON.stringify(backup.config.impresora));
+      _pushRemota();
 
       _cargarEnFormulario();
       _cargarImpresora();
@@ -226,6 +231,38 @@ const ModuloConfig = (() => {
       const inp = document.getElementById('bkp-input-archivo');
       if (inp) inp.value = '';
     }
+  }
+
+  // --- Sincronización con Supabase ---
+
+  // Sube la config actual (de localStorage) a Supabase. Silencioso ante fallos/offline.
+  function _pushRemota() {
+    try {
+      SB.guardarConfigRemota({
+        empresa:   obtenerConfig(),
+        impresora: obtenerConfigImpresora(),
+        logo:      localStorage.getItem(CLAVE_LOGO) || null,
+      })?.catch(() => {});
+    } catch { /* offline: se queda en local, se subirá al próximo guardado con conexión */ }
+  }
+
+  // Trae la config de Supabase y, si existe, hidrata localStorage + repinta.
+  async function _hidratarRemota() {
+    try {
+      const r = await SB.obtenerConfigRemota();
+      if (!r) return;
+      if (r.empresa   && Object.keys(r.empresa).length)   localStorage.setItem(CLAVE_EMP, JSON.stringify(r.empresa));
+      if (r.impresora && Object.keys(r.impresora).length) localStorage.setItem(CLAVE_IMP, JSON.stringify(r.impresora));
+      if (r.logo) localStorage.setItem(CLAVE_LOGO, r.logo);
+      else        localStorage.removeItem(CLAVE_LOGO);
+      _cargarEnFormulario();
+      _cargarImpresora();
+      _actualizarCabecera();
+      _cargarLogoEnUI();
+      const cfg = obtenerConfig();
+      const dashNombre = document.getElementById('dash-nombre-restaurante');
+      if (dashNombre && cfg.razonSocial) dashNombre.textContent = cfg.razonSocial;
+    } catch { /* sin conexión: nos quedamos con lo de localStorage */ }
   }
 
   // --- Util ---
@@ -260,6 +297,9 @@ const ModuloConfig = (() => {
     document.getElementById('cfg-btn-logout')   ?.addEventListener('click', () => {
       if (confirm('¿Cerrar sesión?')) { SB.logout(); location.reload(); }
     });
+
+    // Sincronizar con Supabase en segundo plano (trae la config de otros dispositivos)
+    _hidratarRemota();
   }
 
   return { init, obtenerConfig, obtenerConfigImpresora };
