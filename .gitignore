@@ -10,3 +10,5 @@ desktop.ini
 
 # Logs
 *.log
+# Configuración local de Claude Code (no versionar)
+.claude/
