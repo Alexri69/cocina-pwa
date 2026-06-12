@@ -15,7 +15,7 @@ const ModuloFacturas = (() => {
   // ----------------------------------------------------------
 
   function _mostrarVista(cual) {
-    ['fac-vista-lista', 'fac-vista-formulario', 'fac-vista-detalle'].forEach(id => {
+    ['fac-vista-lista', 'fac-vista-formulario', 'fac-vista-detalle', 'fac-vista-informe'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = id === 'fac-vista-' + cual ? 'block' : 'none';
     });
@@ -786,6 +786,121 @@ const ModuloFacturas = (() => {
   function _esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   // ----------------------------------------------------------
+  // INFORME FISCAL (resumen por trimestre del año seleccionado)
+  // ----------------------------------------------------------
+
+  let _infFacturas = [];   // cache de facturas para el informe
+  let _infAnyo     = '';
+
+  function _trimestre(fecha) { return Math.floor((parseInt((fecha || '').slice(5, 7), 10) - 1) / 3); } // 0..3
+
+  async function _abrirInforme() {
+    _mostrarVista('informe');
+    const cont = document.getElementById('fac-informe-contenido');
+    if (cont) cont.innerHTML = '<p class="texto-vacio">Cargando…</p>';
+    try {
+      _infFacturas = await SB.obtenerFacturas(); // solo tipo=factura
+    } catch (e) {
+      if (cont) cont.innerHTML = `<p class="texto-vacio error-texto">Error: ${_esc(e.message)}</p>`;
+      return;
+    }
+    const anyos = [...new Set(_infFacturas.map(f => (f.fecha || '').slice(0, 4)).filter(Boolean))].sort().reverse();
+    if (!anyos.length) anyos.push(String(new Date().getFullYear()));
+    const sel = document.getElementById('fac-inf-anyo');
+    if (sel) {
+      sel.innerHTML = anyos.map(a => `<option value="${a}">${a}</option>`).join('');
+      _infAnyo = anyos.includes(_infAnyo) ? _infAnyo : anyos[0];
+      sel.value = _infAnyo;
+    }
+    _renderInforme();
+  }
+
+  function _renderInforme() {
+    const cont = document.getElementById('fac-informe-contenido');
+    if (!cont) return;
+    const anyo = document.getElementById('fac-inf-anyo')?.value || _infAnyo;
+    _infAnyo = anyo;
+    const delAnyo = _infFacturas.filter(f => (f.fecha || '').startsWith(anyo));
+
+    const acc = [0, 1, 2, 3].map(() => ({ base: 0, igic: 0, irpf: 0, total: 0, n: 0 }));
+    let pagadas = 0, pendientes = 0;
+    for (const f of delAnyo) {
+      const a = acc[_trimestre(f.fecha)] || acc[0];
+      a.base  += Number(f.subtotal)  || 0;
+      a.igic  += Number(f.cuotaIgic) || 0;
+      a.irpf  += Number(f.cuotaIrpf) || 0;
+      a.total += Number(f.total)     || 0;
+      a.n++;
+      if (f.pagada) pagadas += Number(f.total) || 0; else pendientes += Number(f.total) || 0;
+    }
+    const tot = acc.reduce((t, a) => ({
+      base: t.base + a.base, igic: t.igic + a.igic, irpf: t.irpf + a.irpf, total: t.total + a.total, n: t.n + a.n,
+    }), { base: 0, igic: 0, irpf: 0, total: 0, n: 0 });
+
+    const fila = (et, a) => `<tr>
+      <td>${et}</td>
+      <td style="text-align:center">${a.n}</td>
+      <td style="text-align:right">${dinero(a.base)} €</td>
+      <td style="text-align:right">${dinero(a.igic)} €</td>
+      <td style="text-align:right">${a.irpf ? '−' + dinero(a.irpf) + ' €' : '—'}</td>
+      <td style="text-align:right"><strong>${dinero(a.total)} €</strong></td>
+    </tr>`;
+
+    if (!delAnyo.length) {
+      cont.innerHTML = `<p class="texto-vacio">No hay facturas en ${anyo}.</p>`;
+      return;
+    }
+    cont.innerHTML = `
+      <div class="tarjeta" style="overflow-x:auto">
+        <table class="tabla-informe" style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th style="text-align:left">Periodo</th><th>Nº</th>
+            <th style="text-align:right">Base imponible</th>
+            <th style="text-align:right">IGIC repercutido</th>
+            <th style="text-align:right">IRPF retenido</th>
+            <th style="text-align:right">Total facturado</th>
+          </tr></thead>
+          <tbody>
+            ${[0,1,2,3].map(i => fila('Trimestre ' + (i + 1), acc[i])).join('')}
+          </tbody>
+          <tfoot><tr style="border-top:2px solid var(--borde,#444);font-weight:700">
+            ${fila('TOTAL ' + anyo, tot).replace('<td>', '<td><strong>').replace('</td>', '</strong></td>')}
+          </tr></tfoot>
+        </table>
+      </div>
+      <div class="flexwrap" style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">
+        <div class="tarjeta" style="flex:1;min-width:160px;text-align:center">
+          <div style="font-size:.8rem;color:var(--texto2)">Cobrado</div>
+          <div style="font-size:1.3rem;font-weight:700;color:var(--ok,#27ae60)">${dinero(pagadas)} €</div>
+        </div>
+        <div class="tarjeta" style="flex:1;min-width:160px;text-align:center">
+          <div style="font-size:.8rem;color:var(--texto2)">Pendiente de cobro</div>
+          <div style="font-size:1.3rem;font-weight:700;color:var(--am,#f39c12)">${dinero(pendientes)} €</div>
+        </div>
+      </div>
+      <p style="font-size:.75rem;color:var(--texto2);margin-top:10px">Resumen orientativo de las facturas emitidas. No sustituye al asesoramiento fiscal.</p>`;
+  }
+
+  function _exportarInformeCsv() {
+    const anyo = _infAnyo || String(new Date().getFullYear());
+    const delAnyo = _infFacturas.filter(f => (f.fecha || '').startsWith(anyo))
+      .sort((a, b) => (a.fecha || '') < (b.fecha || '') ? -1 : 1);
+    const filas = [['Numero', 'Fecha', 'Cliente', 'NIF', 'Base', 'IGIC', 'IRPF', 'Total', 'Pagada']];
+    for (const f of delAnyo) {
+      filas.push([
+        f.numero, f.fecha, (f.cliente || '').replace(/;/g, ','), f.nif || '',
+        dinero(f.subtotal), dinero(f.cuotaIgic), dinero(f.cuotaIrpf), dinero(f.total), f.pagada ? 'Si' : 'No',
+      ]);
+    }
+    const csv  = filas.map(r => r.join(';')).join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `facturacion-${anyo}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ----------------------------------------------------------
   // INICIALIZACIÓN
   // ----------------------------------------------------------
 
@@ -802,6 +917,10 @@ const ModuloFacturas = (() => {
     document.getElementById('fac-btn-guardar')   ?.addEventListener('click', _guardarFactura);
     document.getElementById('fac-btn-cancelar')  ?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
     document.getElementById('fac-btn-volver')    ?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
+    document.getElementById('fac-btn-informe')   ?.addEventListener('click', _abrirInforme);
+    document.getElementById('fac-inf-volver')    ?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
+    document.getElementById('fac-inf-anyo')      ?.addEventListener('change', _renderInforme);
+    document.getElementById('fac-inf-csv')       ?.addEventListener('click', _exportarInformeCsv);
     document.getElementById('fac-btn-imprimir')  ?.addEventListener('click', () => window.print());
     document.getElementById('fac-btn-convertir') ?.addEventListener('click', _convertirAFactura);
     document.getElementById('fac-btn-email')     ?.addEventListener('click', async () => { const f = await SB.obtenerFactura(_idFacturaActual); if (f) await _compartirEmail(f); });

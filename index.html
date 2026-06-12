@@ -467,6 +467,7 @@
           <button class="sub-tab" id="fac-tab-presupuestos">📋 Presupuestos</button>
         </div>
         <div style="display:flex;gap:8px">
+          <button id="fac-btn-informe"    class="btn btn-secundario-sm" title="Informe fiscal">📊 Informe</button>
           <button id="fac-btn-nueva"      class="btn btn-primario-sm">＋ Nueva Factura</button>
           <button id="fac-btn-nuevo-pres" class="btn btn-secundario-sm" style="display:none">＋ Presupuesto</button>
         </div>
@@ -609,6 +610,17 @@
           <button id="fac-btn-imprimir"  class="btn btn-imprimir">🖨 Imprimir</button>
         </div>
         <div id="fac-detalle-contenido"></div>
+      </div>
+
+      <!-- Vista: informe fiscal -->
+      <div id="fac-vista-informe" style="display:none">
+        <div class="form-acciones" style="margin-bottom:12px;align-items:center">
+          <button id="fac-inf-volver" class="btn btn-secundario-sm">← Volver</button>
+          <label for="fac-inf-anyo" style="margin:0 4px 0 8px">Año:</label>
+          <select id="fac-inf-anyo" class="inp inp-select" style="width:auto;min-width:90px"></select>
+          <button id="fac-inf-csv" class="btn btn-secundario-sm">⬇ Exportar CSV</button>
+        </div>
+        <div id="fac-informe-contenido"></div>
       </div>
 
     </main>
@@ -829,15 +841,15 @@
        SCRIPTS — orden obligatorio: core → modulos → app
        ======================================================== -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-  <script src="core/voz.js?v=41"></script>
-  <script src="core/supabase.js?v=41"></script>
-  <script src="modulos/etiquetas.js?v=41"></script>
-  <script src="modulos/menu.js?v=41"></script>
-  <script src="modulos/bebidas.js?v=41"></script>
-  <script src="modulos/facturas.js?v=41"></script>
-  <script src="modulos/auth.js?v=41"></script>
-  <script src="modulos/config.js?v=41"></script>
-  <script src="app.js?v=41"></script>
+  <script src="core/voz.js?v=42"></script>
+  <script src="core/supabase.js?v=42"></script>
+  <script src="modulos/etiquetas.js?v=42"></script>
+  <script src="modulos/menu.js?v=42"></script>
+  <script src="modulos/bebidas.js?v=42"></script>
+  <script src="modulos/facturas.js?v=42"></script>
+  <script src="modulos/auth.js?v=42"></script>
+  <script src="modulos/config.js?v=42"></script>
+  <script src="app.js?v=42"></script>
   <script>
     // Recarga automática cuando el Service Worker se actualiza
     if ('serviceWorker' in navigator) {
