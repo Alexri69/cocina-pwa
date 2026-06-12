@@ -49,9 +49,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnTema = document.getElementById('btn-tema');
   if (btnTema) btnTema.textContent = temaActual === 'oscuro' ? '🌙' : '☀';
 
-  // IndexedDB ya no es crítico (productos migrados a Supabase)
-  try { await BD.abrirBaseDeDatos(); } catch (e) { console.warn('[App] IndexedDB no disponible:', e); }
-
   // Autenticar (bloquea hasta que el login sea correcto)
   await ModuloAuth.init();
 
@@ -132,7 +129,7 @@ async function _ejecutarBusqueda(q) {
     const _item = (icono, tipo, accion, i) =>
       `<div class="busq-item" onclick="${accion}">
         <span>${icono}</span>
-        <span>${i.nombre}${i.precio > 0 ? ' · ' + i.precio.toFixed(2) + ' €' : ''}</span>
+        <span>${esc(i.nombre)}${i.precio > 0 ? ' · ' + i.precio.toFixed(2) + ' €' : ''}</span>
         <span class="busq-tipo">${tipo}</span>
       </div>`;
 
@@ -194,9 +191,9 @@ function _renderAlertasDashboard(caducados, proximos) {
   if (!caducados.length && !proximos.length) { cont.style.display = 'none'; return; }
   lista.innerHTML = [
     ...caducados.map(p =>
-      `<div class="dash-alerta-item rojo">🔴 <strong>${p.nombre}</strong> — Lote ${p.lote} — <em>CADUCADO</em></div>`),
+      `<div class="dash-alerta-item rojo">🔴 <strong>${esc(p.nombre)}</strong> — Lote ${esc(p.lote)} — <em>CADUCADO</em></div>`),
     ...proximos.map(p =>
-      `<div class="dash-alerta-item amarillo">🟡 <strong>${p.nombre}</strong> — Lote ${p.lote} — caduca ${VOZ.formatearFechaSolo(p.fechaCaducidad)}</div>`),
+      `<div class="dash-alerta-item amarillo">🟡 <strong>${esc(p.nombre)}</strong> — Lote ${esc(p.lote)} — caduca ${VOZ.formatearFechaSolo(p.fechaCaducidad)}</div>`),
   ].join('');
   cont.style.display = 'block';
 }

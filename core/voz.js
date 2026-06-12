@@ -7,6 +7,9 @@
 // Formatea un importe a 2 decimales de forma segura (null/undefined/'' → 0.00).
 function dinero(n){ return (Number(n) || 0).toFixed(2); }
 
+// Escapa texto para insertarlo en HTML de forma segura (evita XSS con datos guardados).
+function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
 const VOZ = (() => {
 
   // Soporte del navegador (Chrome usa el prefijo webkit)

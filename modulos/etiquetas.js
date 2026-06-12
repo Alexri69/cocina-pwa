@@ -1,6 +1,6 @@
 // ============================================================
 // modulos/etiquetas.js — Etiquetado de recipientes abiertos
-// Depende de: core/bd.js, core/voz.js
+// Depende de: core/supabase.js, core/voz.js
 // Ofrece dos modos: flujo guiado por voz y formulario manual.
 // ============================================================
 
@@ -333,8 +333,8 @@ const ModuloEtiquetas = (() => {
 
     prev.innerHTML = `
       <div class="etiqueta">
-        <div class="etiqueta-nombre">${p.nombre.toUpperCase()}</div>
-        <div class="etiqueta-lote">Lote: <strong>${p.lote}</strong></div>
+        <div class="etiqueta-nombre">${esc(p.nombre).toUpperCase()}</div>
+        <div class="etiqueta-lote">Lote: <strong>${esc(p.lote)}</strong></div>
         <div class="etiqueta-fecha">Abierto: ${VOZ.formatearFecha(p.fechaApertura)}</div>
         <div class="etiqueta-caducidad ${color}">
           ⏰ Caduca: ${VOZ.formatearFecha(p.fechaCaducidad)} — ${colorTexto}
@@ -468,7 +468,7 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
       const idxGlobal = productos.indexOf(p);
       const c = VOZ.calcularColorCaducidad(p.fechaCaducidad);
       return `<div class="item-historial ${c}" role="listitem">
-        <div><strong>${p.nombre}</strong> — Lote: ${p.lote}</div>
+        <div><strong>${esc(p.nombre)}</strong> — Lote: ${esc(p.lote)}</div>
         <small>Caduca: ${VOZ.formatearFecha(p.fechaCaducidad)}</small>
         <div class="card-acciones" style="margin-top:6px">
           <button class="btn-mini btn-ver"    onclick="ModuloEtiquetas._verEtiqueta(${idxGlobal})">👁 Ver</button>

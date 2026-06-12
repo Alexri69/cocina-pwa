@@ -265,7 +265,6 @@ const SB = (() => {
       console.warn('[SB] No se pudo verificar la sesión (error de red):', err);
     }
 
-    console.log('[SB] guardarProducto: enviando con user_id =', uid);
     return _post('productos', { ..._productoParaBD(p), user_id: uid }).then(r => _productoDeBD(_primero(r)));
   }
   const actualizarProducto = (p)  => _patch('productos', p.id, _productoParaBD(p)).then(r => _productoDeBD(_primero(r)));
