@@ -56,7 +56,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   SB.flushOutbox();
 
   // Navegar al módulo correcto inmediatamente para evitar parpadeo
-  navegarA(sessionStorage.getItem('moduloActivo') || 'dashboard');
+  // Acceso directo del icono (manifest shortcuts): ?m=etiquetas|facturas|…
+  const _mParam = new URLSearchParams(location.search).get('m');
+  navegarA(_mParam || sessionStorage.getItem('moduloActivo') || 'dashboard');
 
   // Inicializar módulos
   await ModuloEtiquetas.init();

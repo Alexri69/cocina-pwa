@@ -1,6 +1,7 @@
 {
   "name": "Cocina",
   "short_name": "Cocina",
+  "id": "/index.html",
   "description": "Gestión de cocina profesional: etiquetado, carta, bebidas y facturas. Cumple Reg. UE 1169/2011 y RD 126/2015.",
   "start_url": "./index.html",
   "display": "standalone",
@@ -22,5 +23,21 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["food", "productivity", "utilities"]
+  "categories": ["food", "productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Etiquetas",
+      "short_name": "Etiquetas",
+      "description": "Etiquetar un recipiente abierto",
+      "url": "./index.html?m=etiquetas",
+      "icons": [{ "src": "iconos/icono-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Nueva factura",
+      "short_name": "Factura",
+      "description": "Ir a facturas",
+      "url": "./index.html?m=facturas",
+      "icons": [{ "src": "iconos/icono-192.png", "sizes": "192x192" }]
+    }
+  ]
 }
