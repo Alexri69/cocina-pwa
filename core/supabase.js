@@ -615,6 +615,22 @@ const SB = (() => {
   }
 
   // ----------------------------------------------------------
+  // PUSH (suscripción del navegador para avisos de caducidad)
+  // ----------------------------------------------------------
+
+  async function guardarPushSub(sub) {
+    const uid = _uid();
+    if (!uid || !sub) return;
+    const j = sub.toJSON ? sub.toJSON() : sub;
+    if (!j.keys) return;
+    return _req('push_subscriptions?on_conflict=endpoint', {
+      method:  'POST',
+      headers: _cab({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
+      body:    JSON.stringify({ user_id: uid, endpoint: sub.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }),
+    });
+  }
+
+  // ----------------------------------------------------------
   // INICIO: cargar sesión al arrancar el script
   // ----------------------------------------------------------
   _cargarSesion();
@@ -639,6 +655,8 @@ const SB = (() => {
     obtenerConfigRemota, guardarConfigRemota,
     // Cola de escritura offline
     flushOutbox, pendientes,
+    // Push (avisos de caducidad)
+    guardarPushSub,
     // Facturas y Presupuestos
     obtenerFacturas, obtenerPresupuestos, obtenerFactura,
     guardarFactura, actualizarFactura, borrarFactura,

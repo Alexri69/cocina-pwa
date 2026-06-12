@@ -3,21 +3,21 @@
 // v37: vuelve a stale-while-revalidate para evitar cuelgues
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v46';
+const NOMBRE_CACHE = 'cocina-etiquetas-v47';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
   './estilo.css',
   './manifest.json',
-  './core/voz.js?v=46',
-  './core/supabase.js?v=46',
-  './modulos/etiquetas.js?v=46',
-  './modulos/menu.js?v=46',
-  './modulos/bebidas.js?v=46',
-  './modulos/facturas.js?v=46',
-  './modulos/auth.js?v=46',
-  './modulos/config.js?v=46',
-  './app.js?v=46',
+  './core/voz.js?v=47',
+  './core/supabase.js?v=47',
+  './modulos/etiquetas.js?v=47',
+  './modulos/menu.js?v=47',
+  './modulos/bebidas.js?v=47',
+  './modulos/facturas.js?v=47',
+  './modulos/auth.js?v=47',
+  './modulos/config.js?v=47',
+  './app.js?v=47',
   './iconos/icono-192.png',
   './iconos/icono-512.png'
 ];
@@ -42,6 +42,31 @@ self.addEventListener('activate', (e) => {
       .then(nombres => Promise.all(nombres.filter(n => n !== NOMBRE_CACHE).map(n => caches.delete(n))))
       .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
       .then(clients => clients.forEach(c => c.postMessage({ tipo: 'SW_ACTUALIZADO' })))
+  );
+});
+
+// ---- PUSH: notificación de caducidad aunque la app esté cerrada ----
+self.addEventListener('push', (e) => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch (_) { data = { body: e.data && e.data.text() }; }
+  e.waitUntil(self.registration.showNotification(data.title || '🍽 Cocina', {
+    body:  data.body || '',
+    icon:  './iconos/icono-192.png',
+    badge: './iconos/icono-192.png',
+    vibrate: [120, 60, 120],
+    tag:   data.tag || 'cocina-caducidad',
+    data:  { url: data.url || './index.html?m=etiquetas' }
+  }));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './index.html?m=etiquetas';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) { if (c.url.includes(self.location.origin) && 'focus' in c) return c.focus(); }
+      return clients.openWindow(url);
+    })
   );
 });
 

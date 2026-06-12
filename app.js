@@ -159,9 +159,33 @@ async function _ejecutarBusqueda(q) {
   }
 }
 
+// ---- Push (avisos de caducidad con la app cerrada) ----
+
+const VAPID_PUBLIC = 'BKoaTqsQojA_4KBvSSzp-niYxJCzn1XA8kxM_1lL0NjWstWSx-POT315ma3J1Fv6FjFzBpyVWz6jlrBvBrr0KWQ';
+
+function _b64ToU8(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const s   = (b64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(s); const a = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) a[i] = raw.charCodeAt(i);
+  return a;
+}
+
+async function _suscribirPush() {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _b64ToU8(VAPID_PUBLIC) });
+    await SB.guardarPushSub(sub);
+  } catch (e) { console.warn('[App] No se pudo suscribir a push:', e); }
+}
+
 // ---- Alertas de caducidad ----
 
 async function _comprobarCaducidades() {
+  // Si ya hay permiso, registra este dispositivo para recibir avisos aunque la app esté cerrada
+  if ('Notification' in window && Notification.permission === 'granted') _suscribirPush();
   try {
     const { caducados, proximos } = await ModuloEtiquetas.verificarCaducidades();
     const total = caducados.length + proximos.length;
@@ -174,6 +198,7 @@ async function _comprobarCaducidades() {
         ? 'granted'
         : await Notification.requestPermission();
       if (perm === 'granted') {
+        _suscribirPush();   // registrar el dispositivo para avisos con la app cerrada
         const partes = [];
         if (caducados.length) partes.push(`${caducados.length} caducado${caducados.length > 1 ? 's' : ''}`);
         if (proximos.length)  partes.push(`${proximos.length} próximo${proximos.length > 1 ? 's' : ''} a caducar`);
