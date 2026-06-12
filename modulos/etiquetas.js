@@ -473,7 +473,7 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
         <div class="card-acciones" style="margin-top:6px">
           <button class="btn-mini btn-ver"    onclick="ModuloEtiquetas._verEtiqueta(${idxGlobal})">👁 Ver</button>
           <button class="btn-mini btn-pagar"  onclick="ModuloEtiquetas._imprimirEtiqueta(${idxGlobal})">🖨 Imprimir</button>
-          <button class="btn-mini btn-borrar" onclick="ModuloEtiquetas._borrarProducto(${idxGlobal})">🗑</button>
+          <button class="btn-mini btn-borrar" title="Eliminar" aria-label="Eliminar" onclick="ModuloEtiquetas._borrarProducto(${idxGlobal})">🗑</button>
         </div>
       </div>`;
     }).join('');

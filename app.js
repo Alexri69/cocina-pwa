@@ -101,6 +101,8 @@ function _actualizarBannerOffline() {
     dot.title       = navigator.onLine
       ? (pend ? `Conectado · ${pend} cambio(s) sincronizando…` : 'Conectado')
       : (pend ? `Sin conexión · ${pend} cambio(s) en cola` : 'Sin conexión');
+    dot.setAttribute('role', 'img');
+    dot.setAttribute('aria-label', dot.title);
     dot.textContent = '●';
   }
 }

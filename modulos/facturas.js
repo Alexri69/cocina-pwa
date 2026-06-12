@@ -95,7 +95,7 @@ const ModuloFacturas = (() => {
         }
         <button class="btn-mini btn-email" onclick="ModuloFacturas.compartirEmail('${f.id}')" title="Enviar por email">📧</button>
         <button class="btn-mini btn-wa"    onclick="ModuloFacturas.compartirWhatsApp('${f.id}')" title="Enviar por WhatsApp">💬</button>
-        <button class="btn-mini btn-borrar" onclick="ModuloFacturas.borrarFactura('${f.id}','${f.numero}')">🗑</button>
+        <button class="btn-mini btn-borrar" title="Eliminar" aria-label="Eliminar" onclick="ModuloFacturas.borrarFactura('${f.id}','${f.numero}')">🗑</button>
       </div>
     </div>`;
   }

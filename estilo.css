@@ -897,3 +897,28 @@ textarea.inp  { resize: vertical; min-height: 60px; }
 
   @page { size: A4; margin: 12mm; }
 }
+
+/* ============================================================
+   ACCESIBILIDAD — foco visible para navegación por teclado
+   (solo aparece con teclado gracias a :focus-visible, no con el ratón)
+   ============================================================ */
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible,
+.nav-tab:focus-visible,
+.nav-bottom-tab:focus-visible,
+.dash-card:focus-visible,
+.cab-btn:focus-visible,
+.btn:focus-visible,
+.btn-mini:focus-visible,
+.sub-tab:focus-visible {
+  outline: 3px solid var(--acento);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.inp:focus-visible,
+.inp-select:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 1px;
+}
