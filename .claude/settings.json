@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(gh --version)",
-      "Bash(git --version)"
+      "Bash(git --version)",
+      "Bash(node --check sw.js)",
+      "Bash(node -e ' *)",
+      "Bash(cd /c/Users/alexr/Brami3D && grep -n \"Configuración guardada\\\\|empresa guardados\\\\|Formato guardado\\\\|guardada','ok'\\\\|guardados','ok'\" brami3d_supabase.html)",
+      "Read(//c/c/Users/alexr/Brami3D/**)",
+      "Bash(node scripts/validate.js)"
     ]
   }
 }

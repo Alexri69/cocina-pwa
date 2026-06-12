@@ -79,7 +79,7 @@ const ModuloFacturas = (() => {
       ${esPres && f.descripcionEvento ? `<div style="font-size:.8rem;color:var(--texto2);margin-bottom:2px">📅 ${_esc(f.descripcionEvento)}</div>` : ''}
       <div class="fac-card-meta">
         <span>${VOZ.formatearFechaSolo(f.fecha)}</span>
-        <strong>${f.total.toFixed(2)} €</strong>
+        <strong>${dinero(f.total)} €</strong>
       </div>
       <div class="card-acciones">
         <button class="btn-mini btn-ver"    onclick="ModuloFacturas.verFactura('${f.id}')">👁 Ver</button>
@@ -107,7 +107,7 @@ const ModuloFacturas = (() => {
   async function _abrirFormulario(factura = null, tipo = 'factura') {
     _idFacturaActual = factura ? factura.id : null;
     _tipoActual      = factura ? (factura.tipo || 'factura') : tipo;
-    _lineas          = factura ? JSON.parse(JSON.stringify(factura.lineas)) : [];
+    _lineas          = factura ? JSON.parse(JSON.stringify(factura.lineas || [])) : [];
 
     const esPres = _tipoActual === 'presupuesto';
 
@@ -371,12 +371,12 @@ const ModuloFacturas = (() => {
         </table>
 
         <div class="fac-totales">
-          <div class="fac-fila-total"><span>Base imponible:</span><span>${f.subtotal.toFixed(2)} €</span></div>
-          <div class="fac-fila-total"><span>${impNom} (${f.porcentajeIgic}%):</span><span>${f.cuotaIgic.toFixed(2)} €</span></div>
+          <div class="fac-fila-total"><span>Base imponible:</span><span>${dinero(f.subtotal)} €</span></div>
+          <div class="fac-fila-total"><span>${impNom} (${f.porcentajeIgic}%):</span><span>${dinero(f.cuotaIgic)} €</span></div>
           ${irpfHtml}
           <div class="fac-fila-total fac-total-final">
             <span>${esPres ? 'TOTAL ESTIMADO:' : 'TOTAL A PAGAR:'}</span>
-            <span>${f.total.toFixed(2)} €</span>
+            <span>${dinero(f.total)} €</span>
           </div>
         </div>
 
@@ -612,10 +612,10 @@ const ModuloFacturas = (() => {
     doc.setFont('helvetica', 'normal');
     setColor([70, 70, 70]);
     doc.text('Base imponible:',                  totalsLabelX, y);
-    doc.text(`${f.subtotal.toFixed(2)} €`,       totalsValX,   y, { align: 'right' });
+    doc.text(`${dinero(f.subtotal)} €`,       totalsValX,   y, { align: 'right' });
     y += 5;
     doc.text(`${impNom} (${f.porcentajeIgic}%):`, totalsLabelX, y);
-    doc.text(`${f.cuotaIgic.toFixed(2)} €`,       totalsValX,   y, { align: 'right' });
+    doc.text(`${dinero(f.cuotaIgic)} €`,       totalsValX,   y, { align: 'right' });
     y += 5;
     if ((f.retencionIrpf || 0) > 0) {
       setColor([192, 57, 43]);
@@ -629,7 +629,7 @@ const ModuloFacturas = (() => {
     doc.setFontSize(12);
     setColor([20, 20, 20]);
     doc.text(esPres ? 'TOTAL ESTIMADO:' : 'TOTAL A PAGAR:', totalsLabelX, y + 3);
-    doc.text(`${f.total.toFixed(2)} €`, totalsValX, y + 3, { align: 'right' });
+    doc.text(`${dinero(f.total)} €`, totalsValX, y + 3, { align: 'right' });
     y += 12;
 
     // ----- FORMA DE PAGO -----
@@ -749,7 +749,7 @@ const ModuloFacturas = (() => {
       `Estimado/a ${f.cliente},`,
       '',
       `Le adjunto ${esPres ? 'el presupuesto' : 'la factura'} nº ${f.numero} con fecha ${VOZ.formatearFechaSolo(f.fecha)}.`,
-      `Importe total: ${f.total.toFixed(2)} €.`,
+      `Importe total: ${dinero(f.total)} €.`,
       '',
       'Atentamente,',
       empresa,
@@ -763,7 +763,7 @@ const ModuloFacturas = (() => {
   async function _compartirWhatsApp(f) {
     const { empresa, esPres } = _textoFactura(f);
     const tipoDoc = esPres ? 'presupuesto' : 'factura';
-    const texto = `Hola ${f.cliente},\nTe adjunto el ${tipoDoc} ${f.numero} (${f.total.toFixed(2)} €).\nUn saludo,\n${empresa}`;
+    const texto = `Hola ${f.cliente},\nTe adjunto el ${tipoDoc} ${f.numero} (${dinero(f.total)} €).\nUn saludo,\n${empresa}`;
     const urlFallback = 'https://wa.me/?text=' + encodeURIComponent(texto);
     await _compartirArchivo(f, { asunto: `${esPres ? 'Presupuesto' : 'Factura'} ${f.numero}`, texto, urlFallback, app: 'WhatsApp' });
   }

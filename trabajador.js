@@ -3,22 +3,22 @@
 // v37: vuelve a stale-while-revalidate para evitar cuelgues
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v37';
+const NOMBRE_CACHE = 'cocina-etiquetas-v38';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
   './estilo.css',
   './manifest.json',
-  './core/bd.js?v=28',
-  './core/voz.js?v=28',
-  './core/supabase.js?v=28',
-  './modulos/etiquetas.js?v=28',
-  './modulos/menu.js?v=28',
-  './modulos/bebidas.js?v=28',
-  './modulos/facturas.js?v=28',
-  './modulos/auth.js?v=28',
-  './modulos/config.js?v=28',
-  './app.js?v=28',
+  './core/bd.js?v=38',
+  './core/voz.js?v=38',
+  './core/supabase.js?v=38',
+  './modulos/etiquetas.js?v=38',
+  './modulos/menu.js?v=38',
+  './modulos/bebidas.js?v=38',
+  './modulos/facturas.js?v=38',
+  './modulos/auth.js?v=38',
+  './modulos/config.js?v=38',
+  './app.js?v=38',
   './iconos/icono-192.png',
   './iconos/icono-512.png'
 ];

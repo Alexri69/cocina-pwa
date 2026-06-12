@@ -4,6 +4,9 @@
 // formatear fechas / calcular caducidades.
 // ============================================================
 
+// Formatea un importe a 2 decimales de forma segura (null/undefined/'' → 0.00).
+function dinero(n){ return (Number(n) || 0).toFixed(2); }
+
 const VOZ = (() => {
 
   // Soporte del navegador (Chrome usa el prefijo webkit)

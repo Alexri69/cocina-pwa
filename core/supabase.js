@@ -400,16 +400,26 @@ const SB = (() => {
   const actualizarFactura   = (f)  => _patch('facturas', f.id, _facturaParaBD(f)).then(r => _facturaDeBD(_primero(r)));
   const borrarFactura       = (id) => _delete('facturas', id);
 
+  // Devuelve el mayor sufijo numérico de una lista de números (p.ej. "2026-0007" → 7).
+  // Usamos el MÁXIMO (no el conteo) para no reutilizar números si se borra una factura.
+  function _maxSufijo(arr) {
+    return (arr || []).reduce((m, r) => {
+      const partes = String(r.numero || '').split('-');
+      const n = parseInt(partes[partes.length - 1], 10);
+      return isFinite(n) && n > m ? n : m;
+    }, 0);
+  }
+
   async function siguienteNumeroFactura() {
     const anyo = new Date().getFullYear();
     const res  = await _get('facturas', `?select=numero&tipo=eq.factura&numero=like.${anyo}-%25`);
-    return `${anyo}-${String((res?.length || 0) + 1).padStart(4, '0')}`;
+    return `${anyo}-${String(_maxSufijo(res) + 1).padStart(4, '0')}`;
   }
 
   async function siguienteNumeroPresupuesto() {
     const anyo = new Date().getFullYear();
     const res  = await _get('facturas', `?select=numero&tipo=eq.presupuesto&numero=like.PRES-${anyo}-%25`);
-    return `PRES-${anyo}-${String((res?.length || 0) + 1).padStart(4, '0')}`;
+    return `PRES-${anyo}-${String(_maxSufijo(res) + 1).padStart(4, '0')}`;
   }
 
   // ----------------------------------------------------------
