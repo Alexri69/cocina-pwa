@@ -503,3 +503,60 @@ END $$;
 
 -- Refrescar la caché de la API para que vea los cambios al momento
 NOTIFY pgrst, 'reload schema';
+
+
+-- ============================================================
+-- CARTA PÚBLICA CON QR (alérgenos para clientes)
+-- Cada restaurante puede publicar su carta en un enlace secreto (carta_token).
+-- La página pública la lee con la función carta_publica (sin iniciar sesión).
+-- ============================================================
+ALTER TABLE public.restaurantes ADD COLUMN IF NOT EXISTS carta_token text;
+CREATE UNIQUE INDEX IF NOT EXISTS restaurantes_carta_token ON public.restaurantes (carta_token) WHERE carta_token IS NOT NULL;
+ALTER TABLE public.bebidas ADD COLUMN IF NOT EXISTS alergenos text[] NOT NULL DEFAULT '{}';
+
+-- Publicar (o renovar el enlace de) la carta: solo propietario o encargado
+CREATE OR REPLACE FUNCTION public.publicar_carta(p_restaurante uuid, p_renovar boolean DEFAULT false) RETURNS text
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS
+$$
+DECLARE v_token text;
+BEGIN
+  IF NOT public.puede_gestionar(p_restaurante) THEN RAISE EXCEPTION 'No tienes permiso para publicar la carta'; END IF;
+  SELECT carta_token INTO v_token FROM restaurantes WHERE id = p_restaurante;
+  IF v_token IS NULL OR p_renovar THEN
+    v_token := replace(gen_random_uuid()::text, '-', '');   -- 122 bits aleatorios: no se puede adivinar
+    UPDATE restaurantes SET carta_token = v_token WHERE id = p_restaurante;
+  END IF;
+  RETURN v_token;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.despublicar_carta(p_restaurante uuid) RETURNS void
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS
+$$
+BEGIN
+  IF NOT public.puede_gestionar(p_restaurante) THEN RAISE EXCEPTION 'No tienes permiso'; END IF;
+  UPDATE restaurantes SET carta_token = NULL WHERE id = p_restaurante;
+END $$;
+
+-- Lectura pública: solo lo necesario para el cliente (nada de precios de coste, facturas, etc.)
+CREATE OR REPLACE FUNCTION public.carta_publica(p_token text) RETURNS json
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
+$$
+  SELECT json_build_object(
+    'nombre',    coalesce(nullif(trim(c.empresa->>'razonSocial'), ''), r.nombre),
+    'direccion', concat_ws(', ', nullif(c.empresa->>'direccion', ''), nullif(c.empresa->>'ciudad', '')),
+    'telefono',  nullif(c.empresa->>'telefono', ''),
+    'logo',      c.logo,
+    'platos',  coalesce((SELECT json_agg(json_build_object('nombre', p.nombre, 'descripcion', p.descripcion, 'precio', p.precio, 'alergenos', p.alergenos) ORDER BY lower(p.nombre))
+                         FROM platos p WHERE p.restaurante_id = r.id), '[]'::json),
+    'bebidas', coalesce((SELECT json_agg(json_build_object('nombre', b.nombre, 'descripcion', b.descripcion, 'precio', b.precio, 'categoria', b.categoria, 'alergenos', b.alergenos) ORDER BY b.categoria, lower(b.nombre))
+                         FROM bebidas b WHERE b.restaurante_id = r.id), '[]'::json)
+  )
+  FROM restaurantes r LEFT JOIN config c ON c.restaurante_id = r.id
+  WHERE p_token IS NOT NULL AND length(p_token) >= 24 AND r.carta_token = p_token
+$$;
+
+REVOKE ALL ON FUNCTION public.publicar_carta(uuid, boolean), public.despublicar_carta(uuid) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.publicar_carta(uuid, boolean), public.despublicar_carta(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.carta_publica(text) TO anon, authenticated;
+
+NOTIFY pgrst, 'reload schema';

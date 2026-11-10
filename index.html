@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="iconos/icono-192.png">
   <link rel="apple-touch-icon" href="iconos/icono-192.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="estilo.css?v=57">
+  <link rel="stylesheet" href="estilo.css?v=58">
   <script>
     // Aplicar tema antes de pintar para evitar parpadeo
     document.documentElement.setAttribute('data-tema',
@@ -319,6 +319,7 @@
           <button class="sub-tab" data-subtab="ingredientes" role="tab">🥦 Ingredientes</button>
         </div>
       </div>
+      <div id="carta-qr" data-solo="gestion" style="margin-bottom:16px"></div>
 
       <!-- ---- Sub-sección: PLATOS ---- -->
       <div id="menu-sub-platos">
@@ -484,6 +485,10 @@
             <div class="form-grupo form-grupo-full">
               <label for="beb-desc">Descripción</label>
               <textarea id="beb-desc" class="inp" rows="2" placeholder="Descripción opcional"></textarea>
+            </div>
+            <div class="form-grupo form-grupo-full">
+              <label>Alérgenos que contiene <small style="color:var(--texto2);font-weight:400">(p. ej. vino: sulfitos · cerveza: gluten)</small></label>
+              <div class="grid-alergenos-check" id="beb-alergenos"></div>
             </div>
           </div>
           <div class="form-acciones">
@@ -882,17 +887,19 @@
        ======================================================== -->
   <!-- jsPDF servido desde la propia app para que los PDF funcionen sin conexión -->
   <script src="lib/jspdf.umd.min.js" defer></script>
-  <script src="core/voz.js?v=57"></script>
-  <script src="core/supabase.js?v=57"></script>
-  <script src="modulos/etiquetas.js?v=57"></script>
-  <script src="modulos/menu.js?v=57"></script>
-  <script src="modulos/bebidas.js?v=57"></script>
-  <script src="modulos/facturas.js?v=57"></script>
-  <script src="modulos/auth.js?v=57"></script>
-  <script src="modulos/config.js?v=57"></script>
-  <script src="modulos/appcc.js?v=57"></script>
-  <script src="modulos/equipo.js?v=57"></script>
-  <script src="app.js?v=57"></script>
+  <script src="core/voz.js?v=58"></script>
+  <script src="core/supabase.js?v=58"></script>
+  <script src="modulos/etiquetas.js?v=58"></script>
+  <script src="modulos/menu.js?v=58"></script>
+  <script src="modulos/bebidas.js?v=58"></script>
+  <script src="modulos/facturas.js?v=58"></script>
+  <script src="modulos/auth.js?v=58"></script>
+  <script src="modulos/config.js?v=58"></script>
+  <script src="modulos/appcc.js?v=58"></script>
+  <script src="lib/qrcode.min.js"></script>
+  <script src="modulos/cartaqr.js?v=58"></script>
+  <script src="modulos/equipo.js?v=58"></script>
+  <script src="app.js?v=58"></script>
   <!-- Las actualizaciones de la app se avisan desde app.js (sin recargar a la fuerza) -->
 
 </body>

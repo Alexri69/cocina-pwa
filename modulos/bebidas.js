@@ -16,6 +16,20 @@ const ModuloBebidas = (() => {
     { valor: 'otro',     label: '🫗 Otros' },
   ];
 
+  const ALERGENOS = [
+    ['gluten','🌾'],['crustáceos','🦞'],['huevo','🥚'],['pescado','🐟'],['cacahuetes','🥜'],['soja','🌱'],['leche','🥛'],
+    ['frutos de cáscara','🌰'],['apio','🌿'],['mostaza','🌼'],['granos de sésamo','🫘'],['altramuces','🌸'],['moluscos','🐚'],['sulfitos','🍷'],
+  ];
+
+  function _renderChecksAlergenos() {
+    const cont = document.getElementById('beb-alergenos');
+    if (!cont || cont.childElementCount) return;
+    cont.innerHTML = ALERGENOS.map(([a, e], i) =>
+      `<label class="check-alergeno"><input type="checkbox" id="beb-al-${i}" value="${a}"> ${e} ${a}</label>`).join('');
+  }
+  const _leerAlergenos = () => ALERGENOS.map(([a], i) => document.getElementById(`beb-al-${i}`)?.checked ? a : null).filter(Boolean);
+  const _ponerAlergenos = (lista = []) => ALERGENOS.forEach(([a], i) => { const c = document.getElementById(`beb-al-${i}`); if (c) c.checked = lista.includes(a); });
+
   let _idEditando = null;
   let _bebidas    = [];
 
@@ -52,6 +66,9 @@ const ModuloBebidas = (() => {
           </div>
           ${b.descripcion ? `<div class="card-plato-desc">${_esc(b.descripcion)}</div>` : ''}
           <div class="card-plato-ingredientes">${cat?.label ?? _esc(b.categoria)}</div>
+          <div class="badges-alergenos">${(b.alergenos || []).length
+            ? b.alergenos.map(a => `<span class="badge-alergeno">${(ALERGENOS.find(x => x[0] === a) || [])[1] || ''} ${_esc(a)}</span>`).join('')
+            : '<span class="badge-sin-alergenos">Sin alérgenos</span>'}</div>
           <div class="card-acciones">
             <button class="btn-mini btn-editar" onclick="ModuloBebidas.editarBebida('${b.id}')">✏ Editar</button>
             <button class="btn-mini btn-borrar" onclick="ModuloBebidas.borrarBebida('${b.id}')">🗑 Eliminar</button>
@@ -75,6 +92,7 @@ const ModuloBebidas = (() => {
     document.getElementById('beb-desc').value      = b.descripcion || '';
     document.getElementById('beb-precio').value    = b.precio > 0 ? b.precio : '';
     document.getElementById('beb-categoria').value = b.categoria || 'otro';
+    _renderChecksAlergenos(); _ponerAlergenos(b.alergenos || []);
     document.getElementById('beb-form-titulo').textContent = '✏ Editar Bebida';
     _mostrarVista('form');
     document.getElementById('beb-nombre').focus();
@@ -97,6 +115,7 @@ const ModuloBebidas = (() => {
     document.getElementById('beb-desc').value      = '';
     document.getElementById('beb-precio').value    = '';
     document.getElementById('beb-categoria').value = 'refresco';
+    _renderChecksAlergenos(); _ponerAlergenos([]);
     document.getElementById('beb-form-titulo').textContent = 'Nueva Bebida';
     _mostrarVista('form');
     document.getElementById('beb-nombre').focus();
@@ -123,6 +142,7 @@ const ModuloBebidas = (() => {
         descripcion: document.getElementById('beb-desc').value.trim(),
         precio:      parseFloat(document.getElementById('beb-precio').value) || 0,
         categoria:   document.getElementById('beb-categoria').value || 'otro',
+        alergenos:   _leerAlergenos(),
       };
       if (_idEditando !== null) {
         await SB.actualizarBebida({ id: _idEditando, ...datos });
@@ -145,6 +165,13 @@ const ModuloBebidas = (() => {
   async function init() {
     document.getElementById('beb-btn-volver') ?.addEventListener('click', _resetForm);
     document.getElementById('beb-btn-guardar')?.addEventListener('click', _guardarBebida);
+    _renderChecksAlergenos();
+    // Al elegir «Vinos», sugerir sulfitos; «Cerveza», gluten (se pueden desmarcar)
+    document.getElementById('beb-categoria')?.addEventListener('change', e => {
+      if (_idEditando !== null) return;
+      const sug = { vino: 'sulfitos', cerveza: 'gluten' }[e.target.value];
+      if (sug) _ponerAlergenos([...new Set([..._leerAlergenos(), sug])]);
+    });
     await _renderLista();
   }
 

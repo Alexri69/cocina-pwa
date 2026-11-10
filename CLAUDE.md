@@ -29,6 +29,11 @@ scripts/validate.js — validador (sintaxis + coherencia del precache del SW); l
 - Cliente: `SB.restauranteActivo()`; `_get` añade `restaurante_id=eq.<activo>` y `_post` lo inserta en las tablas de `_TABLAS_RESTAURANTE`. Caché `cocina_c_<rid>_<tabla>`; ficha/logo/impresora `cocina_*_<rid>`.
 - Al entrar: `ModuloEquipo.iniciar()` (bienvenida si no hay restaurante; `?unirse=CODIGO` para invitaciones). UI por rol con `body[data-rol]` y `data-solo="gestion"`.
 
+## Carta pública (QR)
+- `carta.html?c=<token>` + `modulos/carta-publica.js`: página sin login; lee con la RPC `carta_publica(token)` (anon). Solo nombre, descripción, precio y alérgenos.
+- `restaurantes.carta_token` (32 hex, null = no publicada). RPC `publicar_carta(r, renovar)` / `despublicar_carta(r)` (propietario/encargado). Panel en Carta: `modulos/cartaqr.js` (QR con `lib/qrcode.min.js`).
+- `bebidas.alergenos` (los platos los calculan de sus ingredientes).
+
 ## Tablas Supabase (todas con RLS por restaurante)
 `productos`, `plantillas_etiqueta` (productos habituales, nombre único por usuario), `appcc_elementos` (equipos de frío, freidoras, tareas de limpieza) y `appcc_registros` (lecturas/limpiezas/recepciones; snake_case también en el JS), `ingredientes`, `platos`, `bebidas`, `facturas` (facturas y presupuestos, columna `tipo`), `config` (1 fila por usuario), `push_subscriptions`.
 Cambios de esquema: editar `supabase-setup.sql` y aplicarlo con la Management API (token en `.env`, nunca versionado).

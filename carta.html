@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#c0392b">
+  <title>Carta y alérgenos</title>
+  <link rel="icon" type="image/png" href="iconos/icono-192.png">
+  <style>
+    :root {
+      --bg: #f6f4ef; --card: #ffffff; --texto: #1c1917; --texto2: #57534e; --borde: #e7e5e4;
+      --acento: #b4321f; --acento-suave: #fbeae6; --ok: #166534; --ok-suave: #dcfce7; --sombra: 0 1px 3px rgba(0,0,0,.08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #141210; --card: #1f1c19; --texto: #f5f5f4; --texto2: #c4bfb9; --borde: #3a3530;
+              --acento: #f0846f; --acento-suave: #3a1f1a; --ok: #86efac; --ok-suave: #14301e; --sombra: none; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--texto); font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; line-height: 1.45; }
+    main { max-width: 760px; margin: 0 auto; padding: 16px 16px 48px; }
+    header { text-align: center; padding: 20px 0 8px; }
+    header img { max-height: 72px; max-width: 200px; margin-bottom: 8px; }
+    h1 { font-size: 1.7rem; margin: 0 0 4px; letter-spacing: -.3px; }
+    .sub { color: var(--texto2); font-size: .95rem; margin: 0; }
+    .aviso { background: var(--acento-suave); border-radius: 12px; padding: 12px 14px; margin: 16px 0; font-size: .92rem; }
+    .aviso strong { color: var(--acento); }
+    .buscar { width: 100%; font-size: 1rem; padding: 12px 14px; border: 1px solid var(--borde); border-radius: 12px; background: var(--card); color: var(--texto); margin-bottom: 12px; }
+    .filtro-tit { font-size: .95rem; font-weight: 700; margin: 4px 0 8px; }
+    .filtros { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+    .filtro { min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--borde); background: var(--card); color: var(--texto); font-size: .9rem; cursor: pointer; }
+    .filtro[aria-pressed="true"] { background: var(--acento); border-color: var(--acento); color: #fff; }
+    .estado-filtro { font-size: .88rem; color: var(--texto2); min-height: 1.3em; margin: 6px 0 4px; }
+    .estado-filtro button { background: none; border: none; color: var(--acento); text-decoration: underline; cursor: pointer; font-size: .88rem; padding: 0 4px; }
+    h2 { font-size: 1.25rem; margin: 26px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--acento); }
+    h3 { font-size: 1rem; margin: 18px 0 8px; color: var(--texto2); }
+    .item { background: var(--card); border: 1px solid var(--borde); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--sombra); }
+    .item-cab { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+    .item-nombre { font-weight: 700; font-size: 1.05rem; }
+    .item-precio { font-weight: 700; white-space: nowrap; }
+    .item-desc { color: var(--texto2); font-size: .92rem; margin: 4px 0 0; }
+    .als { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .al { font-size: .82rem; padding: 3px 9px; border-radius: 999px; background: var(--acento-suave); color: var(--texto); }
+    .sin { font-size: .82rem; padding: 3px 9px; border-radius: 999px; background: var(--ok-suave); color: var(--ok); font-weight: 600; }
+    .vacio, .error { text-align: center; color: var(--texto2); padding: 40px 12px; }
+    footer { margin-top: 32px; font-size: .82rem; color: var(--texto2); text-align: center; }
+    footer p { margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <main id="carta" aria-live="polite">
+    <p class="vacio">Cargando la carta…</p>
+  </main>
+  <script src="core/voz.js?v=58"></script>
+  <script src="core/supabase.js?v=58"></script>
+  <script src="modulos/carta-publica.js?v=58"></script>
+</body>
+</html>

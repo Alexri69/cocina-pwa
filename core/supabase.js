@@ -330,6 +330,24 @@ const SB = (() => {
     await _req(`restaurantes?id=eq.${restauranteId()}`, { method: 'PATCH', headers: _cab(), body: JSON.stringify({ nombre }) });
     if (_restaurante) seleccionarRestaurante({ ..._restaurante, nombre });
   }
+  // ---- Carta pública con QR ----
+  /** Enlace secreto de la carta pública del restaurante activo (null = no publicada). */
+  async function estadoCarta() {
+    const filas = await _req(`restaurantes?id=eq.${restauranteId()}&select=carta_token`, { headers: _cab({ 'Prefer': '' }) });
+    return _primero(filas)?.carta_token || null;
+  }
+  const publicarCarta    = (renovar = false) => _rpcLegible('publicar_carta', { p_restaurante: restauranteId(), p_renovar: !!renovar });
+  const despublicarCarta = ()                => _rpcLegible('despublicar_carta', { p_restaurante: restauranteId() });
+  /** Datos de la carta para la página pública (no necesita sesión). */
+  async function cartaPublica(token) {
+    const res = await fetch(`${BASE}/rest/v1/rpc/carta_publica`, {
+      method: 'POST', headers: { 'apikey': ANON, 'Authorization': `Bearer ${ANON}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_token: token }),
+    });
+    if (!res.ok) throw new Error(`Error ${res.status}`);
+    return res.json();
+  }
+
   async function eliminarRestaurante(id) {
     await _req(`restaurantes?id=eq.${id}`, { method: 'DELETE', headers: _cab({ 'Prefer': '' }) });
   }
@@ -413,7 +431,7 @@ const SB = (() => {
 
   // Columnas añadidas en migraciones recientes: si la BD aún no las tiene,
   // se reintenta sin ellas en vez de fallar el guardado entero.
-  const _COLUMNAS_NUEVAS = ['comensales'];
+  const _COLUMNAS_NUEVAS = ['comensales', 'alergenos'];  // alergenos: en bebidas
   async function _sinColumnasNuevas(datos, fn) {
     try {
       return await fn(datos);
@@ -838,8 +856,8 @@ const SB = (() => {
       throw e;
     }
   }
-  const guardarBebida    = (d)  => _post('bebidas', { nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', timestamp: Date.now(), user_id: _uid() }).then(_primero);
-  const actualizarBebida = (d)  => _patch('bebidas', d.id, { nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro' }).then(_primero);
+  const guardarBebida    = (d)  => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', alergenos: d.alergenos || [], timestamp: Date.now(), user_id: _uid() }, x => _post('bebidas', x)).then(_primero);
+  const actualizarBebida = (d)  => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', alergenos: d.alergenos || [] }, x => _patch('bebidas', d.id, x)).then(_primero);
   const eliminarBebida   = (id) => _delete('bebidas', id);
 
   // ----------------------------------------------------------
@@ -908,6 +926,7 @@ const SB = (() => {
     misRestaurantes, crearRestaurante, unirseConCodigo, crearInvitacion, salirRestaurante,
     obtenerMiembros, cambiarRolMiembro, cambiarMiNombre, expulsarMiembro, obtenerInvitaciones, borrarInvitacion,
     renombrarRestaurante, eliminarRestaurante, userId: () => _uid(),
+    estadoCarta, publicarCarta, despublicarCarta, cartaPublica,
     // Productos (etiquetas)
     obtenerProductos, guardarProducto, actualizarProducto, eliminarProducto,
     // Productos habituales (plantillas de etiqueta)
