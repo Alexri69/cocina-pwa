@@ -431,17 +431,18 @@ const SB = (() => {
 
   // Columnas añadidas en migraciones recientes: si la BD aún no las tiene,
   // se reintenta sin ellas en vez de fallar el guardado entero.
-  const _COLUMNAS_NUEVAS = ['comensales', 'alergenos'];  // alergenos: en bebidas
-  async function _sinColumnasNuevas(datos, fn) {
+  // alergenos: en bebidas · precio_compra, unidad, merma: escandallos de ingredientes
+  const _COLUMNAS_NUEVAS = ['comensales', 'alergenos', 'precio_compra', 'unidad', 'merma'];
+  async function _sinColumnasNuevas(datos, fn, intentos = 5) {
     try {
       return await fn(datos);
     } catch (e) {
       const msg = String(e?.message || '');
       const col = _COLUMNAS_NUEVAS.find(c => datos && c in datos && msg.includes(`'${c}'`));
-      if (!col) throw e;
+      if (!col || intentos <= 0) throw e;
       console.warn(`[SB] La columna "${col}" no existe aún en Supabase; ejecuta supabase-setup.sql. Guardando sin ella.`);
       const { [col]: _omit, ...resto } = datos;
-      return fn(resto);
+      return _sinColumnasNuevas(resto, fn, intentos - 1);
     }
   }
 
@@ -628,8 +629,14 @@ const SB = (() => {
       throw e;
     }
   }
-  const guardarIngrediente    = (d)   => _post('ingredientes', { nombre: d.nombre, alergenos: d.alergenos, timestamp: Date.now(), user_id: _uid() }).then(_primero);
-  const actualizarIngrediente = (d)   => _patch('ingredientes', d.id, { nombre: d.nombre, alergenos: d.alergenos }).then(_primero);
+  // Coste para escandallos: € por kg / l / ud y % de merma (precio_compra null = sin precio)
+  const _costeIngrediente = (d) => ({
+    precio_compra: d.precio_compra === '' || d.precio_compra == null || !isFinite(Number(d.precio_compra)) ? null : r2(Number(d.precio_compra)),
+    unidad: ['kg', 'l', 'ud'].includes(d.unidad) ? d.unidad : 'kg',
+    merma: Math.min(95, Math.max(0, Number(d.merma) || 0)),
+  });
+  const guardarIngrediente    = (d)   => _sinColumnasNuevas({ nombre: d.nombre, alergenos: d.alergenos, ..._costeIngrediente(d), timestamp: Date.now(), user_id: _uid() }, x => _post('ingredientes', x)).then(_primero);
+  const actualizarIngrediente = (d)   => _sinColumnasNuevas({ nombre: d.nombre, alergenos: d.alergenos, ...('precio_compra' in d ? _costeIngrediente(d) : {}) }, x => _patch('ingredientes', d.id, x)).then(_primero);
   const eliminarIngrediente   = (id)  => _delete('ingredientes', id);
 
   // ----------------------------------------------------------
@@ -668,9 +675,12 @@ const SB = (() => {
   function _facturaDeBD(f) {
     if (!f) return null;
     const { porcentaje_igic, cuota_igic, retencion_irpf, cuota_irpf, forma_pago,
-            estado_presupuesto, descripcion_evento, fecha_evento, ...resto } = f;
+            estado_presupuesto, descripcion_evento, fecha_evento,
+            rectifica_id, rectifica_numero, rectifica_fecha, motivo_rectificacion, ...resto } = f;
     return {
       ...resto,
+      ...(rectifica_numero ? { rectificaId: rectifica_id ?? null, rectificaNumero: rectifica_numero,
+                               rectificaFecha: rectifica_fecha ?? null, motivoRectificacion: motivo_rectificacion ?? '' } : {}),
       porcentajeIgic:    porcentaje_igic,
       cuotaIgic:         cuota_igic,
       retencionIrpf:     retencion_irpf     ?? 0,
@@ -684,9 +694,13 @@ const SB = (() => {
 
   function _facturaParaBD(f) {
     const { porcentajeIgic, cuotaIgic, retencionIrpf, cuotaIrpf, formaPago,
-            estadoPresupuesto, descripcionEvento, fechaEvento, id, user_id, ...resto } = f;
+            estadoPresupuesto, descripcionEvento, fechaEvento,
+            rectificaId, rectificaNumero, rectificaFecha, motivoRectificacion, id, user_id, ...resto } = f;
     return {
       ...resto,
+      // Solo las rectificativas llevan estas columnas (las demás facturas se guardan igual que antes)
+      ...(rectificaNumero ? { rectifica_id: rectificaId ?? null, rectifica_numero: rectificaNumero,
+                              rectifica_fecha: rectificaFecha ?? null, motivo_rectificacion: motivoRectificacion ?? '' } : {}),
       porcentaje_igic:    porcentajeIgic    ?? 7,
       cuota_igic:         cuotaIgic         ?? 0,
       retencion_irpf:     retencionIrpf     ?? 0,
@@ -763,6 +777,8 @@ const SB = (() => {
   const _anyoDe = (fecha) => (/^\d{4}/.test(fecha || '') ? fecha.slice(0, 4) : String(new Date().getFullYear()));
   const siguienteNumeroFactura     = (fecha) => { const a = _anyoDe(fecha); return _siguienteNumero('factura',     `${a}-`,      a); };
   const siguienteNumeroPresupuesto = (fecha) => { const a = _anyoDe(fecha); return _siguienteNumero('presupuesto', `PRES-${a}-`, a); };
+  // Las rectificativas llevan su propia serie: R-AAAA-NNNN
+  const siguienteNumeroRectificativa = (fecha) => { const a = _anyoDe(fecha); return _siguienteNumero('factura', `R-${a}-`, a); };
 
   /** true si `numero` es la última factura de su serie (solo esa se puede borrar sin dejar huecos). */
   async function esUltimaFactura(numero) {
@@ -778,26 +794,49 @@ const SB = (() => {
   // ----------------------------------------------------------
 
   async function exportarTodo() {
-    const [prods, ings, platos, bebidas, todasFac, plantillas] = await Promise.all([
+    const [prods, ings, platos, bebidas, todasFac, plantillas, elementos, registros] = await Promise.all([
       _get('productos',    '?select=*&order=timestamp.desc'),
       _get('ingredientes', '?select=*&order=timestamp.desc'),
       _get('platos',       '?select=*&order=timestamp.desc'),
       _get('bebidas',      '?select=*&order=timestamp.desc'),
       _get('facturas',     '?select=*&order=timestamp.desc'),
       _get('plantillas_etiqueta', '?select=*').catch(() => []),
+      _get('appcc_elementos', '?select=*').catch(() => []),
+      _get('appcc_registros', '?select=*&order=fecha.desc').catch(() => []),
     ]);
+    return _formatoArchivo({ productos: prods, ingredientes: ings, platos, bebidas, facturas: todasFac, plantillas,
+                             appcc_elementos: elementos, appcc_registros: registros });
+  }
+
+  // Datos en formato BD → formato del archivo de copia (el mismo que usa restaurarDatos)
+  function _formatoArchivo(d) {
     const strip = arr => (arr || []).map(({ user_id, restaurante_id, ...r }) => r);
     return {
-      plantillas:   strip(plantillas),   // formato BD (snake_case)
-      productos:    strip(prods).map(_productoDeBD),
-      ingredientes: strip(ings),
-      platos:       strip(platos),
-      bebidas:      strip(bebidas),
-      facturas:     strip(todasFac).map(_facturaDeBD),
+      plantillas:      strip(d.plantillas),   // formato BD (snake_case)
+      productos:       strip(d.productos).map(_productoDeBD),
+      ingredientes:    strip(d.ingredientes),
+      platos:          strip(d.platos),
+      bebidas:         strip(d.bebidas),
+      facturas:        strip(d.facturas).map(_facturaDeBD),
+      appcc_elementos: strip(d.appcc_elementos),
+      appcc_registros: strip(d.appcc_registros),
     };
   }
 
-  async function restaurarDatos({ productos = [], ingredientes = [], platos = [], bebidas = [], facturas = [], plantillas = [] }) {
+  // ---- Copias automáticas guardadas en Supabase (una por semana; la dirección puede hacer otra al momento) ----
+  /** Copias del restaurante activo, de la más reciente a la más antigua (sin los datos). */
+  const listarCopias = () => _req(`copias_seguridad?restaurante_id=eq.${restauranteId()}&select=id,creada,origen,resumen&order=creada.desc`, { headers: _cab({ 'Prefer': '' }) });
+  const obtenerCopia = async (id) => _primero(await _req(`copias_seguridad?id=eq.${id}&select=id,creada,origen,datos`, { headers: _cab({ 'Prefer': '' }) }));
+  const crearCopiaAhora = () => _rpcLegible('crear_copia_ahora', { p_restaurante: restauranteId() });
+  /** Convierte una copia del servidor en el mismo objeto que el archivo descargado. */
+  function copiaAFormatoArchivo(copia) {
+    const d = copia?.datos || {};
+    return { version: 1, fecha: copia?.creada, app: 'cocina-pwa', origen: 'servidor',
+             config: { empresa: d.config?.empresa || {}, impresora: d.config?.impresora || {} },
+             datos: _formatoArchivo(d) };
+  }
+
+  async function restaurarDatos({ productos = [], ingredientes = [], platos = [], bebidas = [], facturas = [], plantillas = [], appcc_elementos = [], appcc_registros = [] }) {
     const uid = _uid();
     if (!uid) throw new Error('Sesión no válida. Vuelve a iniciar sesión.');
     const hdrs  = _cab({ 'Prefer': 'return=minimal,resolution=merge-duplicates' });
@@ -807,7 +846,8 @@ const SB = (() => {
     if (!rid) throw new Error('No hay ningún restaurante seleccionado.');
     // Se restaura en el restaurante activo, a nombre del usuario actual
     const conId = (orig, conv) => { const { restaurante_id: _r, ...c } = conv; return { ...(orig.id ? { id: orig.id } : {}), ...c, user_id: uid, restaurante_id: rid }; };
-    const upsert = async (tabla, arr) => {
+    // ignorar = true: lo que ya existe no se toca (los registros APPCC no se pueden modificar, solo crear)
+    const upsert = async (tabla, arr, ignorar = false) => {
       if (!arr.length) return;
       // PostgREST exige que todas las filas de un lote tengan las mismas columnas
       const claves = [...new Set(arr.flatMap(o => Object.keys(o)))];
@@ -818,7 +858,7 @@ const SB = (() => {
         await _sinColumnasNuevas(g[0], async (primera) => {
           const sinCol = Object.keys(g[0]).filter(k => !(k in primera));
           const lote   = sinCol.length ? g.map(f => { const c = { ...f }; sinCol.forEach(k => delete c[k]); return c; }) : g;
-          return _req(`${tabla}?on_conflict=id`, { method: 'POST', headers: hdrs, body: JSON.stringify(lote) });
+          return _req(`${tabla}?on_conflict=id`, { method: 'POST', headers: ignorar ? _cab({ 'Prefer': 'return=minimal,resolution=ignore-duplicates' }) : hdrs, body: JSON.stringify(lote) });
         });
       }
     };
@@ -827,7 +867,12 @@ const SB = (() => {
     await upsert('ingredientes', ingredientes.map(i => conId(i, i)));
     await upsert('platos',       platos.map(p => conId(p, p)));
     await upsert('bebidas',      bebidas.map(b => conId(b, b)));
-    await upsert('facturas',     facturas.map(f => conId(f, _facturaParaBD(f))));
+    // Primero las originales: una rectificativa apunta a su factura
+    const facOrden = [...facturas].sort((a, b) => (a.rectificaNumero ? 1 : 0) - (b.rectificaNumero ? 1 : 0));
+    await upsert('facturas',     facOrden.map(f => conId(f, _facturaParaBD(f))));
+    // APPCC: primero los equipos y tareas, después sus registros
+    await upsert('appcc_elementos', appcc_elementos.map(e => conId(e, e)));
+    await upsert('appcc_registros', appcc_registros.map(r => conId(r, r)), true);
     // Habituales: si ya existe uno con el mismo nombre (otro id), se conserva el actual
     try { await upsert('plantillas_etiqueta', plantillas.map(p => conId(p, p))); }
     catch (e) { console.warn('[SB] Algunos productos habituales no se restauraron (nombre repetido):', e); }
@@ -954,7 +999,9 @@ const SB = (() => {
     // Facturas y Presupuestos
     obtenerFacturas, obtenerPresupuestos, obtenerFactura,
     guardarFactura, actualizarFactura, borrarFactura,
-    siguienteNumeroFactura, siguienteNumeroPresupuesto, esUltimaFactura
+    siguienteNumeroFactura, siguienteNumeroPresupuesto, siguienteNumeroRectificativa, esUltimaFactura,
+    // Copias de seguridad en el servidor
+    listarCopias, obtenerCopia, crearCopiaAhora, copiaAFormatoArchivo
   };
 
 })();

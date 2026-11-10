@@ -9,6 +9,14 @@ const ModuloFacturas = (() => {
   let _lineas           = [];
   let _tipoVista        = 'factura';  // sub-tab: 'factura' | 'presupuesto'
   let _tipoActual       = 'factura';
+  let _rectifica        = null;       // { id, numero, fecha, lineas } de la factura que se rectifica
+
+  const _esRect = f => !!f?.rectificaNumero;
+  // Líneas de la original en negativo: la rectificativa la anula entera
+  const _lineasNegativas = lineas => (lineas || []).map(l => {
+    const cantidad = -Math.abs(Number(l.cantidad) || 0);
+    return { descripcion: l.descripcion, cantidad, precioUnitario: Number(l.precioUnitario) || 0, subtotal: r2(cantidad * (Number(l.precioUnitario) || 0)) };
+  });
 
   // ----------------------------------------------------------
   // VISTAS
@@ -52,14 +60,18 @@ const ModuloFacturas = (() => {
         lista.innerHTML = `<p class="texto-vacio">No hay ${_tipoVista === 'presupuesto' ? 'presupuestos' : 'facturas'} todavía.</p>`;
         return;
       }
-      lista.innerHTML = items.map(f => _cardHtml(f)).join('');
+      // Qué facturas tienen ya una rectificativa
+      const rectificadas = {};
+      for (const f of items) if (_esRect(f) && f.rectificaId) (rectificadas[f.rectificaId] ??= []).push(f.numero);
+      lista.innerHTML = items.map(f => _cardHtml(f, rectificadas[f.id])).join('');
     } catch (e) {
       lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${_esc(e.message)}</p>`;
     }
   }
 
-  function _cardHtml(f) {
+  function _cardHtml(f, rectificadaPor) {
     const esPres = f.tipo === 'presupuesto';
+    const esRect = _esRect(f);
     let cls, etiq;
     if (esPres) {
       cls  = f.estadoPresupuesto === 'aceptado'  ? 'estado-pres-aceptado'
@@ -70,7 +82,10 @@ const ModuloFacturas = (() => {
            : '<svg class="ic" aria-hidden="true"><use href="#i-hourglass"/></svg> Pendiente';
     } else {
       cls  = f.pagada ? 'estado-pagada' : 'estado-pendiente';
-      etiq = f.pagada ? '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Pagada'      : '<svg class="ic" aria-hidden="true"><use href="#i-hourglass"/></svg> Pendiente';
+      // Una rectificativa en negativo se devuelve al cliente en vez de cobrarse
+      const devolucion = esRect && Number(f.total) < 0;
+      etiq = f.pagada ? `<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> ${devolucion ? 'Devuelta' : 'Pagada'}`
+                      : `<svg class="ic" aria-hidden="true"><use href="#i-hourglass"/></svg> ${devolucion ? 'Por devolver' : 'Pendiente'}`;
     }
     return `<div class="card-factura" data-id="${f.id}">
       <div class="fac-card-cabecera">
@@ -78,6 +93,8 @@ const ModuloFacturas = (() => {
         <div class="badge-estado ${cls}">${etiq}</div>
       </div>
       <div class="fac-card-cliente">${_esc(f.cliente)}</div>
+      ${esRect ? `<div class="fac-card-rect"><svg class="ic" aria-hidden="true"><use href="#i-file-minus"/></svg> Rectificativa de la ${_esc(f.rectificaNumero)}</div>` : ''}
+      ${rectificadaPor?.length ? `<div class="fac-card-rect"><svg class="ic" aria-hidden="true"><use href="#i-file-minus"/></svg> Rectificada por ${_esc(rectificadaPor.join(', '))}</div>` : ''}
       ${esPres && f.descripcionEvento ? `<div style="font-size:.8rem;color:var(--texto2);margin-bottom:2px"><svg class="ic" aria-hidden="true"><use href="#i-calendar"/></svg> ${_esc(f.descripcionEvento)}</div>` : ''}
       <div class="fac-card-meta">
         <span>${VOZ.formatearFechaSolo(f.fecha)}</span>
@@ -92,7 +109,7 @@ const ModuloFacturas = (() => {
               : '')
           : `<button class="btn-mini ${f.pagada ? 'btn-borrar' : 'btn-pagar'}"
                 onclick="ModuloFacturas.togglePagada('${f.id}',${f.pagada})">
-              ${f.pagada ? '<svg class="ic" aria-hidden="true"><use href="#i-undo-2"/></svg> Pendiente' : '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Pagada'}
+              ${f.pagada ? '<svg class="ic" aria-hidden="true"><use href="#i-undo-2"/></svg> Pendiente' : '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> ' + (esRect && Number(f.total) < 0 ? 'Devuelta' : 'Pagada')}
              </button>`
         }
         <button class="btn-mini btn-email" onclick="ModuloFacturas.compartirEmail('${f.id}')" title="Enviar por email" aria-label="Enviar por email"><svg class="ic" aria-hidden="true"><use href="#i-mail"/></svg></button>
@@ -106,27 +123,39 @@ const ModuloFacturas = (() => {
   // FORMULARIO
   // ----------------------------------------------------------
 
-  async function _abrirFormulario(factura = null, tipo = 'factura') {
+  /**
+   * Abre el formulario. `original`: factura que se va a rectificar (crea una rectificativa nueva
+   * con sus datos y sus líneas en negativo).
+   */
+  async function _abrirFormulario(factura = null, tipo = 'factura', original = null) {
     _idFacturaActual = factura ? factura.id : null;
     _tipoActual      = factura ? (factura.tipo || 'factura') : tipo;
     _lineas          = factura ? JSON.parse(JSON.stringify(factura.lineas || [])) : [];
+    _rectifica       = original ? { id: original.id, numero: original.numero, fecha: _soloFecha(original.fecha), lineas: original.lineas || [] }
+                     : _esRect(factura) ? { id: factura.rectificaId, numero: factura.rectificaNumero, fecha: factura.rectificaFecha, lineas: null }
+                     : null;
+    // La rectificativa copia los datos de la original (cliente, impuestos, forma de pago)
+    const base = factura || original;
+    if (original) _lineas = _lineasNegativas(original.lineas);
 
     const esPres = _tipoActual === 'presupuesto';
 
     document.getElementById('fac-form-titulo').textContent = factura
-      ? `Editar ${esPres ? 'Presupuesto' : 'Factura'} ${factura.numero}`
+      ? `Editar ${esPres ? 'Presupuesto' : _rectifica ? 'Rectificativa' : 'Factura'} ${factura.numero}`
+      : original ? `Rectificar la factura ${original.numero}`
       : (esPres ? 'Nuevo Presupuesto' : 'Nueva Factura');
+    _pintarRectifica(factura?.motivoRectificacion || '', original ? 'total' : null);
 
-    document.getElementById('fac-cliente').value         = factura?.cliente   || '';
-    document.getElementById('fac-nif').value             = factura?.nif       || '';
-    document.getElementById('fac-direccion').value       = factura?.direccion || '';
+    document.getElementById('fac-cliente').value         = base?.cliente   || '';
+    document.getElementById('fac-nif').value             = base?.nif       || '';
+    document.getElementById('fac-direccion').value       = base?.direccion || '';
     document.getElementById('fac-fecha').value           = factura
       ? (typeof factura.fecha === 'string' ? factura.fecha.split('T')[0] : factura.fecha)
       : new Date().toISOString().split('T')[0];
-    document.getElementById('fac-iva').value             = factura?.porcentajeIgic ?? 7;
+    document.getElementById('fac-iva').value             = base?.porcentajeIgic ?? 7;
     document.getElementById('fac-notas').value           = factura?.notas || '';
-    document.getElementById('fac-irpf').value            = factura?.retencionIrpf ?? 0;
-    document.getElementById('fac-forma-pago').value      = factura?.formaPago || 'efectivo';
+    document.getElementById('fac-irpf').value            = base?.retencionIrpf ?? 0;
+    document.getElementById('fac-forma-pago').value      = base?.formaPago || 'efectivo';
     document.getElementById('fac-vencimiento').value     = factura?.vencimiento
       ? (typeof factura.vencimiento === 'string' ? factura.vencimiento.split('T')[0] : factura.vencimiento)
       : '';
@@ -145,7 +174,51 @@ const ModuloFacturas = (() => {
     await _renderSelectorPlatos();
     _renderLineas();
     _mostrarVista('formulario');
-    document.getElementById('fac-cliente').focus();
+    document.getElementById(_rectifica ? 'fac-rect-motivo' : 'fac-cliente').focus();
+  }
+
+  const _soloFecha = f => (typeof f === 'string' ? f.split('T')[0] : f) || null;
+
+  // Bloque «Factura rectificativa» del formulario. modo: 'total' | 'parcial' | null (sin cambiar líneas)
+  function _pintarRectifica(motivo, modo) {
+    const grupo = document.getElementById('fac-grupo-rectifica');
+    if (!grupo) return;
+    grupo.style.display = _rectifica ? '' : 'none';
+    if (!_rectifica) return;
+    document.getElementById('fac-rect-info').innerHTML =
+      `<svg class="ic" aria-hidden="true"><use href="#i-file-minus"/></svg> Rectifica la factura <strong>${_esc(_rectifica.numero)}</strong>` +
+      (_rectifica.fecha ? ` del ${VOZ.formatearFechaSolo(_rectifica.fecha)}` : '') + '. Lleva su propia numeración (<span style="white-space:nowrap">R-año-número</span>).';
+    document.getElementById('fac-rect-motivo').value = motivo || '';
+    // Al editar una rectificativa ya guardada no se cambian las líneas desde aquí
+    const modoGrupo = grupo.querySelector('.fac-rectifica-modo');
+    if (modoGrupo) modoGrupo.style.display = _rectifica.lineas ? '' : 'none';
+    if (modo) _modoRectifica(modo, false);
+    else _setText('fac-rect-ayuda', 'Las cantidades en negativo restan del total (devoluciones o importes a favor del cliente).');
+  }
+
+  function _modoRectifica(modo, repintar = true) {
+    if (!_rectifica?.lineas) return;
+    document.querySelectorAll('[data-rect-modo]').forEach(b => b.classList.toggle('activo', b.dataset.rectModo === modo));
+    if (modo === 'total') {
+      _lineas = _lineasNegativas(_rectifica.lineas);
+      _setText('fac-rect-ayuda', 'Se han copiado todas las líneas en negativo: la factura queda anulada (total a cero entre las dos).');
+    } else {
+      _lineas = [];
+      _setText('fac-rect-ayuda', 'Añade solo la diferencia. Ej.: si cobraste 2 menús de más a 25 €, pon «Menú» con cantidad −2 y precio 25.');
+    }
+    if (repintar) _renderLineas();
+  }
+
+  /** Empieza una rectificativa de la factura `id` (desde el detalle o al intentar borrarla). */
+  async function rectificarFactura(id) {
+    await _intentar(async () => {
+      const f = await SB.obtenerFactura(id);
+      if (!f || f.tipo === 'presupuesto') return;
+      if (_esRect(f)) { alert(`La ${f.numero} ya es una factura rectificativa.\n\nSi hay que corregirla, rectifica la factura original (${f.rectificaNumero}).`); return; }
+      const previas = (await SB.obtenerFacturas()).filter(x => x.rectificaId === f.id).map(x => x.numero);
+      if (previas.length && !confirm(`La factura ${f.numero} ya tiene ${previas.length === 1 ? 'una rectificativa' : 'rectificativas'}: ${previas.join(', ')}.\n\n¿Emitir otra?`)) return;
+      await _abrirFormulario(null, 'factura', f);
+    }, 'No se ha podido preparar la rectificativa');
   }
 
   async function _renderSelectorPlatos() {
@@ -184,10 +257,12 @@ const ModuloFacturas = (() => {
       _calcularTotales();
       return;
     }
+    // En una rectificativa las cantidades pueden ser negativas
+    const minCant = _rectifica ? '' : 'min="0.01"';
     tbody.innerHTML = _lineas.map((l, i) => `
       <tr>
         <td><input class="inp-linea inp-desc"   type="text"   value="${_esc(l.descripcion)}"   oninput="ModuloFacturas._actualizarLinea(${i},'descripcion',this.value)" placeholder="Concepto"></td>
-        <td><input class="inp-linea inp-qty"    type="number" value="${l.cantidad}"             oninput="ModuloFacturas._actualizarLinea(${i},'cantidad',this.value)"    min="0.01" step="0.01"></td>
+        <td><input class="inp-linea inp-qty"    type="number" value="${l.cantidad}"             oninput="ModuloFacturas._actualizarLinea(${i},'cantidad',this.value)"    ${minCant} step="0.01"></td>
         <td><input class="inp-linea inp-precio" type="number" value="${l.precioUnitario || ''}" oninput="ModuloFacturas._actualizarLinea(${i},'precio',this.value)"      min="0"    step="0.01" placeholder="0.00"></td>
         <td class="linea-subtotal">${dinero(l.subtotal || 0)} €</td>
         <td><button class="btn-mini btn-borrar" onclick="ModuloFacturas._eliminarLinea(${i})" title="Eliminar" aria-label="Eliminar línea"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></td>
@@ -237,6 +312,10 @@ const ModuloFacturas = (() => {
     const fecha = document.getElementById('fac-fecha').value;
     if (!fecha) { alert('La fecha es obligatoria.'); return; }
 
+    const motivoRect = document.getElementById('fac-rect-motivo')?.value.trim() || '';
+    if (_rectifica && !motivoRect) { alert('Indica el motivo de la rectificación (es obligatorio en una factura rectificativa).'); document.getElementById('fac-rect-motivo')?.focus(); return; }
+    if (_rectifica && _rectifica.fecha && fecha < _rectifica.fecha) { alert(`La rectificativa no puede tener una fecha anterior a la de la factura ${_rectifica.numero}.`); return; }
+
     const nifCliente = document.getElementById('fac-nif').value.trim();
     if (nifCliente && !validarNif(nifCliente) &&
         !confirm('El NIF/CIF del cliente no parece válido.\n\n¿Guardar de todas formas?')) return;
@@ -257,9 +336,12 @@ const ModuloFacturas = (() => {
 
       const comensales = parseInt(document.getElementById('fac-evento-comensales')?.value, 10);
       const datos = {
-        numero:            existente ? existente.numero
-                         : esPres   ? await SB.siguienteNumeroPresupuesto(fecha)
-                         :            await SB.siguienteNumeroFactura(fecha),
+        numero:            existente  ? existente.numero
+                         : esPres     ? await SB.siguienteNumeroPresupuesto(fecha)
+                         : _rectifica ? await SB.siguienteNumeroRectificativa(fecha)
+                         :              await SB.siguienteNumeroFactura(fecha),
+        ...(_rectifica ? { rectificaId: _rectifica.id || null, rectificaNumero: _rectifica.numero,
+                           rectificaFecha: _rectifica.fecha || null, motivoRectificacion: motivoRect } : {}),
         cliente,
         nif:               nifCliente,
         direccion:         document.getElementById('fac-direccion').value.trim(),
@@ -313,6 +395,8 @@ const ModuloFacturas = (() => {
     _mostrarVista('detalle');
     const btnConv = document.getElementById('fac-btn-convertir');
     if (btnConv) btnConv.style.display = f.tipo === 'presupuesto' ? '' : 'none';
+    const btnRect = document.getElementById('fac-btn-rectificar');
+    if (btnRect) btnRect.style.display = f.tipo !== 'presupuesto' && !_esRect(f) ? '' : 'none';
   }
 
   function _renderDetalle(f) {
@@ -330,6 +414,7 @@ const ModuloFacturas = (() => {
       ? 'Ley 37/1992 del Impuesto sobre el Valor Añadido'
       : 'Ley 20/1991 del Impuesto General Indirecto Canario (IGIC)';
     const esPres       = f.tipo === 'presupuesto';
+    const esRect       = _esRect(f);
 
     const emisorLineas = [
       cfg.nif       ? `NIF/CIF: ${_esc(cfg.nif)}`   : null,
@@ -380,9 +465,10 @@ const ModuloFacturas = (() => {
             ${emisorLineas ? `<div class="fac-emisor-datos">${emisorLineas}</div>` : ''}
           </div>
           <div class="fac-titulo-doc">
-            <div class="fac-numero-grande">${esPres ? 'PRESUPUESTO' : 'FACTURA'}</div>
+            <div class="fac-numero-grande">${esPres ? 'PRESUPUESTO' : esRect ? 'FACTURA RECTIFICATIVA' : 'FACTURA'}</div>
             <div class="fac-meta-item"><span>Número:</span> ${_esc(f.numero)}</div>
             <div class="fac-meta-item"><span>Fecha:</span> ${VOZ.formatearFechaSolo(f.fecha)}</div>
+            ${esRect ? `<div class="fac-meta-item"><span>Rectifica a:</span> ${_esc(f.rectificaNumero)}${f.rectificaFecha ? ' (' + VOZ.formatearFechaSolo(f.rectificaFecha) + ')' : ''}</div>` : ''}
             ${f.vencimiento ? `<div class="fac-meta-item"><span>${esPres ? 'Válido hasta:' : 'Vencimiento:'}</span> ${VOZ.formatearFechaSolo(f.vencimiento)}</div>` : ''}
           </div>
         </div>
@@ -395,6 +481,10 @@ const ModuloFacturas = (() => {
         </div>
 
         ${eventoHtml}
+        ${esRect ? `<div class="fac-receptor" style="margin-top:12px">
+           <div class="fac-receptor-titulo">Motivo de la rectificación</div>
+           ${_esc(f.motivoRectificacion || '—')}
+         </div>` : ''}
 
         <table class="fac-tabla-lineas">
           <thead>
@@ -411,7 +501,7 @@ const ModuloFacturas = (() => {
           <div class="fac-fila-total"><span>${impNom} (${f.porcentajeIgic}%):</span><span>${dinero(f.cuotaIgic)} €</span></div>
           ${irpfHtml}
           <div class="fac-fila-total fac-total-final">
-            <span>${esPres ? 'TOTAL ESTIMADO:' : 'TOTAL A PAGAR:'}</span>
+            <span>${esPres ? 'TOTAL ESTIMADO:' : esRect ? 'TOTAL RECTIFICADO:' : 'TOTAL A PAGAR:'}</span>
             <span>${dinero(f.total)} €</span>
           </div>
         </div>
@@ -422,7 +512,7 @@ const ModuloFacturas = (() => {
         <div class="fac-pie-legal">
           ${esPres
             ? `Presupuesto sin valor contractual hasta su aceptación formal.<br>Emitido conforme a la ${leyRef}.`
-            : `Factura emitida conforme a la ${leyRef}.<br>Sujeto pasivo: ${_esc(emisorNombre)}${cfg.nif ? ' · NIF/CIF: ' + _esc(cfg.nif) : ''}`
+            : `${esRect ? `Factura rectificativa de la factura nº ${_esc(f.rectificaNumero)}.<br>` : ''}Factura emitida conforme a la ${leyRef}.<br>Sujeto pasivo: ${_esc(emisorNombre)}${cfg.nif ? ' · NIF/CIF: ' + _esc(cfg.nif) : ''}`
           }
           ${esPres
             ? `<br><span style="font-weight:700;color:${estadoColor}">${estadoTxt}</span>`
@@ -445,7 +535,8 @@ const ModuloFacturas = (() => {
       // Una factura emitida no debería cambiarse: lo correcto es una factura rectificativa
       if (f.tipo !== 'presupuesto' && !confirm(
         `La factura ${f.numero} ya está emitida.\n\n` +
-        'Si ya la has entregado al cliente, no deberías modificarla: lo correcto es emitir una factura rectificativa.\n\n' +
+        'Si ya la has entregado al cliente, no deberías modificarla: lo correcto es emitir una factura rectificativa ' +
+        '(botón «Rectificar» al ver la factura).\n\n' +
         '¿Editarla de todas formas (por ejemplo, para corregir un error antes de enviarla)?')) return;
       await _abrirFormulario(f);
     }, 'No se ha podido abrir');
@@ -516,9 +607,12 @@ const ModuloFacturas = (() => {
         // Las facturas deben ser correlativas y sin huecos: solo se puede borrar la última
         const ultima = await SB.esUltimaFactura(f.numero);
         if (!ultima) {
-          alert(`No se puede eliminar la factura ${f.numero}: dejaría un hueco en la numeración.\n\n` +
-                'Para anularla, emite una factura rectificativa (una nueva factura con los mismos conceptos en negativo ' +
-                `y en notas "Rectifica la factura ${f.numero}").`);
+          if (_esRect(f)) {
+            alert(`No se puede eliminar la rectificativa ${f.numero}: dejaría un hueco en la numeración.`);
+          } else if (confirm(`No se puede eliminar la factura ${f.numero}: dejaría un hueco en la numeración.\n\n` +
+                'Para anularla se emite una factura rectificativa (sus mismos conceptos en negativo).\n\n¿Preparar la rectificativa ahora?')) {
+            await rectificarFactura(id);
+          }
           return;
         }
         if (!confirm(`¿Eliminar la factura ${f.numero}?\n\nSolo hazlo si NO la has entregado al cliente. Esta acción no se puede deshacer.`)) return;
@@ -551,7 +645,7 @@ const ModuloFacturas = (() => {
   // ----------------------------------------------------------
 
   function _nombreArchivoPdf(f) {
-    const tipo = f.tipo === 'presupuesto' ? 'Presupuesto' : 'Factura';
+    const tipo = f.tipo === 'presupuesto' ? 'Presupuesto' : _esRect(f) ? 'Rectificativa' : 'Factura';
     return `${tipo}_${f.numero}_${(f.cliente || '').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
   }
 
@@ -562,6 +656,7 @@ const ModuloFacturas = (() => {
     const cfg     = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
     const empresa = cfg.razonSocial || 'MI RESTAURANTE';
     const esPres  = f.tipo === 'presupuesto';
+    const esRect  = _esRect(f);
     const impNom  = (cfg.regimen || 'igic') === 'iva' ? 'IVA' : 'IGIC';
     const leyRef  = (cfg.regimen || 'igic') === 'iva'
       ? 'Ley 37/1992 del IVA' : 'Ley 20/1991 del IGIC (Canarias)';
@@ -620,13 +715,18 @@ const ModuloFacturas = (() => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
     setColor([192, 57, 43]);
-    doc.text(esPres ? 'PRESUPUESTO' : 'FACTURA', PAGINA_W - MR, yDer, { align: 'right' });
+    if (esRect) doc.setFontSize(14);
+    doc.text(esPres ? 'PRESUPUESTO' : esRect ? 'FACTURA RECTIFICATIVA' : 'FACTURA', PAGINA_W - MR, yDer, { align: 'right' });
     yDer += 7;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     setColor([60, 60, 60]);
     doc.text(`Nº: ${f.numero}`, PAGINA_W - MR, yDer, { align: 'right' }); yDer += 5;
     doc.text(`Fecha: ${VOZ.formatearFechaSolo(f.fecha)}`, PAGINA_W - MR, yDer, { align: 'right' }); yDer += 5;
+    if (esRect) {
+      doc.text(`Rectifica a: ${f.rectificaNumero}${f.rectificaFecha ? ' (' + VOZ.formatearFechaSolo(f.rectificaFecha) + ')' : ''}`, PAGINA_W - MR, yDer, { align: 'right' });
+      yDer += 5;
+    }
     if (f.vencimiento) {
       doc.text(`${esPres ? 'Válido hasta' : 'Vencimiento'}: ${VOZ.formatearFechaSolo(f.vencimiento)}`, PAGINA_W - MR, yDer, { align: 'right' });
       yDer += 5;
@@ -666,6 +766,18 @@ const ModuloFacturas = (() => {
       const lineas = doc.splitTextToSize(ev, W);
       doc.text(lineas, ML, y);
       y += lineas.length * 4 + 3;
+    }
+
+    // Motivo (rectificativa)
+    if (esRect) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      setColor([60, 60, 60]);
+      doc.text('Motivo de la rectificación:', ML, y);
+      doc.setFont('helvetica', 'normal');
+      const mot = doc.splitTextToSize(f.motivoRectificacion || '—', W);
+      doc.text(mot, ML, y + 4.5);
+      y += mot.length * 4 + 8;
     }
 
     // ----- TABLA DE CONCEPTOS -----
@@ -725,7 +837,7 @@ const ModuloFacturas = (() => {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
     setColor([20, 20, 20]);
-    doc.text(esPres ? 'TOTAL ESTIMADO:' : 'TOTAL A PAGAR:', totalsLabelX, y + 3);
+    doc.text(esPres ? 'TOTAL ESTIMADO:' : esRect ? 'TOTAL RECTIFICADO:' : 'TOTAL A PAGAR:', totalsLabelX, y + 3);
     doc.text(`${dinero(f.total)} €`, totalsValX, y + 3, { align: 'right' });
     y += 12;
 
@@ -770,7 +882,7 @@ const ModuloFacturas = (() => {
       setColor([130, 130, 130]);
       const pie = esPres
         ? `Presupuesto sin valor contractual hasta su aceptación formal. Emitido conforme a la ${leyRef}.`
-        : `Factura emitida conforme a la ${leyRef}. Sujeto pasivo: ${empresa}${cfg.nif ? ' · NIF/CIF: ' + cfg.nif : ''}.`;
+        : `${esRect ? `Factura rectificativa de la factura nº ${f.rectificaNumero}. ` : ''}Factura emitida conforme a la ${leyRef}. Sujeto pasivo: ${empresa}${cfg.nif ? ' · NIF/CIF: ' + cfg.nif : ''}.`;
       const pieLineas = doc.splitTextToSize(pie, W);
       doc.text(pieLineas, ML, PAGINA_H - 10);
       doc.text(`Pág. ${p} / ${totalPages}`, PAGINA_W - MR, PAGINA_H - 6, { align: 'right' });
@@ -845,7 +957,7 @@ const ModuloFacturas = (() => {
     const texto  = [
       `Estimado/a ${f.cliente},`,
       '',
-      `Le adjunto ${esPres ? 'el presupuesto' : 'la factura'} nº ${f.numero} con fecha ${VOZ.formatearFechaSolo(f.fecha)}.`,
+      `Le adjunto ${esPres ? 'el presupuesto' : _esRect(f) ? `la factura rectificativa (de la factura ${f.rectificaNumero})` : 'la factura'} nº ${f.numero} con fecha ${VOZ.formatearFechaSolo(f.fecha)}.`,
       `Importe total: ${dinero(f.total)} €.`,
       '',
       'Atentamente,',
@@ -1027,6 +1139,11 @@ const ModuloFacturas = (() => {
     document.getElementById('fac-inf-csv')       ?.addEventListener('click', _exportarInformeCsv);
     document.getElementById('fac-btn-imprimir')  ?.addEventListener('click', () => window.print());
     document.getElementById('fac-btn-convertir') ?.addEventListener('click', _convertirAFactura);
+    document.getElementById('fac-btn-rectificar')?.addEventListener('click', () => _idFacturaActual && rectificarFactura(_idFacturaActual));
+    document.querySelectorAll('[data-rect-modo]').forEach(b => b.addEventListener('click', () => {
+      if (_lineas.length && !confirm('Se sustituirán las líneas actuales. ¿Continuar?')) return;
+      _modoRectifica(b.dataset.rectModo);
+    }));
     document.getElementById('fac-btn-email')     ?.addEventListener('click', async () => { const f = await SB.obtenerFactura(_idFacturaActual); if (f) await _compartirEmail(f); });
     document.getElementById('fac-btn-whatsapp')  ?.addEventListener('click', async () => { const f = await SB.obtenerFactura(_idFacturaActual); if (f) await _compartirWhatsApp(f); });
     document.getElementById('fac-btn-add-linea') ?.addEventListener('click', () => _agregarLinea());
@@ -1045,7 +1162,7 @@ const ModuloFacturas = (() => {
   }
 
   return {
-    init, verFactura, editarFactura, togglePagada, borrarFactura,
+    init, verFactura, editarFactura, togglePagada, borrarFactura, rectificarFactura,
     aceptarPresupuesto, compartirEmail, compartirWhatsApp,
     _actualizarLinea, _eliminarLinea
   };

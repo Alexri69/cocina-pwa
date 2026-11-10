@@ -948,6 +948,12 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
       _busquedaHab = e.target.value;
       _renderPlantillas();
     });
+    // Leer el lote con la cámara (código de barras GS1 o texto impreso)
+    const btnCam = document.getElementById('etq-m-lote-cam');
+    if (btnCam) {
+      if (typeof LectorLote === 'undefined' || !LectorLote.disponible()) btnCam.hidden = true;
+      else btnCam.addEventListener('click', () => LectorLote.abrir(document.getElementById('etq-m-lote')));
+    }
     // Enter en el lote = guardar (con un habitual elegido es lo único que falta)
     document.getElementById('etq-m-lote')?.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); _generarManual(); }

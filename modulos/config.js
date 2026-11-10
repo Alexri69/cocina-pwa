@@ -213,14 +213,7 @@ const ModuloConfig = (() => {
         },
         datos,
       };
-      const blob     = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-      const url      = URL.createObjectURL(blob);
-      const a        = document.createElement('a');
-      const fechaStr = new Date().toISOString().slice(0, 10);
-      a.href         = url;
-      a.download     = `cocina-backup-${fechaStr}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      _descargarJson(backup, `cocina-backup-${new Date().toISOString().slice(0, 10)}.json`);
       _mostrarMsg('bkp-msg', '✔ Copia descargada');
     } catch (e) {
       _mostrarMsg('bkp-msg', '✖ Error: ' + e.message);
@@ -229,46 +222,122 @@ const ModuloConfig = (() => {
     }
   }
 
+  // «14 ingredientes, 2 platos…» a partir del número de registros de cada tipo
+  const _NOMBRES_DATOS = [
+    ['productos', 'etiqueta', 'etiquetas'], ['plantillas', 'producto habitual', 'productos habituales'],
+    ['ingredientes', 'ingrediente', 'ingredientes'], ['platos', 'plato', 'platos'], ['bebidas', 'bebida', 'bebidas'],
+    ['facturas', 'factura/presupuesto', 'facturas/presupuestos'], ['appcc_elementos', 'equipo o tarea APPCC', 'equipos y tareas APPCC'],
+    ['appcc_registros', 'registro APPCC', 'registros APPCC'],
+  ];
+  function _resumenDatos(cuenta) {
+    const partes = _NOMBRES_DATOS.filter(([k]) => cuenta[k] > 0).map(([k, uno, varios]) => `${cuenta[k]} ${cuenta[k] === 1 ? uno : varios}`);
+    return partes.length ? partes.join(', ') : 'sin datos';
+  }
+  const _contar = datos => Object.fromEntries(_NOMBRES_DATOS.map(([k]) => [k, datos?.[k]?.length ?? 0]));
+  const _fechaHora = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('es-ES') + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }); };
+
+  /** Restaura una copia (archivo descargado o copia del servidor) en el restaurante activo. */
+  async function _restaurarBackup(backup) {
+    if (backup?.app !== 'cocina-pwa' || !backup.datos) {
+      alert('El archivo no es una copia de seguridad válida de esta aplicación.');
+      return false;
+    }
+    if (!confirm(`¿Restaurar la copia del ${_fechaHora(backup.fecha) || 'archivo'}?\n\nContiene: ${_resumenDatos(_contar(backup.datos))}.\n\n` +
+                 'Lo que se borró se recupera y lo que se cambió vuelve a como estaba en la copia. ' +
+                 'Lo creado después de la copia se conserva.')) return false;
+    await SB.restaurarDatos(backup.datos);
+    if (backup.config?.empresa && Object.keys(backup.config.empresa).length)     localStorage.setItem(CLAVE_EMP(), JSON.stringify(backup.config.empresa));
+    if (backup.config?.impresora && Object.keys(backup.config.impresora).length) localStorage.setItem(CLAVE_IMP(), JSON.stringify(backup.config.impresora));
+    _pushRemota();
+    _cargarEnFormulario();
+    _cargarImpresora();
+    return true;
+  }
+
   async function _importar(archivo) {
     if (!archivo) return;
-    const btn = document.getElementById('bkp-btn-importar');
-    if (btn) btn.disabled = true;
     try {
-      const texto  = await archivo.text();
-      const backup = JSON.parse(texto);
-
-      if (backup.app !== 'cocina-pwa' || !backup.datos) {
-        alert('El archivo no es una copia de seguridad válida de esta aplicación.');
-        return;
-      }
-
-      const resumen = [
-        `${backup.datos.productos?.length ?? 0} etiquetas`,
-        `${backup.datos.plantillas?.length ?? 0} productos habituales`,
-        `${backup.datos.ingredientes?.length ?? 0} ingredientes`,
-        `${backup.datos.platos?.length ?? 0} platos`,
-        `${backup.datos.bebidas?.length ?? 0} bebidas`,
-        `${backup.datos.facturas?.length ?? 0} facturas/presupuestos`,
-      ].join(', ');
-
-      if (!confirm(`¿Restaurar copia del ${backup.fecha?.slice(0,10)}?\n\nContiene: ${resumen}.\n\nLos registros existentes con el mismo ID se actualizarán. Los nuevos se añadirán.`)) return;
-
-      await SB.restaurarDatos(backup.datos);
-
-      if (backup.config?.empresa)   localStorage.setItem(CLAVE_EMP(), JSON.stringify(backup.config.empresa));
-      if (backup.config?.impresora) localStorage.setItem(CLAVE_IMP(), JSON.stringify(backup.config.impresora));
-      _pushRemota();
-
-      _cargarEnFormulario();
-      _cargarImpresora();
-      _mostrarMsg('bkp-msg', '✔ Datos restaurados correctamente');
+      let backup;
+      try { backup = JSON.parse(await archivo.text()); }
+      catch { alert('El archivo no es una copia de seguridad válida de esta aplicación.'); return; }
+      if (await _restaurarBackup(backup)) _mostrarMsg('bkp-msg', '✔ Datos restaurados correctamente');
     } catch (e) {
       _mostrarMsg('bkp-msg', '✖ Error al restaurar: ' + e.message);
     } finally {
-      if (btn) btn.disabled = false;
       const inp = document.getElementById('bkp-input-archivo');
       if (inp) inp.value = '';
     }
+  }
+
+  // --- Copias automáticas en el servidor ---
+
+  async function _renderCopias() {
+    const cont = document.getElementById('bkp-copias');
+    if (!cont || !SB.puedeGestionar()) return;
+    cont.innerHTML = '<p class="texto-vacio">Cargando copias…</p>';
+    let copias;
+    try { copias = await SB.listarCopias(); }
+    catch (e) {
+      const msg = String(e?.message || '');
+      cont.innerHTML = /copias_seguridad|PGRST205|404/.test(msg)
+        ? '<p class="appcc-nota">Las copias automáticas se activarán en cuanto se actualice la base de datos. Mientras, usa «Descargar copia».</p>'
+        : `<p class="appcc-nota">${navigator.onLine ? 'No se han podido cargar las copias.' : 'Sin conexión: las copias del servidor se ven cuando vuelva la red.'}</p>`;
+      return;
+    }
+    if (!copias?.length) {
+      cont.innerHTML = '<p class="appcc-nota">Aún no hay copias en el servidor. La primera se hará el próximo lunes, o pulsa «Hacer copia ahora».</p>';
+      return;
+    }
+    cont.innerHTML = `<ul class="bkp-lista">${copias.map(c => `
+      <li class="bkp-copia">
+        <div class="bkp-copia-info">
+          <strong>${esc(_fechaHora(c.creada))}</strong>
+          <span class="bkp-copia-tipo">${c.origen === 'manual' ? 'Hecha a mano' : 'Automática'}</span>
+          <small>${esc(_resumenDatos(c.resumen || {}))}</small>
+        </div>
+        <div class="bkp-copia-acciones">
+          <button type="button" class="btn-mini" data-copia-descargar="${esc(c.id)}"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg> Descargar</button>
+          <button type="button" class="btn-mini btn-editar" data-copia-restaurar="${esc(c.id)}"><svg class="ic" aria-hidden="true"><use href="#i-archive-restore"/></svg> Restaurar</button>
+        </div>
+      </li>`).join('')}</ul>`;
+  }
+
+  function _descargarJson(obj, nombre) {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  async function _accionCopia(e) {
+    const bDesc = e.target.closest('[data-copia-descargar]'), bRest = e.target.closest('[data-copia-restaurar]');
+    const b = bDesc || bRest;
+    if (!b) return;
+    b.disabled = true;
+    try {
+      const copia = await SB.obtenerCopia(bDesc ? b.dataset.copiaDescargar : b.dataset.copiaRestaurar);
+      if (!copia) throw new Error('No se ha encontrado la copia.');
+      const backup = SB.copiaAFormatoArchivo(copia);
+      if (bDesc) _descargarJson(backup, `cocina-copia-${String(copia.creada).slice(0, 10)}.json`);
+      else if (await _restaurarBackup(backup)) aviso('✔ Copia restaurada.', { tipo: 'ok', ms: 3000 });
+    } catch (err) {
+      aviso('No se ha podido ' + (bDesc ? 'descargar' : 'restaurar') + ' la copia: ' + err.message, { tipo: 'error', ms: 6000 });
+    } finally { b.disabled = false; }
+  }
+
+  async function _copiaAhora() {
+    const btn = document.getElementById('bkp-btn-ahora');
+    if (btn) btn.disabled = true;
+    try {
+      if (SB.pendientes() && navigator.onLine) await SB.flushOutbox();   // que entre lo hecho sin conexión
+      await SB.crearCopiaAhora();
+      aviso('✔ Copia guardada en el servidor.', { tipo: 'ok', ms: 2500 });
+      await _renderCopias();
+    } catch (e) {
+      aviso('No se ha podido hacer la copia: ' + e.message, { tipo: 'error', ms: 6000 });
+    } finally { if (btn) btn.disabled = false; }
   }
 
   // --- Sincronización con Supabase ---
@@ -332,6 +401,8 @@ const ModuloConfig = (() => {
     document.getElementById('imp-conexion')     ?.addEventListener('change', e => _toggleConexion(e.target.value));
     document.getElementById('bkp-btn-exportar') ?.addEventListener('click', _exportar);
     document.getElementById('bkp-input-archivo')?.addEventListener('change', e => _importar(e.target.files[0]));
+    document.getElementById('bkp-btn-ahora')    ?.addEventListener('click', _copiaAhora);
+    document.getElementById('bkp-copias')       ?.addEventListener('click', _accionCopia);
     document.getElementById('cfg-logo-input')   ?.addEventListener('change', e => _subirLogo(e.target.files[0]));
     document.getElementById('cfg-logo-quitar')  ?.addEventListener('click', _quitarLogo);
     document.getElementById('cfg-btn-logout')   ?.addEventListener('click', async () => {
@@ -349,6 +420,7 @@ const ModuloConfig = (() => {
 
     // Sincronizar con Supabase en segundo plano (trae la config de otros dispositivos)
     _hidratarRemota();
+    _renderCopias();
   }
 
   /** Guarda un ajuste suelto en la ficha de empresa (se sincroniza con Supabase). */

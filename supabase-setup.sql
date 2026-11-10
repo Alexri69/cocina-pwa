@@ -559,4 +559,126 @@ REVOKE ALL ON FUNCTION public.publicar_carta(uuid, boolean), public.despublicar_
 GRANT EXECUTE ON FUNCTION public.publicar_carta(uuid, boolean), public.despublicar_carta(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.carta_publica(text) TO anon, authenticated;
 
+
+-- ============================================================
+-- ESCANDALLOS: coste de cada ingrediente (los platos guardan la cantidad por ración en su jsonb)
+-- ============================================================
+ALTER TABLE public.ingredientes
+  ADD COLUMN IF NOT EXISTS precio_compra numeric(10,2),                      -- € por unidad de compra (null = sin precio)
+  ADD COLUMN IF NOT EXISTS unidad        text         NOT NULL DEFAULT 'kg', -- kg | l | ud
+  ADD COLUMN IF NOT EXISTS merma         numeric(5,2) NOT NULL DEFAULT 0;    -- % que se pierde al limpiar o cocinar
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ingredientes_unidad_ok') THEN
+    ALTER TABLE public.ingredientes ADD CONSTRAINT ingredientes_unidad_ok CHECK (unidad IN ('kg','l','ud'));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ingredientes_merma_ok') THEN
+    ALTER TABLE public.ingredientes ADD CONSTRAINT ingredientes_merma_ok CHECK (merma >= 0 AND merma < 100);
+  END IF;
+END $$;
+
+
+-- ============================================================
+-- FACTURAS RECTIFICATIVAS (serie propia R-AAAA-NNNN, tipo = 'factura')
+-- ============================================================
+ALTER TABLE public.facturas
+  ADD COLUMN IF NOT EXISTS rectifica_id         uuid REFERENCES public.facturas(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS rectifica_numero     text,
+  ADD COLUMN IF NOT EXISTS rectifica_fecha      date,
+  ADD COLUMN IF NOT EXISTS motivo_rectificacion text;
+
+
+-- ============================================================
+-- COPIAS DE SEGURIDAD AUTOMÁTICAS (cada semana y por restaurante; se guardan las 8 últimas)
+-- Solo las crean estas funciones; propietario y encargado las ven y descargan.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.copias_seguridad (
+  id             uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  restaurante_id uuid        NOT NULL REFERENCES public.restaurantes(id) ON DELETE CASCADE,
+  creada         timestamptz NOT NULL DEFAULT now(),
+  origen         text        NOT NULL DEFAULT 'automatica',   -- automatica | manual
+  huella         text        NOT NULL,                        -- md5 de los datos (no se guardan dos copias idénticas seguidas)
+  resumen        jsonb       NOT NULL DEFAULT '{}',
+  datos          jsonb       NOT NULL
+);
+CREATE INDEX IF NOT EXISTS copias_seguridad_rest_fecha ON public.copias_seguridad (restaurante_id, creada DESC);
+ALTER TABLE public.copias_seguridad ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS copias_seguridad_select ON public.copias_seguridad;
+CREATE POLICY copias_seguridad_select ON public.copias_seguridad FOR SELECT TO authenticated USING (public.puede_gestionar(restaurante_id));
+
+-- Todos los datos de un restaurante (formato de la BD, sin user_id ni restaurante_id)
+CREATE OR REPLACE FUNCTION public._datos_restaurante(p_restaurante uuid) RETURNS jsonb
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
+$$
+  SELECT jsonb_build_object(
+    'productos',       coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM productos t           WHERE t.restaurante_id = p_restaurante), '[]'),
+    'plantillas',      coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM plantillas_etiqueta t WHERE t.restaurante_id = p_restaurante), '[]'),
+    'ingredientes',    coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM ingredientes t        WHERE t.restaurante_id = p_restaurante), '[]'),
+    'platos',          coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM platos t              WHERE t.restaurante_id = p_restaurante), '[]'),
+    'bebidas',         coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM bebidas t             WHERE t.restaurante_id = p_restaurante), '[]'),
+    'facturas',        coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM facturas t            WHERE t.restaurante_id = p_restaurante), '[]'),
+    'appcc_elementos', coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM appcc_elementos t     WHERE t.restaurante_id = p_restaurante), '[]'),
+    'appcc_registros', coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM appcc_registros t     WHERE t.restaurante_id = p_restaurante), '[]'),
+    'config',          (SELECT jsonb_build_object('empresa', c.empresa, 'impresora', c.impresora) FROM config c WHERE c.restaurante_id = p_restaurante)
+  )
+$$;
+
+-- Guarda una copia si los datos han cambiado desde la última; conserva 8 automáticas y 5 manuales
+CREATE OR REPLACE FUNCTION public._guardar_copia(p_restaurante uuid, p_origen text) RETURNS uuid
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS
+$$
+DECLARE v_datos jsonb; v_huella text; v_id uuid; v_ultima text;
+BEGIN
+  v_datos  := public._datos_restaurante(p_restaurante);
+  v_huella := md5(v_datos::text);
+  SELECT id, huella INTO v_id, v_ultima FROM copias_seguridad WHERE restaurante_id = p_restaurante ORDER BY creada DESC LIMIT 1;
+  IF v_ultima = v_huella THEN
+    RETURN v_id;  -- nada ha cambiado: no hace falta otra copia igual
+  END IF;
+  INSERT INTO copias_seguridad (restaurante_id, origen, huella, resumen, datos)
+  VALUES (p_restaurante, p_origen, v_huella,
+          coalesce((SELECT jsonb_object_agg(k, jsonb_array_length(v)) FROM jsonb_each(v_datos) AS e(k, v) WHERE jsonb_typeof(v) = 'array'), '{}'),
+          v_datos)
+  RETURNING id INTO v_id;
+  DELETE FROM copias_seguridad WHERE id IN (
+    SELECT id FROM copias_seguridad WHERE restaurante_id = p_restaurante AND origen = p_origen
+    ORDER BY creada DESC OFFSET CASE WHEN p_origen = 'manual' THEN 5 ELSE 8 END);
+  RETURN v_id;
+END $$;
+
+-- Copia en el momento (botón de Configuración): solo propietario o encargado
+CREATE OR REPLACE FUNCTION public.crear_copia_ahora(p_restaurante uuid) RETURNS uuid
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS
+$$
+BEGIN
+  IF NOT public.puede_gestionar(p_restaurante) THEN RAISE EXCEPTION 'No tienes permiso para hacer copias'; END IF;
+  RETURN public._guardar_copia(p_restaurante, 'manual');
+END $$;
+
+-- Copia semanal de todos los restaurantes (la lanza pg_cron)
+CREATE OR REPLACE FUNCTION public.crear_copias_semanales() RETURNS integer
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS
+$$
+DECLARE r record; n integer := 0;
+BEGIN
+  FOR r IN SELECT id FROM restaurantes LOOP
+    PERFORM public._guardar_copia(r.id, 'automatica');
+    n := n + 1;
+  END LOOP;
+  RETURN n;
+END $$;
+
+REVOKE ALL ON FUNCTION public._datos_restaurante(uuid), public._guardar_copia(uuid, text), public.crear_copias_semanales() FROM anon, authenticated, public;
+REVOKE ALL ON FUNCTION public.crear_copia_ahora(uuid) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.crear_copia_ahora(uuid) TO authenticated;
+
+-- Programar la copia: los lunes a las 03:00 UTC (requiere la extensión pg_cron)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'copias-semanales';
+    PERFORM cron.schedule('copias-semanales', '0 3 * * 1', 'SELECT public.crear_copias_semanales()');
+  END IF;
+END $$;
+
 NOTIFY pgrst, 'reload schema';

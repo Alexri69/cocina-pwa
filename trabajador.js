@@ -1,26 +1,27 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v65: iconos más gruesos y tarjetas del inicio más presentes
+// v66: escandallos, facturas rectificativas, leer el lote con la cámara y copias automáticas
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v65';
+const NOMBRE_CACHE = 'cocina-etiquetas-v66';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=65',
+  './estilo.css?v=66',
   './manifest.json',
-  './core/voz.js?v=65',
-  './core/supabase.js?v=65',
-  './modulos/etiquetas.js?v=65',
-  './modulos/menu.js?v=65',
-  './modulos/bebidas.js?v=65',
-  './modulos/facturas.js?v=65',
-  './modulos/auth.js?v=65',
-  './modulos/config.js?v=65',
-  './modulos/appcc.js?v=65',
-  './modulos/cartaqr.js?v=65',
-  './modulos/equipo.js?v=65',
-  './app.js?v=65',
+  './core/voz.js?v=66',
+  './core/supabase.js?v=66',
+  './modulos/lector-lote.js?v=66',
+  './modulos/etiquetas.js?v=66',
+  './modulos/menu.js?v=66',
+  './modulos/bebidas.js?v=66',
+  './modulos/facturas.js?v=66',
+  './modulos/auth.js?v=66',
+  './modulos/config.js?v=66',
+  './modulos/appcc.js?v=66',
+  './modulos/cartaqr.js?v=66',
+  './modulos/equipo.js?v=66',
+  './app.js?v=66',
   './lib/jspdf.umd.min.js',
   './lib/qrcode.min.js',
   './img/fondo-cocina.webp',

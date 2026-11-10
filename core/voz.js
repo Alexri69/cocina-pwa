@@ -13,7 +13,21 @@ const Navegacion = (() => {
   let _cerrar = null;        // función que cierra la vista secundaria abierta
   let _desdeAtras = false;   // la vista se está cerrando por el botón "atrás"
   let _ignorar = 0;          // popstate provocados por nosotros
+  let _encima = null;        // ventana superpuesta (p. ej. la cámara) sobre la vista actual
   return {
+    /** Una ventana superpuesta se ha abierto: «atrás» la cierra sin tocar la vista de debajo. */
+    encima(cerrar) {
+      _encima = cerrar;
+      try { history.pushState({ ...(history.state || {}), sub: true }, ''); } catch {}
+    },
+    /** La ventana superpuesta se ha cerrado desde un botón de la app. */
+    encimaCerrada() {
+      if (!_encima) return;
+      _encima = null;
+      if (_desdeAtras) return;
+      _ignorar++;
+      try { history.back(); } catch { _ignorar--; }
+    },
     /** Una vista secundaria (formulario, detalle…) se ha abierto. */
     abrir(cerrar) {
       if (_cerrar) { _cerrar = cerrar; return; }   // ya hay una abierta: solo se actualiza cómo cerrarla
@@ -32,6 +46,11 @@ const Navegacion = (() => {
     olvidar() { _cerrar = null; },
     _alPulsarAtras(e) {
       if (_ignorar) { _ignorar--; return true; }
+      if (_encima) {
+        const f = _encima; _encima = null; _desdeAtras = true;
+        try { f(); } finally { _desdeAtras = false; }
+        return true;
+      }
       if (_cerrar) {
         const f = _cerrar; _cerrar = null; _desdeAtras = true;
         try { f(); } finally { _desdeAtras = false; }

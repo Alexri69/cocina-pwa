@@ -33,6 +33,62 @@ const ModuloMenu = (() => {
   let _busquedaPlato     = '';
   let _busquedaSelectorIng = '';
   let _platoSeleccionados  = new Set();
+  let _cantidades          = {};   // escandallo del formulario: id ingrediente → cantidad por ración
+
+  // ----------------------------------------------------------
+  // ESCANDALLOS (coste por ración)
+  //   ingrediente: precio_compra € por kg | l | ud, merma % (lo que se pierde al limpiar o cocinar)
+  //   plato.ingredientes[i].cantidad: g (kg), ml (l) o unidades (ud) por ración
+  // ----------------------------------------------------------
+
+  const UNIDAD_RACION = { kg: 'g', l: 'ml', ud: 'ud' };
+  const _tienePrecio  = ing => ing && ing.precio_compra != null && ing.precio_compra !== '' && isFinite(Number(ing.precio_compra));
+
+  /** Coste de una cantidad de ingrediente (null si falta el precio o la cantidad). */
+  function costeLinea(ing, cantidad) {
+    const c = Number(cantidad);
+    if (!_tienePrecio(ing) || !(c > 0)) return null;
+    const porUnidad   = (ing.unidad === 'ud') ? c : c / 1000;          // g → kg, ml → l
+    const rendimiento = 1 - Math.min(95, Math.max(0, Number(ing.merma) || 0)) / 100;
+    return porUnidad * Number(ing.precio_compra) / rendimiento;
+  }
+
+  function _impuestoCarta() {
+    const cfg = _datosEmpresa();
+    return cfg.regimen === 'iva' ? 10 : 7;   // hostelería: IVA reducido 10 % · IGIC general 7 %
+  }
+  function _objetivoCoste() {
+    const v = Number(_datosEmpresa().objetivoCoste);
+    return v >= 5 && v <= 80 ? v : 30;
+  }
+
+  /**
+   * Escandallo de un plato. pvp = precio de carta con impuestos.
+   * Devuelve { coste, completo, faltan[], pvpSinImp, pct, margen, recomendado }.
+   */
+  function escandallo(lineas, ingredientes, pvp, { impuesto = 7, objetivo = 30 } = {}) {
+    const porId = new Map((ingredientes || []).map(i => [i.id, i]));
+    let coste = 0; const faltan = [];
+    for (const l of (lineas || [])) {
+      const ing = porId.get(l.id);
+      const c   = costeLinea(ing, l.cantidad);
+      if (c == null) faltan.push(ing?.nombre || l.nombre || '¿?');
+      else coste += c;
+    }
+    coste = r2(coste);
+    const pvpSinImp   = pvp > 0 ? pvp / (1 + impuesto / 100) : 0;
+    const pct         = pvpSinImp > 0 && coste > 0 ? coste / pvpSinImp * 100 : null;
+    const margen      = pvpSinImp > 0 ? r2(pvpSinImp - coste) : null;
+    const recomendado = coste > 0 ? Math.ceil(coste / (objetivo / 100) * (1 + impuesto / 100) * 10) / 10 : null;
+    return { coste, completo: !faltan.length && (lineas || []).length > 0, faltan, pvpSinImp: r2(pvpSinImp), pct, margen, recomendado };
+  }
+
+  // Estado respecto al objetivo: ok (dentro), warn (hasta 5 puntos por encima), err (más)
+  const _nivel = (pct, objetivo) => pct == null ? '' : pct <= objetivo ? 'ok' : pct <= objetivo + 5 ? 'warn' : 'err';
+  const _pct   = p => p == null ? '—' : p.toLocaleString('es-ES', { maximumFractionDigits: 1 }) + ' %';
+  const _precioIng = ing => _tienePrecio(ing)
+    ? `${dinero(ing.precio_compra)} €/${ing.unidad || 'kg'}${Number(ing.merma) > 0 ? ` · merma ${Number(ing.merma).toLocaleString('es-ES')} %` : ''}`
+    : '';
 
   function _ordAlfa(a, b) {
     return (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' });
@@ -68,8 +124,141 @@ const ModuloMenu = (() => {
     document.querySelector(`#modulo-menu .sub-tab[data-subtab="${cual}"]`)?.classList.add('activo');
     document.getElementById('menu-sub-ingredientes').style.display = cual === 'ingredientes' ? 'block' : 'none';
     document.getElementById('menu-sub-platos').style.display       = cual === 'platos'       ? 'block' : 'none';
+    const subEsc = document.getElementById('menu-sub-escandallos');
+    if (subEsc) subEsc.style.display = cual === 'escandallos' ? 'block' : 'none';
     _mostrarVistaPlatos('lista');
     _mostrarVistaIngs('lista');
+    if (cual === 'escandallos') _renderEscandallos();
+  }
+
+  // ----------------------------------------------------------
+  // PESTAÑA ESCANDALLOS: coste y margen de todos los platos
+  // ----------------------------------------------------------
+
+  async function _renderEscandallos() {
+    const cont = document.getElementById('menu-escandallos');
+    if (!cont) return;
+    const inpObj = document.getElementById('esc-objetivo');
+    if (inpObj && document.activeElement !== inpObj) inpObj.value = _objetivoCoste();
+    cont.innerHTML = '<p class="texto-vacio">Cargando…</p>';
+    try {
+      const [platos, ings] = await Promise.all([SB.obtenerPlatos(), SB.obtenerIngredientes()]);
+      _todosPlatos = (platos || []).slice().sort(_ordAlfa);
+      _todosIngredientes = (ings || []).slice().sort(_ordAlfa);
+    } catch (e) { cont.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${_esc(e.message)}</p>`; return; }
+
+    if (!_todosPlatos.length) { cont.innerHTML = '<p class="texto-vacio">Aún no hay platos en la carta.</p>'; return; }
+    const objetivo = _objetivoCoste(), impuesto = _impuestoCarta();
+    const filas = _todosPlatos.map(p => ({ p, e: escandallo(p.ingredientes, _todosIngredientes, Number(p.precio) || 0, { impuesto, objetivo }) }))
+      // Primero los que más se comen el margen; al final los que no tienen datos
+      .sort((a, b) => (b.e.pct ?? -1) - (a.e.pct ?? -1));
+    const conCoste = filas.filter(f => f.e.pct != null);
+    const media    = conCoste.length ? conCoste.reduce((s, f) => s + f.e.pct, 0) / conCoste.length : null;
+    const altos    = conCoste.filter(f => f.e.pct > objetivo).length;
+    const sinPrecio = _todosIngredientes.filter(i => !_tienePrecio(i)).length;
+
+    cont.innerHTML = `
+      <div class="esc-resumen">
+        <div class="esc-dato"><span class="esc-dato-n">${conCoste.length}<small> / ${filas.length}</small></span><span class="esc-dato-t">platos con coste</span></div>
+        <div class="esc-dato"><span class="esc-dato-n ${_nivel(media, objetivo)}">${_pct(media)}</span><span class="esc-dato-t">coste medio</span></div>
+        <div class="esc-dato"><span class="esc-dato-n ${altos ? 'err' : 'ok'}">${altos}</span><span class="esc-dato-t">por encima del ${objetivo}&nbsp;%</span></div>
+      </div>
+      ${sinPrecio ? `<p class="esc-aviso"><svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"/></svg> ${sinPrecio} ingrediente${sinPrecio === 1 ? '' : 's'} sin precio de compra. <button type="button" class="btn-enlace" data-esc="ingredientes">Ponerles precio</button></p>` : ''}
+      <div class="esc-lista">
+        ${filas.map(({ p, e }) => {
+          const nivel = _nivel(e.pct, objetivo);
+          const detalle = !(p.ingredientes || []).length ? 'Sin ingredientes asignados'
+            : e.faltan.length ? `Falta precio o cantidad: ${_esc(e.faltan.slice(0, 3).join(', '))}${e.faltan.length > 3 ? '…' : ''}`
+            : !(Number(p.precio) > 0) ? 'Sin precio de venta'
+            : `Margen ${dinero(e.margen)} € por ración`;
+          return `<button type="button" class="esc-fila ${nivel}" data-esc-plato="${p.id}">
+            <span class="esc-fila-nombre">${_esc(p.nombre)}<small>${detalle}</small></span>
+            <span class="esc-fila-num"><small>Coste</small>${e.coste > 0 ? dinero(e.coste) + ' €' : '—'}</span>
+            <span class="esc-fila-num"><small>PVP</small>${Number(p.precio) > 0 ? dinero(p.precio) + ' €' : '—'}</span>
+            <span class="esc-fila-pct ${nivel}">${_pct(e.pct)}</span>
+          </button>`;
+        }).join('')}
+      </div>
+      <p class="appcc-nota">% de coste = coste de la ración ÷ precio de carta sin ${impuesto === 10 ? 'IVA' : 'IGIC'} (${impuesto} %). Toca un plato para ajustar sus cantidades.</p>`;
+  }
+
+  function _imprimirEscandallos() {
+    const objetivo = _objetivoCoste(), impuesto = _impuestoCarta();
+    const porId = new Map(_todosIngredientes.map(i => [i.id, i]));
+    if (!_todosPlatos.length) { alert('No hay platos en la carta.'); return; }
+    const win = window.open('', '_blank', 'width=900,height=900');
+    if (!win) { alert('El navegador bloqueó la ventana emergente.\nPermite ventanas emergentes para esta página.'); return; }
+    const emp = _datosEmpresa();
+    const fichas = _todosPlatos.map(p => {
+      const e = escandallo(p.ingredientes, _todosIngredientes, Number(p.precio) || 0, { impuesto, objetivo });
+      const lineas = (p.ingredientes || []).map(l => {
+        const ing = porId.get(l.id); const c = costeLinea(ing, l.cantidad);
+        return `<tr><td>${_esc(ing?.nombre || l.nombre)}</td>
+          <td class="n">${l.cantidad > 0 ? Number(l.cantidad).toLocaleString('es-ES') + ' ' + (UNIDAD_RACION[ing?.unidad] || 'g') : '—'}</td>
+          <td class="n">${_tienePrecio(ing) ? dinero(ing.precio_compra) + ' €/' + (ing.unidad || 'kg') : '—'}</td>
+          <td class="n">${Number(ing?.merma) > 0 ? Number(ing.merma).toLocaleString('es-ES') + ' %' : ''}</td>
+          <td class="n">${c != null ? dinero(r2(c)) + ' €' : '—'}</td></tr>`;
+      }).join('');
+      return `<section class="ficha"><h2>${_esc(p.nombre)}</h2>
+        <table><thead><tr><th>Ingrediente</th><th class="n">Cantidad</th><th class="n">Precio compra</th><th class="n">Merma</th><th class="n">Coste</th></tr></thead>
+        <tbody>${lineas || '<tr><td colspan="5">Sin ingredientes</td></tr>'}</tbody></table>
+        <div class="tot"><span>Coste ración: <b>${dinero(e.coste)} €</b></span><span>PVP: <b>${Number(p.precio) > 0 ? dinero(p.precio) + ' €' : '—'}</b></span>
+        <span>% coste: <b>${_pct(e.pct)}</b></span><span>Margen: <b>${e.margen != null ? dinero(e.margen) + ' €' : '—'}</b></span>
+        ${e.recomendado ? `<span>PVP para ${objetivo} %: <b>${dinero(e.recomendado)} €</b></span>` : ''}</div>
+        ${e.faltan.length ? `<div class="falta">Falta precio o cantidad: ${_esc(e.faltan.join(', '))}</div>` : ''}</section>`;
+    }).join('');
+    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Escandallos — ${_esc(emp.razonSocial || 'Carta')}</title>
+<style>
+@page { size: A4; margin: 14mm; }
+body { font-family: Arial, Helvetica, sans-serif; color: #222; font-size: 10pt; }
+h1 { font-size: 16pt; margin: 0 0 2mm; } .sub { color: #666; margin-bottom: 6mm; }
+.ficha { page-break-inside: avoid; border-bottom: 1px solid #ccc; padding: 3mm 0 4mm; }
+h2 { font-size: 12pt; margin: 0 0 2mm; }
+table { width: 100%; border-collapse: collapse; } th, td { padding: 1.2mm 2mm; border-bottom: 1px solid #eee; text-align: left; }
+th { font-size: 8.5pt; color: #555; text-transform: uppercase; } .n { text-align: right; white-space: nowrap; }
+.tot { display: flex; flex-wrap: wrap; gap: 6mm; margin-top: 2mm; } .falta { color: #b45309; margin-top: 1mm; font-size: 9pt; }
+</style></head><body>
+<h1>Escandallos · ${_esc(emp.razonSocial || 'Carta')}</h1>
+<div class="sub">${new Date().toLocaleDateString('es-ES')} · Objetivo de coste ${objetivo} % · Precios de carta con ${impuesto === 10 ? 'IVA' : 'IGIC'} ${impuesto} %</div>
+${fichas}
+<script>setTimeout(function(){ window.print(); }, 400);<\/script></body></html>`);
+    win.document.close();
+  }
+
+  // Bloque de escandallo dentro del formulario del plato (cantidades + coste en vivo)
+  function _renderEscandalloForm() {
+    const cont = document.getElementById('plato-escandallo');
+    if (!cont) return;
+    const marcados = [...document.querySelectorAll('.plato-ing-check:checked')].map(cb => cb.value);
+    if (!marcados.length) { cont.innerHTML = '<p class="texto-vacio" style="padding:8px 0">Marca los ingredientes del plato para calcular su coste.</p>'; return; }
+    const porId = new Map(_todosIngredientes.map(i => [i.id, i]));
+    cont.innerHTML = `<div class="esc-form-lineas">${marcados.map(id => {
+      const ing = porId.get(id);
+      if (!ing) return '';
+      const c = costeLinea(ing, _cantidades[id]);
+      return `<div class="esc-form-linea">
+        <span class="esc-form-nombre">${_esc(ing.nombre)}<small>${_tienePrecio(ing) ? _precioIng(ing) : '<span class="err">sin precio de compra</span>'}</small></span>
+        <label class="esc-form-cant"><input type="number" class="inp" inputmode="decimal" min="0" step="any" data-cant="${id}" value="${_cantidades[id] ?? ''}" placeholder="0" aria-label="Cantidad de ${_esc(ing.nombre)} por ración"><span>${UNIDAD_RACION[ing.unidad] || 'g'}</span></label>
+        <span class="esc-form-coste" data-coste="${id}">${c != null ? dinero(r2(c)) + ' €' : '—'}</span>
+      </div>`;
+    }).join('')}</div><div id="plato-escandallo-total"></div>`;
+    _renderEscandalloTotal();
+  }
+
+  function _renderEscandalloTotal() {
+    const div = document.getElementById('plato-escandallo-total');
+    if (!div) return;
+    const lineas = [...document.querySelectorAll('.plato-ing-check:checked')].map(cb => ({ id: cb.value, nombre: cb.dataset.nombre, cantidad: _cantidades[cb.value] }));
+    const pvp = parseFloat(document.getElementById('plato-precio')?.value) || 0;
+    const objetivo = _objetivoCoste(), impuesto = _impuestoCarta();
+    const e = escandallo(lineas, _todosIngredientes, pvp, { impuesto, objetivo });
+    const nivel = _nivel(e.pct, objetivo);
+    div.innerHTML = `<div class="esc-form-total">
+      <div><small>Coste por ración</small><strong>${dinero(e.coste)} €</strong></div>
+      <div><small>% sobre PVP sin ${impuesto === 10 ? 'IVA' : 'IGIC'}</small><strong class="${nivel}">${_pct(e.pct)}</strong></div>
+      <div><small>Margen</small><strong>${e.margen != null ? dinero(e.margen) + ' €' : '—'}</strong></div>
+      <div><small>PVP para un ${objetivo} %</small><strong>${e.recomendado ? dinero(e.recomendado) + ' €' : '—'}</strong></div>
+    </div>${e.faltan.length ? `<p class="esc-aviso">Falta precio o cantidad: ${_esc(e.faltan.join(', '))}. El coste no está completo.</p>` : ''}`;
   }
 
   // ----------------------------------------------------------
@@ -103,9 +292,11 @@ const ModuloMenu = (() => {
       const badges = ing.alergenos?.length
         ? ing.alergenos.map(a => { const i = ALERGENOS_INFO.find(x => x.nombre === a); return `<span class="badge-alergeno" title="${_esc(a)}">${i?.emoji ?? ''} ${_esc(a)}</span>`; }).join('')
         : '<span class="badge-sin-alergenos">Sin alérgenos</span>';
+      const precio = _precioIng(ing);
       return `<div class="card-ingrediente" data-id="${ing.id}">
         <div class="card-ing-info">
           <span class="card-ing-nombre">${_esc(ing.nombre)}</span>
+          <span class="card-ing-precio${precio ? '' : ' sin'}" data-solo="gestion">${precio ? _esc(precio) : 'Sin precio de compra'}</span>
           <div class="badges-alergenos">${badges}</div>
         </div>
         <div class="card-acciones">
@@ -121,6 +312,7 @@ const ModuloMenu = (() => {
     if (!ing) return;
     _idIngredienteEditando = id;
     document.getElementById('ing-nombre').value = ing.nombre;
+    _ponerCosteIng(ing);
     NOMBRES_ALERGENOS.forEach(nombre => {
       const cb = document.getElementById('ing-al-' + nombre.replace(/\s+/g, '-'));
       if (cb) cb.checked = ing.alergenos?.includes(nombre) ?? false;
@@ -163,9 +355,11 @@ const ModuloMenu = (() => {
         const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-'));
         return cb?.checked;
       });
+      const coste = _leerCosteIng();
+      if (coste.error) { alert(coste.error); return; }
       if (_idIngredienteEditando !== null) {
         const idEd = _idIngredienteEditando;
-        await SB.actualizarIngrediente({ id: idEd, nombre, alergenos });
+        await SB.actualizarIngrediente({ id: idEd, nombre, alergenos, ...coste });
         const [platos, ings] = await Promise.all([SB.obtenerPlatos(), SB.obtenerIngredientes()]);
         // Asegurar que el cálculo usa los alérgenos recién guardados (aunque la caché vaya por detrás)
         const ingsAct = (ings || []).map(i => i.id === idEd ? { ...i, nombre, alergenos } : i);
@@ -177,7 +371,7 @@ const ModuloMenu = (() => {
           }
         }
       } else {
-        await SB.guardarIngrediente({ nombre, alergenos });
+        await SB.guardarIngrediente({ nombre, alergenos, ...coste });
       }
       _resetFormIngrediente();
       await _renderIngredientes();
@@ -189,8 +383,26 @@ const ModuloMenu = (() => {
     }
   }
 
+  // Campos de coste del formulario de ingrediente (solo propietario / encargado)
+  function _ponerCosteIng(ing) {
+    const p = document.getElementById('ing-precio'), u = document.getElementById('ing-unidad'), m = document.getElementById('ing-merma');
+    if (p) p.value = _tienePrecio(ing) ? ing.precio_compra : '';
+    if (u) u.value = ['kg', 'l', 'ud'].includes(ing?.unidad) ? ing.unidad : 'kg';
+    if (m) m.value = Number(ing?.merma) > 0 ? ing.merma : '';
+  }
+  function _leerCosteIng() {
+    const txtP = (document.getElementById('ing-precio')?.value || '').trim().replace(',', '.');
+    const txtM = (document.getElementById('ing-merma')?.value || '').trim().replace(',', '.');
+    const precio = txtP === '' ? null : Number(txtP);
+    const merma  = txtM === '' ? 0 : Number(txtM);
+    if (precio != null && !(precio >= 0)) return { error: 'El precio de compra no es válido.' };
+    if (!(merma >= 0 && merma < 95))      return { error: 'La merma debe ser un porcentaje entre 0 y 95.' };
+    return { precio_compra: precio, unidad: document.getElementById('ing-unidad')?.value || 'kg', merma };
+  }
+
   function _nuevoIngredienteForm() {
     _idIngredienteEditando = null;
+    _ponerCosteIng(null);
     document.getElementById('ing-nombre').value = '';
     NOMBRES_ALERGENOS.forEach(a => { const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-')); if (cb) cb.checked = false; });
     document.getElementById('ing-form-titulo').textContent = 'Nuevo Ingrediente';
@@ -200,6 +412,7 @@ const ModuloMenu = (() => {
 
   function _resetFormIngrediente() {
     _idIngredienteEditando = null;
+    _ponerCosteIng(null);
     document.getElementById('ing-nombre').value = '';
     NOMBRES_ALERGENOS.forEach(a => { const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-')); if (cb) cb.checked = false; });
     document.getElementById('ing-form-titulo').textContent = 'Nuevo Ingrediente';
@@ -238,7 +451,7 @@ const ModuloMenu = (() => {
         ${_esc(ing.nombre)}
         ${ing.alergenos?.length ? '<small>(' + ing.alergenos.map(a => { const i = ALERGENOS_INFO.find(x => x.nombre === a); return i?.emoji ?? a; }).join(' ') + ')</small>' : ''}
       </label>`).join('');
-    cont.querySelectorAll('.plato-ing-check').forEach(cb => cb.addEventListener('change', _actualizarAlergenos_realtime));
+    cont.querySelectorAll('.plato-ing-check').forEach(cb => cb.addEventListener('change', () => { _actualizarAlergenos_realtime(); _renderEscandalloForm(); }));
     _filtrarSelectorIngredientes();
   }
 
@@ -441,8 +654,10 @@ ${platos.map(_platoToHtml).join('')}
     document.getElementById('plato-desc').value   = plato.descripcion || '';
     document.getElementById('plato-precio').value = plato.precio > 0 ? plato.precio : '';
     const idsPlato = plato.ingredientes?.map(i => i.id) || [];
+    _cantidades = Object.fromEntries((plato.ingredientes || []).filter(i => Number(i.cantidad) > 0).map(i => [i.id, Number(i.cantidad)]));
     document.querySelectorAll('.plato-ing-check').forEach(cb => { cb.checked = idsPlato.includes(cb.value); });
     await _actualizarAlergenos_realtime();
+    _renderEscandalloForm();
     document.getElementById('plato-form-titulo').textContent = 'Editar plato';
     _activarSubtab('platos');
     _mostrarVistaPlatos('form');
@@ -463,12 +678,14 @@ ${platos.map(_platoToHtml).join('')}
 
   function _nuevoPlatoForm() {
     _idPlatoEditando = null;
+    _cantidades = {};
     document.getElementById('plato-nombre').value  = '';
     document.getElementById('plato-desc').value    = '';
     document.getElementById('plato-precio').value  = '';
     document.querySelectorAll('.plato-ing-check').forEach(cb => cb.checked = false);
     const div = document.getElementById('plato-alergenos-calculados');
     if (div) div.innerHTML = '<span class="badge-sin-alergenos">Ninguno</span>';
+    _renderEscandalloForm();
     document.getElementById('plato-form-titulo').textContent = 'Nuevo Plato';
     _mostrarVistaPlatos('form');
     document.getElementById('plato-nombre').focus();
@@ -476,6 +693,7 @@ ${platos.map(_platoToHtml).join('')}
 
   function _resetFormPlato() {
     _idPlatoEditando = null;
+    _cantidades = {};
     document.getElementById('plato-nombre').value  = '';
     document.getElementById('plato-desc').value    = '';
     document.getElementById('plato-precio').value  = '';
@@ -495,7 +713,8 @@ ${platos.map(_platoToHtml).join('')}
       const desc         = document.getElementById('plato-desc').value.trim();
       const precio       = parseFloat(document.getElementById('plato-precio').value) || 0;
       const checks       = [...document.querySelectorAll('.plato-ing-check:checked')];
-      const ingredientes = checks.map(cb => ({ id: cb.value, nombre: cb.dataset.nombre }));
+      // La cantidad por ración (escandallo) va junto a cada ingrediente
+      const ingredientes = checks.map(cb => ({ id: cb.value, nombre: cb.dataset.nombre, ...(_cantidades[cb.value] > 0 ? { cantidad: _cantidades[cb.value] } : {}) }));
       const alergenos    = await _calcularAlergenos(ingredientes.map(i => i.id));
       const datos        = { nombre, descripcion: desc, precio, ingredientes, alergenos };
       if (_idPlatoEditando !== null) {
@@ -539,6 +758,33 @@ ${platos.map(_platoToHtml).join('')}
       _filtrarSelectorIngredientes();
     });
 
+    // Escandallo en el formulario del plato: cantidades y precio de venta
+    document.getElementById('plato-escandallo')?.addEventListener('input', e => {
+      const id = e.target.dataset?.cant;
+      if (!id) return;
+      const v = Number(String(e.target.value).replace(',', '.'));
+      if (v > 0) _cantidades[id] = v; else delete _cantidades[id];
+      const c = costeLinea(_todosIngredientes.find(i => i.id === id), _cantidades[id]);
+      const celda = document.querySelector(`#plato-escandallo [data-coste="${id}"]`);
+      if (celda) celda.textContent = c != null ? dinero(r2(c)) + ' €' : '—';
+      _renderEscandalloTotal();
+    });
+    document.getElementById('plato-precio')?.addEventListener('input', _renderEscandalloTotal);
+
+    // Pestaña de escandallos
+    document.getElementById('esc-objetivo')?.addEventListener('change', e => {
+      const v = Math.round(Number(e.target.value));
+      if (!(v >= 5 && v <= 80)) { e.target.value = _objetivoCoste(); alert('El objetivo debe estar entre 5 y 80 %.'); return; }
+      ModuloConfig.guardarAjuste('objetivoCoste', v);
+      _renderEscandallos();
+    });
+    document.getElementById('esc-imprimir')?.addEventListener('click', _imprimirEscandallos);
+    document.getElementById('menu-escandallos')?.addEventListener('click', e => {
+      const fila = e.target.closest('[data-esc-plato]');
+      if (fila) { editarPlato(fila.dataset.escPlato); return; }
+      if (e.target.closest('[data-esc="ingredientes"]')) _activarSubtab('ingredientes');
+    });
+
     // Botones de PDF
     document.getElementById('plato-pdf-seleccion')?.addEventListener('click', _generarPdfSeleccionados);
     document.getElementById('plato-pdf-todos')    ?.addEventListener('click', _generarPdfTodos);
@@ -554,6 +800,7 @@ ${platos.map(_platoToHtml).join('')}
     editarIngrediente, borrarIngrediente,
     editarPlato, borrarPlato, imprimirPlato,
     nuevoPlatoForm: _nuevoPlatoForm,
+    costeLinea, escandallo,
     nuevoIngredienteForm: _nuevoIngredienteForm,
     cancelarPlatoForm: _resetFormPlato,
     cancelarIngredienteForm: _resetFormIngrediente
