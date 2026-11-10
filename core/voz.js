@@ -6,6 +6,45 @@
 
 // Formatea un importe a 2 decimales de forma segura (null/undefined/'' → 0.00).
 function dinero(n){ return (Number(n) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+// ---- Botón "atrás" del móvil/navegador dentro de la app ----
+// Cada formulario o vista secundaria abierta añade una entrada al historial;
+// "atrás" la cierra en vez de salir de la app. Cambiar de módulo también se puede deshacer con "atrás".
+const Navegacion = (() => {
+  let _cerrar = null;        // función que cierra la vista secundaria abierta
+  let _desdeAtras = false;   // la vista se está cerrando por el botón "atrás"
+  let _ignorar = 0;          // popstate provocados por nosotros
+  return {
+    /** Una vista secundaria (formulario, detalle…) se ha abierto. */
+    abrir(cerrar) {
+      if (_cerrar) { _cerrar = cerrar; return; }   // ya hay una abierta: solo se actualiza cómo cerrarla
+      _cerrar = cerrar;
+      try { history.pushState({ ...(history.state || {}), sub: true }, ''); } catch {}
+    },
+    /** La vista secundaria se ha cerrado desde un botón de la app. */
+    cerrada() {
+      if (!_cerrar) return;
+      _cerrar = null;
+      if (_desdeAtras) return;
+      _ignorar++;
+      try { history.back(); } catch { _ignorar--; }
+    },
+    /** Al cambiar de módulo se abandona la vista secundaria (sin tocar el historial). */
+    olvidar() { _cerrar = null; },
+    _alPulsarAtras(e) {
+      if (_ignorar) { _ignorar--; return true; }
+      if (_cerrar) {
+        const f = _cerrar; _cerrar = null; _desdeAtras = true;
+        try { f(); } finally { _desdeAtras = false; }
+        return true;
+      }
+      return false;
+    },
+  };
+})();
+
+// Icono del sprite de index.html (Lucide). Ej.: icono('tag')
+function icono(nombre, clase = ''){ return `<svg class="ic ${clase}" aria-hidden="true"><use href="#i-${nombre}"/></svg>`; }
+
 // Primera letra en mayúscula ("martes, 10 de noviembre" → "Martes, 10 de noviembre")
 function capitalizar(s){ s = String(s || ''); return s.charAt(0).toLocaleUpperCase('es') + s.slice(1); }
 

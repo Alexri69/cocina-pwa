@@ -50,11 +50,13 @@ const ModuloMenu = (() => {
   function _mostrarVistaPlatos(v) {
     document.getElementById('menu-platos-lista').style.display = v === 'lista' ? 'block' : 'none';
     document.getElementById('menu-platos-form').style.display  = v === 'form'  ? 'block' : 'none';
+    if (v === 'form') Navegacion.abrir(() => _resetFormPlato()); else Navegacion.cerrada();
   }
 
   function _mostrarVistaIngs(v) {
     document.getElementById('menu-ings-lista').style.display = v === 'lista' ? 'block' : 'none';
     document.getElementById('menu-ings-form').style.display  = v === 'form'  ? 'block' : 'none';
+    if (v === 'form') Navegacion.abrir(() => _resetFormIngrediente()); else Navegacion.cerrada();
   }
 
   // ----------------------------------------------------------

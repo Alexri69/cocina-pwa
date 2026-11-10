@@ -63,4 +63,5 @@ Si se añade una columna nueva: añadirla a `supabase-setup.sql` (ADD COLUMN IF 
 ```bash
 cd "D:\Proyectos\Cocina" && python -m http.server 8765   # → http://localhost:8765 en Chrome
 node scripts/validate.js                                  # antes de hacer push
+node scripts/iconos.js                                    # tras añadir un icono a iconos/lucide/
 ```

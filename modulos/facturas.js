@@ -19,6 +19,8 @@ const ModuloFacturas = (() => {
       const el = document.getElementById(id);
       if (el) el.style.display = id === 'fac-vista-' + cual ? 'block' : 'none';
     });
+    if (cual === 'lista') Navegacion.cerrada();
+    else Navegacion.abrir(() => { _mostrarVista('lista'); _renderLista(); });
   }
 
   // ----------------------------------------------------------
@@ -1017,6 +1019,7 @@ const ModuloFacturas = (() => {
     document.getElementById('fac-btn-nuevo-pres') ?.addEventListener('click', () => _abrirFormulario(null, 'presupuesto'));
     document.getElementById('fac-btn-guardar')   ?.addEventListener('click', _guardarFactura);
     document.getElementById('fac-btn-cancelar')  ?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
+    document.getElementById('fac-btn-volver-form')?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
     document.getElementById('fac-btn-volver')    ?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });
     document.getElementById('fac-btn-informe')   ?.addEventListener('click', _abrirInforme);
     document.getElementById('fac-inf-volver')    ?.addEventListener('click', async () => { _mostrarVista('lista'); await _renderLista(); });

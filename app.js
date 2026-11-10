@@ -28,7 +28,7 @@ function aplicarTema(tema) {
   document.documentElement.setAttribute('data-tema', tema);
   localStorage.setItem('cocina_tema', tema);
   const btn = document.getElementById('btn-tema');
-  if (btn) btn.textContent = tema === 'oscuro' ? '🌙' : '☀';
+  if (btn) btn.innerHTML = icono(tema === 'oscuro' ? 'moon' : 'sun');
 }
 
 function _toggleTema() {
@@ -40,7 +40,11 @@ function _toggleTema() {
 
 let _moduloActivo = null;
 
-function navegarA(id) {
+function navegarA(id, { historial = true } = {}) {
+  if (historial && _moduloActivo && id !== _moduloActivo) {
+    Navegacion.olvidar();
+    try { history.pushState({ m: id }, ''); } catch {}
+  }
   document.querySelectorAll('.modulo-seccion').forEach(sec => sec.style.display = 'none');
   const seccion = document.getElementById('modulo-' + id);
   if (seccion) seccion.style.display = 'block';
@@ -58,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Sincronizar icono del botón de tema con el tema ya aplicado por el inline script del <head>
   const temaActual = document.documentElement.getAttribute('data-tema') || 'oscuro';
   const btnTema = document.getElementById('btn-tema');
-  if (btnTema) btnTema.textContent = temaActual === 'oscuro' ? '🌙' : '☀';
+  if (btnTema) btnTema.innerHTML = icono(temaActual === 'oscuro' ? 'moon' : 'sun');
 
   // Autenticar (bloquea hasta que el login sea correcto)
   await ModuloAuth.init();
@@ -74,7 +78,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const _mParam = new URLSearchParams(location.search).get('m');
   let _destino = _mParam || sessionStorage.getItem('moduloActivo') || 'dashboard';
   if (_destino === 'facturas' && !SB.puedeGestionar()) _destino = 'dashboard';
-  navegarA(_destino);
+  try { history.replaceState({ m: _destino }, ''); } catch {}
+  navegarA(_destino, { historial: false });
+  // Botón "atrás": primero cierra el formulario abierto; si no hay, vuelve al módulo anterior
+  window.addEventListener('popstate', (e) => {
+    if (Navegacion._alPulsarAtras(e)) return;
+    navegarA(e.state?.m || 'dashboard', { historial: false });
+  });
 
   // Inicializar módulos en paralelo (son independientes). Si uno falla, el resto arranca igual.
   const modulos = { ModuloConfig, ModuloEquipo, ModuloEtiquetas, ModuloAppcc, ModuloMenu, ModuloBebidas, ModuloCartaQR };

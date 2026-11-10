@@ -981,6 +981,14 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
 
     // Modo manual
     document.getElementById('etq-m-btn-generar')?.addEventListener('click', _generarManual);
+    // Cancelar el formulario manual: se vacía y se vuelve a la pantalla inicial de etiquetas
+    document.getElementById('etq-m-btn-cancelar')?.addEventListener('click', () => {
+      _cerrarPreview();
+      const msgEl = document.getElementById('etq-mensaje');
+      if (msgEl) msgEl.textContent = '';
+      _activarModo(VOZ.soportaVoz() ? 'voz' : 'manual');
+      document.getElementById('modulo-etiquetas')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
 
     // Impresión
     document.getElementById('etq-btn-imprimir')?.addEventListener('click', _imprimir);

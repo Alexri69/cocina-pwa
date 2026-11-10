@@ -40,6 +40,7 @@ const ModuloBebidas = (() => {
   function _mostrarVista(v) {
     document.getElementById('beb-lista-vista').style.display = v === 'lista' ? 'block' : 'none';
     document.getElementById('beb-form-vista').style.display  = v === 'form'  ? 'block' : 'none';
+    if (v === 'form') Navegacion.abrir(() => _resetForm()); else Navegacion.cerrada();
   }
 
   // ----------------------------------------------------------

@@ -1,26 +1,26 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v62: hover legible del botón de WhatsApp
+// v63: botón atrás dentro de la app; iconos Lucide en navegación (muestra)
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v62';
+const NOMBRE_CACHE = 'cocina-etiquetas-v63';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=62',
+  './estilo.css?v=63',
   './manifest.json',
-  './core/voz.js?v=62',
-  './core/supabase.js?v=62',
-  './modulos/etiquetas.js?v=62',
-  './modulos/menu.js?v=62',
-  './modulos/bebidas.js?v=62',
-  './modulos/facturas.js?v=62',
-  './modulos/auth.js?v=62',
-  './modulos/config.js?v=62',
-  './modulos/appcc.js?v=62',
-  './modulos/cartaqr.js?v=62',
-  './modulos/equipo.js?v=62',
-  './app.js?v=62',
+  './core/voz.js?v=63',
+  './core/supabase.js?v=63',
+  './modulos/etiquetas.js?v=63',
+  './modulos/menu.js?v=63',
+  './modulos/bebidas.js?v=63',
+  './modulos/facturas.js?v=63',
+  './modulos/auth.js?v=63',
+  './modulos/config.js?v=63',
+  './modulos/appcc.js?v=63',
+  './modulos/cartaqr.js?v=63',
+  './modulos/equipo.js?v=63',
+  './app.js?v=63',
   './lib/jspdf.umd.min.js',
   './lib/qrcode.min.js',
   './iconos/icono-192.png',
