@@ -194,7 +194,7 @@ async function _ejecutarBusqueda(q) {
     const _item = (icono, tipo, accion, i) =>
       `<div class="busq-item" onclick="${accion}">
         <span>${icono}</span>
-        <span>${esc(i.nombre)}${i.precio > 0 ? ' · ' + i.precio.toFixed(2) + ' €' : ''}</span>
+        <span>${esc(i.nombre)}${i.precio > 0 ? ' · ' + dinero(i.precio) + ' €' : ''}</span>
         <span class="busq-tipo">${tipo}</span>
       </div>`;
 
@@ -274,9 +274,9 @@ function _renderAlertasDashboard(caducados, proximos) {
   if (!caducados.length && !proximos.length) { cont.style.display = 'none'; return; }
   lista.innerHTML = [
     ...caducados.map(p =>
-      `<div class="dash-alerta-item rojo">🔴 <strong>${esc(p.nombre)}</strong> — Lote ${esc(p.lote)} — <em>CADUCADO</em></div>`),
+      `<div class="dash-alerta-item rojo"><span aria-hidden="true">🔴</span><span><strong>${esc(p.nombre)}</strong> · Lote ${esc(p.lote)} · <em>caducado</em></span></div>`),
     ...proximos.map(p =>
-      `<div class="dash-alerta-item amarillo">🟡 <strong>${esc(p.nombre)}</strong> — Lote ${esc(p.lote)} — caduca ${VOZ.formatearFechaSolo(p.fechaCaducidad)}</div>`),
+      `<div class="dash-alerta-item amarillo"><span aria-hidden="true">🟡</span><span><strong>${esc(p.nombre)}</strong> · Lote ${esc(p.lote)} · caduca el ${VOZ.formatearFechaSolo(p.fechaCaducidad)}</span></div>`),
   ].join('');
   cont.style.display = 'block';
 }

@@ -187,7 +187,7 @@ const ModuloFacturas = (() => {
         <td><input class="inp-linea inp-desc"   type="text"   value="${_esc(l.descripcion)}"   oninput="ModuloFacturas._actualizarLinea(${i},'descripcion',this.value)" placeholder="Concepto"></td>
         <td><input class="inp-linea inp-qty"    type="number" value="${l.cantidad}"             oninput="ModuloFacturas._actualizarLinea(${i},'cantidad',this.value)"    min="0.01" step="0.01"></td>
         <td><input class="inp-linea inp-precio" type="number" value="${l.precioUnitario || ''}" oninput="ModuloFacturas._actualizarLinea(${i},'precio',this.value)"      min="0"    step="0.01" placeholder="0.00"></td>
-        <td class="linea-subtotal">${(l.subtotal || 0).toFixed(2)} €</td>
+        <td class="linea-subtotal">${dinero(l.subtotal || 0)} €</td>
         <td><button class="btn-mini btn-borrar" onclick="ModuloFacturas._eliminarLinea(${i})" title="Eliminar">✕</button></td>
       </tr>`).join('');
     _calcularTotales();
@@ -199,7 +199,7 @@ const ModuloFacturas = (() => {
     if (campo === 'precio')      _lineas[idx].precioUnitario = parseFloat(valor) || 0;
     _lineas[idx].subtotal = r2(_lineas[idx].cantidad * _lineas[idx].precioUnitario);
     const cel = document.querySelectorAll('#fac-lineas-body tr')[idx]?.querySelector('.linea-subtotal');
-    if (cel) cel.textContent = _lineas[idx].subtotal.toFixed(2) + ' €';
+    if (cel) cel.textContent = dinero(_lineas[idx].subtotal) + ' €';
     _calcularTotales();
   }
 
@@ -213,12 +213,12 @@ const ModuloFacturas = (() => {
     const cfg    = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
     const impNom = cfg.regimen === 'iva' ? 'IVA' : 'IGIC';
 
-    _setText('fac-subtotal',   subtotal.toFixed(2)   + ' €');
-    _setText('fac-cuota-iva',  cuotaIgic.toFixed(2)  + ' €');
+    _setText('fac-subtotal',   dinero(subtotal) + ' €');
+    _setText('fac-cuota-iva',  dinero(cuotaIgic) + ' €');
     _setText('fac-iva-label',  `${impNom} (${pIgic}%)`);
     _setText('fac-irpf-label', `IRPF (−${pIrpf}%)`);
-    _setText('fac-cuota-irpf', cuotaIrpf.toFixed(2)  + ' €');
-    _setText('fac-total',      total.toFixed(2)       + ' €');
+    _setText('fac-cuota-irpf', dinero(cuotaIrpf) + ' €');
+    _setText('fac-total',      dinero(total) + ' €');
 
     const filaIrpf = document.getElementById('fac-fila-irpf');
     if (filaIrpf) filaIrpf.style.display = pIrpf > 0 ? 'flex' : 'none';
@@ -342,12 +342,12 @@ const ModuloFacturas = (() => {
       <tr>
         <td>${_esc(l.descripcion)}</td>
         <td class="td-num">${l.cantidad}</td>
-        <td class="td-num">${(l.precioUnitario || 0).toFixed(2)} €</td>
-        <td class="td-num">${(l.subtotal || 0).toFixed(2)} €</td>
+        <td class="td-num">${dinero(l.precioUnitario || 0)} €</td>
+        <td class="td-num">${dinero(l.subtotal || 0)} €</td>
       </tr>`).join('');
 
     const irpfHtml = (f.retencionIrpf || 0) > 0
-      ? `<div class="fac-fila-total"><span>Retención IRPF (${f.retencionIrpf}%):</span><span style="color:#c00">−${(f.cuotaIrpf||0).toFixed(2)} €</span></div>`
+      ? `<div class="fac-fila-total"><span>Retención IRPF (${f.retencionIrpf}%):</span><span style="color:#c00">−${dinero(f.cuotaIrpf||0)} €</span></div>`
       : '';
 
     const pagoLabels = { efectivo:'Efectivo', transferencia:'Transferencia bancaria', tarjeta:'Tarjeta', cheque:'Cheque' };
@@ -536,9 +536,9 @@ const ModuloFacturas = (() => {
     const esPres  = f.tipo === 'presupuesto';
     const impNom  = (cfg.regimen || 'igic') === 'iva' ? 'IVA' : 'IGIC';
     const lineas  = (f.lineas || []).map(l =>
-      `  ${l.descripcion} x${l.cantidad} — ${(l.subtotal || 0).toFixed(2)} €`).join('\n');
+      `  ${l.descripcion} x${l.cantidad} — ${dinero(l.subtotal || 0)} €`).join('\n');
     const irpf    = (f.retencionIrpf || 0) > 0
-      ? `\nRetención IRPF (${f.retencionIrpf}%): −${(f.cuotaIrpf || 0).toFixed(2)} €` : '';
+      ? `\nRetención IRPF (${f.retencionIrpf}%): −${dinero(f.cuotaIrpf || 0)} €` : '';
     const venc    = f.vencimiento
       ? `\n${esPres ? 'Válido hasta' : 'Vencimiento'}: ${VOZ.formatearFechaSolo(f.vencimiento)}` : '';
     return { empresa, esPres, impNom, lineas, irpf, venc };
@@ -692,8 +692,8 @@ const ModuloFacturas = (() => {
       checkNuevaPagina(rowH + 30);
       doc.text(descLineas, ML + 2, y + 4);
       doc.text(String(l.cantidad || 0),                     colCantX + 5, y + 4, { align: 'right' });
-      doc.text(`${(l.precioUnitario || 0).toFixed(2)} €`,    colPrecX + 5, y + 4, { align: 'right' });
-      doc.text(`${(l.subtotal       || 0).toFixed(2)} €`,    colImpX,      y + 4, { align: 'right' });
+      doc.text(`${dinero(l.precioUnitario || 0)} €`,    colPrecX + 5, y + 4, { align: 'right' });
+      doc.text(`${dinero(l.subtotal       || 0)} €`,    colImpX,      y + 4, { align: 'right' });
       y += rowH;
       linea(ML, y, ML + W, y, [225, 225, 225], 0.2);
     }
@@ -715,7 +715,7 @@ const ModuloFacturas = (() => {
     if ((f.retencionIrpf || 0) > 0) {
       setColor([192, 57, 43]);
       doc.text(`Retención IRPF (${f.retencionIrpf}%):`, totalsLabelX, y);
-      doc.text(`-${(f.cuotaIrpf || 0).toFixed(2)} €`,   totalsValX,   y, { align: 'right' });
+      doc.text(`-${dinero(f.cuotaIrpf || 0)} €`,   totalsValX,   y, { align: 'right' });
       y += 5;
     }
     linea(totalsLabelX, y, totalsValX, y, [26, 26, 46], 0.5);

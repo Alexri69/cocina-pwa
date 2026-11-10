@@ -1,26 +1,26 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v59: tarjeta de la carta pública más visible
+// v61: pulido visual (contraste AA, tema claro, importes en formato español)
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v59';
+const NOMBRE_CACHE = 'cocina-etiquetas-v61';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=59',
+  './estilo.css?v=61',
   './manifest.json',
-  './core/voz.js?v=59',
-  './core/supabase.js?v=59',
-  './modulos/etiquetas.js?v=59',
-  './modulos/menu.js?v=59',
-  './modulos/bebidas.js?v=59',
-  './modulos/facturas.js?v=59',
-  './modulos/auth.js?v=59',
-  './modulos/config.js?v=59',
-  './modulos/appcc.js?v=59',
-  './modulos/cartaqr.js?v=59',
-  './modulos/equipo.js?v=59',
-  './app.js?v=59',
+  './core/voz.js?v=61',
+  './core/supabase.js?v=61',
+  './modulos/etiquetas.js?v=61',
+  './modulos/menu.js?v=61',
+  './modulos/bebidas.js?v=61',
+  './modulos/facturas.js?v=61',
+  './modulos/auth.js?v=61',
+  './modulos/config.js?v=61',
+  './modulos/appcc.js?v=61',
+  './modulos/cartaqr.js?v=61',
+  './modulos/equipo.js?v=61',
+  './app.js?v=61',
   './lib/jspdf.umd.min.js',
   './lib/qrcode.min.js',
   './iconos/icono-192.png',

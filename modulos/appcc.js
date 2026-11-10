@@ -265,14 +265,14 @@ const ModuloAppcc = (() => {
       ? `<div class="tarjeta appcc-resumen">
           <div class="appcc-resumen-txt">
             <strong>📝 Registro por incidencias</strong>
-            <span>${new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+            <span>${capitalizar(new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
           </div>
           <p class="appcc-nota" style="margin:0">Solo hace falta anotar lo que salga mal (una temperatura fuera de rango, aceite pasado…), con su acción correctora. Puedes cambiar el modo en ⚙ Equipos.</p>
         </div>`
       : `<div class="tarjeta appcc-resumen">
           <div class="appcc-resumen-txt">
             <strong>${pend ? `${pend} control${pend > 1 ? 'es' : ''} pendiente${pend > 1 ? 's' : ''}` : '✔ Todo registrado'}</strong>
-            <span>${new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+            <span>${capitalizar(new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
           </div>
           <div class="appcc-barra" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${hechos}" aria-label="Controles hechos">
             <div style="width:${pct}%"></div>

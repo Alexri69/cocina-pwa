@@ -5,7 +5,9 @@
 // ============================================================
 
 // Formatea un importe a 2 decimales de forma segura (null/undefined/'' → 0.00).
-function dinero(n){ return (Number(n) || 0).toFixed(2); }
+function dinero(n){ return (Number(n) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+// Primera letra en mayúscula ("martes, 10 de noviembre" → "Martes, 10 de noviembre")
+function capitalizar(s){ s = String(s || ''); return s.charAt(0).toLocaleUpperCase('es') + s.slice(1); }
 
 // Redondea un importe a céntimos (evita descuadres de 0,01 € en facturas).
 // (toFixed(6) absorbe el error de coma flotante: 3 × 3,335 = 10,00499999… → 10,01)

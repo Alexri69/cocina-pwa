@@ -62,7 +62,7 @@ const ModuloBebidas = (() => {
         return `<div class="card-plato" data-id="${b.id}">
           <div class="card-plato-cabecera">
             <div class="card-plato-nombre">${_esc(b.nombre)}</div>
-            <div class="card-plato-precio">${b.precio > 0 ? b.precio.toFixed(2) + ' €' : ''}</div>
+            <div class="card-plato-precio">${b.precio > 0 ? dinero(b.precio) + ' €' : ''}</div>
           </div>
           ${b.descripcion ? `<div class="card-plato-desc">${_esc(b.descripcion)}</div>` : ''}
           <div class="card-plato-ingredientes">${cat?.label ?? _esc(b.categoria)}</div>

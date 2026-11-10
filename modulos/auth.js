@@ -93,7 +93,7 @@ const ModuloAuth = (() => {
             // Supabase necesita confirmación por email
             _setEspera(btn, false, '', 'Crear cuenta');
             _setErrorRegistro('');
-            document.getElementById('reg-error').style.color = '#82d6a0';
+            document.getElementById('reg-error').style.color = 'var(--ok)';
             document.getElementById('reg-error').textContent =
               '✔ Cuenta creada. Revisa tu email para confirmar y después inicia sesión.';
           }

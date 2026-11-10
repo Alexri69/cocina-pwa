@@ -219,10 +219,10 @@ const ModuloEtiquetas = (() => {
     if (btn) btn.disabled = true;
     try {
       await SB.guardarProducto({ ...producto });
-      if (msgEl) { msgEl.textContent = '✔ Guardado correctamente'; msgEl.style.color = '#27ae60'; }
+      if (msgEl) { msgEl.textContent = '✔ Guardado correctamente'; msgEl.style.color = 'var(--ok)'; }
     } catch (e) {
       console.error('[Etiquetas] Error al guardar:', e);
-      if (msgEl) { msgEl.textContent = '❌ Error: ' + e.message; msgEl.style.color = '#e74c3c'; }
+      if (msgEl) { msgEl.textContent = '❌ Error: ' + e.message; msgEl.style.color = 'var(--err)'; }
       alert('Error al guardar la etiqueta:\n' + e.message);
       if (btn) btn.disabled = false;
       return;
@@ -267,7 +267,13 @@ const ModuloEtiquetas = (() => {
   // FLUJO DE VOZ
   // ----------------------------------------------------------
 
+  // Cancelar y el progreso solo tienen sentido mientras la app está hablando/escuchando
+  function _modoVozActivo(activo) {
+    document.getElementById('modulo-etiquetas')?.classList.toggle('voz-activa', !!activo);
+  }
+
   async function iniciarFlujo() {
+    _modoVozActivo(true);
     estado = {
       paso: PASOS.NOMBRE,
       indiceAlergeno: 0,
@@ -459,7 +465,7 @@ const ModuloEtiquetas = (() => {
     } catch (e) {
       console.error('[Etiquetas] Error al guardar:', e);
       const msgEl = document.getElementById('etq-mensaje');
-      if (msgEl) { msgEl.textContent = '❌ Error al guardar: ' + e.message; msgEl.style.color = '#e74c3c'; }
+      if (msgEl) { msgEl.textContent = '❌ Error al guardar: ' + e.message; msgEl.style.color = 'var(--err)'; }
       await VOZ.hablar('Error al guardar el producto. ' + (navigator.onLine ? 'Hay un problema con el servidor.' : 'Comprueba la conexión a internet.'));
     }
 
@@ -906,6 +912,7 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     // OJO: no se toca estado.cancelado (antes se ponía a false aquí y por eso
     // Cancelar no detenía el flujo). iniciarFlujo() crea un estado nuevo.
     estado.paso = PASOS.INACTIVO;
+    _modoVozActivo(false);
     const btn = document.getElementById('etq-btn-nuevo');
     if (btn) btn.disabled = false;
   }

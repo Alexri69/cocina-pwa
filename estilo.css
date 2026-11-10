@@ -10,9 +10,13 @@
   --card:      #202020;
   --borde:     #2c2c2c;
   --texto:     #e4e4e4;
-  --texto2:    #6b6b6b;
-  --acento:    #5b7cf6;
+  --texto2:    #9a9a9a;   /* secundario: 5,8:1 sobre --card (antes #6b6b6b, 3,1:1) */
+  --acento:    #5b7cf6;   /* bordes, foco, decoración */
   --acento-h:  #768ef8;
+  --acento-relleno:   #4361ee;  /* fondos con texto blanco: 5,0:1 */
+  --acento-relleno-h: #3a55d6;
+  --acento-texto:     #8ea4fa;  /* acento usado como texto sobre oscuro: 6,9:1 */
+  --peligro-relleno:  #c0392b;  /* fondos rojos con texto blanco: 5,4:1 */
   --ok:        #4ade80;
   --warn:      #fbbf24;
   --err:       #f87171;
@@ -27,9 +31,24 @@
   --card:     #ffffff;
   --borde:    #e5e7eb;
   --texto:    #111827;
-  --texto2:   #6b7280;
+  --texto2:   #4b5563;   /* 6,9:1 sobre --bg */
+  --acento-texto:     #3b5bdb;
+  --acento-relleno:   #3b5bdb;
+  --acento-relleno-h: #3249c4;
+  --ok:       #15803d;   /* estados legibles sobre blanco (≥5:1) */
+  --warn:     #b45309;
+  --err:      #b91c1c;
   --sombra:   0 1px 4px rgba(0,0,0,.08);
 }
+
+/* --- Superficies del navegador (selección, cursor, scroll, foco) --- */
+::selection { background: rgba(91,124,246,.35); color: inherit; }
+html { accent-color: var(--acento-relleno); caret-color: var(--acento); scrollbar-color: #3a3a3a transparent; }
+[data-tema="claro"] { scrollbar-color: #c4c8d0 transparent; }
+.inp::placeholder, textarea::placeholder, input::placeholder { color: var(--texto2); opacity: 1; }
+/* Importes y tablas: cifras alineadas */
+.card-plato-precio, .fac-card-meta strong, .linea-subtotal, .td-num, .tabla-informe td,
+#fac-subtotal, #fac-total, #fac-cuota-iva, #fac-cuota-irpf { font-variant-numeric: tabular-nums; }
 
 /* --- Reset --- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -89,7 +108,7 @@ html, body {
   white-space: nowrap;
 }
 .nav-tab:hover  { background: rgba(255,255,255,.06); color: var(--texto); }
-.nav-tab.activo { background: rgba(91,124,246,.15); color: var(--acento); }
+.nav-tab.activo { background: rgba(91,124,246,.15); color: var(--acento-texto); }
 
 
 /* Overlay de búsqueda global */
@@ -178,10 +197,10 @@ html, body {
 /* Badge de alertas en pestañas */
 .tab-badge {
   display: inline-block;
-  background: #e74c3c;
+  background: var(--peligro-relleno);
   color: #fff;
   border-radius: 8px;
-  font-size: .6rem;
+  font-size: .7rem;   /* ≥ 11 px */
   font-weight: 700;
   padding: 1px 5px;
   margin-left: 4px;
@@ -202,7 +221,7 @@ html, body {
 .dash-alertas-titulo {
   font-size: .85rem;
   font-weight: 700;
-  color: #e74c3c;
+  color: var(--err);
   margin-bottom: 10px;
 }
 .dash-alerta-item {
@@ -301,7 +320,7 @@ html, body {
   white-space: nowrap;
 }
 .nb-icon { font-size: 1.35rem; line-height: 1; }
-.nav-bottom-tab.activo { color: var(--acento); }
+.nav-bottom-tab.activo { color: var(--acento-texto); }
 .nav-bottom-tab.activo .nb-icon { filter: drop-shadow(0 0 4px var(--acento)); }
 
 @media (max-width: 640px) {
@@ -326,7 +345,7 @@ html, body {
   font-family: inherit;
   line-height: 1;
 }
-.cabecera-titulo-btn:hover .cabecera-titulo { color: var(--acento); }
+.cabecera-titulo-btn:hover .cabecera-titulo { color: var(--acento-texto); }
 
 /* ============================================================
    DASHBOARD
@@ -450,7 +469,7 @@ html, body {
   transition: all .12s;
 }
 .sub-tab:hover  { color: var(--texto); border-color: #444; }
-.sub-tab.activo { background: var(--acento); color: white; border-color: var(--acento); }
+.sub-tab.activo { background: var(--acento-relleno); color: white; border-color: var(--acento-relleno); }
 
 /* ============================================================
    TARJETAS
@@ -492,10 +511,9 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 .btn:active:not(:disabled) { transform: scale(.98); }
-.btn:disabled { opacity: .35; cursor: not-allowed; }
 
-.btn-primario  { background: var(--acento); color: white; width: 100%; }
-.btn-primario:hover:not(:disabled) { background: var(--acento-h); }
+.btn-primario  { background: var(--acento-relleno); color: white; width: 100%; }
+.btn-primario:hover:not(:disabled) { background: var(--acento-relleno-h); }
 
 .btn-secundario { background: transparent; color: var(--texto); border: 1px solid var(--borde); width: 100%; }
 .btn-secundario:hover:not(:disabled) { background: rgba(255,255,255,.05); border-color: #444; }
@@ -508,13 +526,13 @@ html, body {
 
 /* Botones medianos */
 .btn-primario-sm  {
-  background: var(--acento); color: white;
+  background: var(--acento-relleno); color: white;
   border: none; border-radius: var(--radio);
   padding: 0 16px; min-height: 38px;
   font-size: .875rem; font-weight: 600;
   cursor: pointer; transition: background .12s;
 }
-.btn-primario-sm:hover { background: var(--acento-h); }
+.btn-primario-sm:hover { background: var(--acento-relleno-h); }
 
 .btn-secundario-sm {
   background: transparent; color: var(--texto);
@@ -534,19 +552,19 @@ html, body {
   transition: all .12s; white-space: nowrap;
 }
 .btn-mini:hover    { background: rgba(255,255,255,.05); color: var(--texto); border-color: #444; }
-.btn-editar:hover  { border-color: var(--acento); color: var(--acento); }
+.btn-editar:hover  { border-color: var(--acento); color: var(--acento-texto); }
 .btn-borrar:hover  { border-color: var(--err);    color: var(--err); }
-.btn-email:hover   { border-color: #60a5fa; color: #60a5fa; }
-.btn-wa:hover      { border-color: #4ade80; color: #4ade80; }
+.btn-email:hover   { border-color: var(--acento); color: var(--acento-texto); }
+.btn-wa:hover      { border-color: var(--ok); color: var(--ok); }
 
 /* Botón WhatsApp (acción principal) */
 .btn-wa {
-  background: #25d366; color: #fff; border: none;
+  background: #0f7a3f; color: #fff; border: none;   /* verde WhatsApp oscurecido: 5,4:1 */
   padding: 8px 14px; border-radius: var(--radio);
   font-size: .875rem; font-weight: 600; cursor: pointer;
   transition: background .12s;
 }
-.btn-wa:hover { background: #1db954; }
+.btn-wa:hover { background: #0c6b37; }
 .btn-ver:hover    { border-color: var(--ok);     color: var(--ok); }
 .btn-pagar:hover  { border-color: var(--ok);     color: var(--ok); }
 
@@ -602,7 +620,7 @@ textarea.inp  { resize: vertical; min-height: 60px; }
   transition: all .12s;
 }
 .etq-modo-tab:hover  { color: var(--texto); border-color: #777; }
-.etq-modo-tab.activo { background: var(--acento); color: white; border-color: var(--acento); }
+.etq-modo-tab.activo { background: var(--acento-relleno); color: white; border-color: var(--acento-relleno); }
 
 /* ============================================================
    MÓDULO ETIQUETAS
@@ -719,7 +737,7 @@ textarea.inp  { resize: vertical; min-height: 60px; }
   border-radius: var(--radio); padding: 12px 14px; margin-bottom: 8px;
 }
 .card-plato-cabecera { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 3px; }
-.card-plato-nombre   { font-size: 1rem; font-weight: 600; }
+.card-plato-nombre   { font-size: 1rem; font-weight: 600; color: var(--texto); }
 .card-plato-precio   { font-size: .95rem; color: var(--ok); font-weight: 600; white-space: nowrap; }
 .card-plato-desc     { font-size: .85rem; color: var(--texto2); margin-bottom: 5px; }
 .card-plato-ingredientes { font-size: .8rem; color: var(--texto2); margin-bottom: 5px; }
@@ -743,7 +761,8 @@ textarea.inp  { resize: vertical; min-height: 60px; }
 .fac-card-cabecera { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
 .fac-card-numero   { font-weight: 600; font-size: .9rem; color: var(--texto2); }
 .fac-card-cliente  { font-size: 1rem; font-weight: 500; margin-bottom: 3px; }
-.fac-card-meta     { display: flex; justify-content: space-between; color: var(--texto2); font-size: .85rem; margin-bottom: 3px; }
+.fac-card-meta     { display: flex; justify-content: space-between; align-items: baseline; color: var(--texto2); font-size: .85rem; margin-bottom: 3px; }
+.fac-card-meta strong { color: var(--texto); font-size: 1.05rem; }
 
 /* Badges de estado */
 .badge-estado       { border-radius: 4px; padding: 2px 9px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
@@ -850,7 +869,7 @@ textarea.inp  { resize: vertical; min-height: 60px; }
 
 .login-toggle { text-align: center; font-size: .82rem; color: var(--texto2); margin-top: 12px; }
 .login-toggle button {
-  background: none; border: none; color: var(--acento);
+  background: none; border: none; color: var(--acento-texto);
   cursor: pointer; text-decoration: none; font-size: .82rem; padding: 0; font-weight: 500;
 }
 .login-toggle button:hover { text-decoration: underline; }
@@ -864,11 +883,9 @@ textarea.inp  { resize: vertical; min-height: 60px; }
 .error-texto  { color: var(--err); }
 
 .pie {
-  text-align: center; font-size: .72rem; color: #444; padding: 14px;
+  text-align: center; font-size: .75rem; color: var(--texto2); padding: 14px;
   border-top: 1px solid var(--borde); margin-top: 24px;
 }
-.pie a { color: #444; }
-.pie a:hover { color: #666; }
 
 /* ============================================================
    IMPRESIÓN
@@ -977,7 +994,7 @@ select:focus-visible,
 .appcc-resumen { display: flex; flex-direction: column; gap: 10px; }
 .appcc-resumen-txt { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .appcc-resumen-txt strong { font-size: 1.1rem; color: var(--texto); }
-.appcc-resumen-txt span { color: var(--texto2); font-size: .875rem; text-transform: capitalize; }
+.appcc-resumen-txt span { color: var(--texto2); font-size: .875rem; }
 .appcc-barra { height: 8px; background: var(--borde); border-radius: 999px; overflow: hidden; }
 .appcc-barra > div { height: 100%; background: var(--ok); border-radius: 999px; transition: width .3s; }
 
@@ -1106,7 +1123,7 @@ body[data-rol="cocina"] #modulo-bebidas .vista-list-bar .btn-primario-sm { displ
 /* ============================================================
    CARTA PÚBLICA CON QR (panel en Carta)
    ============================================================ */
-.carta-qr-tarjeta { padding: 0; overflow: hidden; border-left: 4px solid var(--acento); }
+.carta-qr-tarjeta { padding: 0; overflow: hidden; border-color: rgba(91,124,246,.45); background: linear-gradient(0deg, rgba(91,124,246,.06), rgba(91,124,246,.06)), var(--card); }
 .carta-qr-cab { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: transparent; border: none; color: var(--texto); cursor: pointer; text-align: left; min-height: 72px; }
 .carta-qr-cab:hover { background: rgba(91,124,246,.06); }
 .carta-qr-icono { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 1.5rem; background: rgba(91,124,246,.16); }
@@ -1129,3 +1146,35 @@ body[data-rol="cocina"] #modulo-bebidas .vista-list-bar .btn-primario-sm { displ
 .carta-qr-info p { color: var(--texto); font-size: .9rem; line-height: 1.5; margin: 0; }
 .carta-qr-enlace { font-size: .82rem; }
 .carta-qr-peligro { display: flex; gap: 8px; flex-wrap: wrap; }
+
+
+/* ============================================================
+   PULIDO: tema claro y estados
+   ============================================================ */
+[data-tema="claro"] .btn-secundario:hover:not(:disabled),
+[data-tema="claro"] .btn-secundario-sm:hover,
+[data-tema="claro"] .btn-mini:hover,
+[data-tema="claro"] .btn-imprimir:hover:not(:disabled) { background: rgba(0,0,0,.05); border-color: #c4c8d0; }
+[data-tema="claro"] .sub-tab:hover { border-color: #c4c8d0; }
+[data-tema="claro"] .appcc-estado.ok   { color: #15803d; }
+[data-tema="claro"] .chip-habitual { background: #fff; }
+/* Botón deshabilitado: legible, no fantasma */
+.btn:disabled, .btn-primario-sm:disabled, .btn-secundario-sm:disabled, .btn-mini:disabled { opacity: .5; cursor: not-allowed; }
+
+
+/* Alérgenos legibles en tema claro */
+[data-tema="claro"] .badge-alergeno      { color: #3b5bdb; background: #eef1ff; border-color: #c7d2fe; }
+[data-tema="claro"] .badge-sin-alergenos { color: #15803d; background: #dcfce7; border-color: #bbf7d0; }
+
+/* Avisos del inicio: icono + texto que fluye */
+.dash-alerta-item { align-items: flex-start; line-height: 1.4; }
+.dash-alerta-item > span:first-child { flex: 0 0 auto; }
+
+/* Contador sobre el icono de la barra inferior (no empuja el texto) */
+.nav-bottom-tab { position: relative; }
+.nav-bottom-tab .tab-badge { position: absolute; top: 4px; left: calc(50% + 6px); margin: 0; }
+
+/* Modo voz en reposo: sin «Cancelar» ni barra de progreso vacía */
+#modulo-etiquetas:not(.voz-activa) #etq-btn-cancelar,
+#modulo-etiquetas:not(.voz-activa) #etq-progreso-cont,
+#modulo-etiquetas:not(.voz-activa) #etq-progreso-texto { display: none; }

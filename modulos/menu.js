@@ -296,7 +296,7 @@ const ModuloMenu = (() => {
             <input type="checkbox" class="plato-select" value="${plato.id}" ${sel} style="width:18px;height:18px">
             <span class="card-plato-nombre">${_esc(plato.nombre)}</span>
           </label>
-          <div class="card-plato-precio">${plato.precio > 0 ? plato.precio.toFixed(2) + ' €' : ''}</div>
+          <div class="card-plato-precio">${plato.precio > 0 ? dinero(plato.precio) + ' €' : ''}</div>
         </div>
         ${plato.descripcion ? `<div class="card-plato-desc">${_esc(plato.descripcion)}</div>` : ''}
         <div class="card-plato-ingredientes">🥄 ${ings || 'Sin ingredientes asignados'}</div>
@@ -342,7 +342,7 @@ const ModuloMenu = (() => {
     return `<article class="plato-pdf">
       <header class="plato-pdf-cab">
         <h2>${_esc(plato.nombre)}</h2>
-        ${plato.precio > 0 ? `<div class="precio">${plato.precio.toFixed(2)} €</div>` : ''}
+        ${plato.precio > 0 ? `<div class="precio">${dinero(plato.precio)} €</div>` : ''}
       </header>
       ${plato.descripcion ? `<p class="desc">${_esc(plato.descripcion)}</p>` : ''}
       <h3>Ingredientes</h3>
