@@ -1312,13 +1312,10 @@ button .ic, a.btn .ic, .btn .ic, label .ic, .badge-estado .ic, .appcc-estado .ic
 .esc-fila {
   display: grid; grid-template-columns: minmax(0, 1fr) auto auto 76px; gap: 12px; align-items: center;
   width: 100%; text-align: left; font: inherit; color: var(--texto); cursor: pointer;
-  background: var(--card); border: 1px solid var(--borde); border-left: 4px solid var(--borde);
+  background: var(--card); border: 1px solid var(--borde);
   border-radius: var(--radio); padding: 10px 12px; min-height: 56px;
 }
 .esc-fila:hover { border-color: var(--acento); }
-.esc-fila.ok   { border-left-color: var(--ok); }
-.esc-fila.warn { border-left-color: var(--warn); }
-.esc-fila.err  { border-left-color: var(--err); }
 .esc-fila-nombre { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .esc-fila-nombre small { display: block; font-weight: 400; font-size: .78rem; color: var(--texto2); margin-top: 2px; }
 .esc-fila-num { display: flex; flex-direction: column; align-items: flex-end; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -1356,7 +1353,7 @@ button .ic, a.btn .ic, .btn .ic, label .ic, .badge-estado .ic, .appcc-estado .ic
 /* ============================================================
    FACTURAS RECTIFICATIVAS
    ============================================================ */
-.fac-rectifica { border: 1px solid var(--warn); border-left-width: 4px; border-radius: var(--radio); padding: 12px 14px; margin: 4px 0 16px; display: grid; gap: 10px; background: var(--surface); }
+.fac-rectifica { border: 1px solid var(--warn); border-radius: var(--radio); padding: 12px 14px; margin: 4px 0 16px; display: grid; gap: 10px; background: var(--surface); }
 .fac-rectifica-info { margin: 0; font-size: .9rem; color: var(--texto); line-height: 1.45; }
 .fac-rectifica-info .ic { color: var(--warn); }
 .fac-rectifica-modo { display: flex; gap: 6px; flex-wrap: wrap; }

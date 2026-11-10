@@ -1,27 +1,27 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v66: escandallos, facturas rectificativas, leer el lote con la cámara y copias automáticas
+// v67: sin franjas laterales en escandallos y rectificativas (v66: escandallos, rectificativas, lote con cámara, copias)
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v66';
+const NOMBRE_CACHE = 'cocina-etiquetas-v67';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=66',
+  './estilo.css?v=67',
   './manifest.json',
-  './core/voz.js?v=66',
-  './core/supabase.js?v=66',
-  './modulos/lector-lote.js?v=66',
-  './modulos/etiquetas.js?v=66',
-  './modulos/menu.js?v=66',
-  './modulos/bebidas.js?v=66',
-  './modulos/facturas.js?v=66',
-  './modulos/auth.js?v=66',
-  './modulos/config.js?v=66',
-  './modulos/appcc.js?v=66',
-  './modulos/cartaqr.js?v=66',
-  './modulos/equipo.js?v=66',
-  './app.js?v=66',
+  './core/voz.js?v=67',
+  './core/supabase.js?v=67',
+  './modulos/lector-lote.js?v=67',
+  './modulos/etiquetas.js?v=67',
+  './modulos/menu.js?v=67',
+  './modulos/bebidas.js?v=67',
+  './modulos/facturas.js?v=67',
+  './modulos/auth.js?v=67',
+  './modulos/config.js?v=67',
+  './modulos/appcc.js?v=67',
+  './modulos/cartaqr.js?v=67',
+  './modulos/equipo.js?v=67',
+  './app.js?v=67',
   './lib/jspdf.umd.min.js',
   './lib/qrcode.min.js',
   './img/fondo-cocina.webp',
