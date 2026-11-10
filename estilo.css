@@ -22,6 +22,8 @@
   --err:       #f87171;
   --radio:     6px;
   --sombra:    0 1px 4px rgba(0,0,0,.35);
+  --velo-fondo:  rgba(17,17,17,.88);   /* foto de cocina muy tenue detrás de la app */
+  --velo-inicio: rgba(11,13,24,.78);   /* algo más visible en el inicio y el acceso */
 }
 
 /* --- Modo claro --- */
@@ -39,6 +41,8 @@
   --warn:     #b45309;
   --err:      #b91c1c;
   --sombra:   0 1px 4px rgba(0,0,0,.08);
+  --velo-fondo:  rgba(243,244,246,.93);
+  --velo-inicio: rgba(237,240,248,.88);
 }
 
 /* --- Superficies del navegador (selección, cursor, scroll, foco) --- */
@@ -1201,3 +1205,53 @@ body[data-rol="cocina"] #modulo-bebidas .vista-list-bar .btn-primario-sm { displ
 .cabecera-cambiar-rest { display: inline-flex; align-items: center; justify-content: center; }
 .cabecera-cambiar-rest .ic { width: 18px; height: 18px; }
 @media (max-width: 640px) { .dash-card-icon .ic { width: 32px; height: 32px; } .dash-logo .ic { width: 48px; height: 48px; } }
+
+
+/* ============================================================
+   FONDO: foto de cocina (Unsplash, Francisco Suárez) muy tenue
+   Fija detrás de todo; las tarjetas son opacas, así que no resta contraste.
+   ============================================================ */
+html { background: var(--bg); }
+body { background: transparent; }
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(var(--velo-fondo), var(--velo-fondo)), url('img/fondo-cocina.webp') center / cover no-repeat;
+}
+@media (max-width: 640px) {
+  body::before { background: linear-gradient(var(--velo-fondo), var(--velo-fondo)), url('img/fondo-cocina-movil.webp') 30% center / cover no-repeat; }
+}
+/* Inicio y pantalla de acceso: la cocina se intuye un poco más */
+.dash-fondo, [data-tema="claro"] .dash-fondo {
+  background: radial-gradient(ellipse at 90% 15%, rgba(91,124,246,.08) 0%, transparent 50%),
+              linear-gradient(var(--velo-inicio), var(--velo-inicio)),
+              url('img/fondo-cocina-movil.webp') 30% center / cover no-repeat, var(--bg);
+}
+@media (min-width: 641px) {
+  .dash-fondo, [data-tema="claro"] .dash-fondo {
+    background: radial-gradient(ellipse at 90% 15%, rgba(91,124,246,.08) 0%, transparent 50%),
+                linear-gradient(var(--velo-inicio), var(--velo-inicio)),
+                url('img/fondo-cocina.webp') center / cover no-repeat, var(--bg);
+  }
+}
+#pantalla-login, .pantalla-restaurante {
+  background: linear-gradient(var(--velo-inicio), var(--velo-inicio)), url('img/fondo-cocina-movil.webp') 30% center / cover no-repeat, var(--bg);
+}
+@media (min-width: 641px) {
+  #pantalla-login, .pantalla-restaurante { background: linear-gradient(var(--velo-inicio), var(--velo-inicio)), url('img/fondo-cocina.webp') center / cover no-repeat, var(--bg); }
+}
+
+
+/* Iconos dentro de botones, pestañas y títulos */
+button .ic, a.btn .ic, .btn .ic, .tarjeta-titulo .ic, label .ic, .badge-estado .ic, .appcc-estado .ic,
+.dash-alertas-titulo .ic, .login-titulo .ic, #offline-banner .ic, .etq-hab-check .ic { width: 1.1em; height: 1.1em; vertical-align: -.18em; }
+.btn-mini .ic { width: 1.05em; height: 1.05em; }
+.tarjeta-titulo .ic { width: 1.25em; height: 1.25em; vertical-align: -.25em; margin-right: 2px; }
+.ic-err  { color: var(--err); }
+.ic-warn { color: var(--warn); }
+.ic-relleno { fill: currentColor; }
+.carta-qr-icono .ic { width: 24px; height: 24px; color: var(--acento-texto); }
+.carta-qr-flecha .ic { width: 20px; height: 20px; }
+.busq-item > span:first-child .ic { width: 20px; height: 20px; color: var(--acento-texto); }
+.dash-alerta-item > .ic { width: 18px; height: 18px; margin-top: 1px; }
+.chip-borrar .ic { width: 14px; height: 14px; }
+.login-titulo .ic { color: var(--acento-texto); }

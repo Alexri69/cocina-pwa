@@ -212,9 +212,9 @@ async function _ejecutarBusqueda(q) {
       (arr || []).filter(i => i.nombre.toLowerCase().includes(q))
         .map(i => _item(icono, tipo, accionFn(i), i)).join('');
 
-    const html = filtrar(platos,  '🍽', 'Plato',       i => `navegarA('menu');ModuloMenu.editarPlato('${i.id}');_cerrarBusqueda()`)
-               + filtrar(bebidas, '🥤', 'Bebida',      i => `navegarA('bebidas');ModuloBebidas.editarBebida('${i.id}');_cerrarBusqueda()`)
-               + filtrar(ings,    '🥬', 'Ingrediente', i => `navegarA('menu');ModuloMenu.editarIngrediente('${i.id}');_cerrarBusqueda()`);
+    const html = filtrar(platos,  '<svg class="ic" aria-hidden="true"><use href="#i-utensils"/></svg>', 'Plato',       i => `navegarA('menu');ModuloMenu.editarPlato('${i.id}');_cerrarBusqueda()`)
+               + filtrar(bebidas, '<svg class="ic" aria-hidden="true"><use href="#i-cup-soda"/></svg>', 'Bebida',      i => `navegarA('bebidas');ModuloBebidas.editarBebida('${i.id}');_cerrarBusqueda()`)
+               + filtrar(ings,    '<svg class="ic" aria-hidden="true"><use href="#i-carrot"/></svg>', 'Ingrediente', i => `navegarA('menu');ModuloMenu.editarIngrediente('${i.id}');_cerrarBusqueda()`);
 
     res.innerHTML = html || '<p style="padding:16px;color:var(--texto2);text-align:center">Sin resultados para "' + esc(q) + '"</p>';
   } catch (e) {
@@ -284,9 +284,9 @@ function _renderAlertasDashboard(caducados, proximos) {
   if (!caducados.length && !proximos.length) { cont.style.display = 'none'; return; }
   lista.innerHTML = [
     ...caducados.map(p =>
-      `<div class="dash-alerta-item rojo"><span aria-hidden="true">🔴</span><span><strong>${esc(p.nombre)}</strong> · Lote ${esc(p.lote)} · <em>caducado</em></span></div>`),
+      `<div class="dash-alerta-item rojo"><svg class="ic ic-err" aria-hidden="true"><use href="#i-circle-x"/></svg><span><strong>${esc(p.nombre)}</strong> · Lote ${esc(p.lote)} · <em>caducado</em></span></div>`),
     ...proximos.map(p =>
-      `<div class="dash-alerta-item amarillo"><span aria-hidden="true">🟡</span><span><strong>${esc(p.nombre)}</strong> · Lote ${esc(p.lote)} · caduca el ${VOZ.formatearFechaSolo(p.fechaCaducidad)}</span></div>`),
+      `<div class="dash-alerta-item amarillo"><svg class="ic ic-warn" aria-hidden="true"><use href="#i-clock-alert"/></svg><span><strong>${esc(p.nombre)}</strong> · Lote ${esc(p.lote)} · caduca el ${VOZ.formatearFechaSolo(p.fechaCaducidad)}</span></div>`),
   ].join('');
   cont.style.display = 'block';
 }

@@ -109,11 +109,11 @@ const ModuloEquipo = (() => {
       capa.className = 'pantalla-restaurante';
       capa.innerHTML = `
         <div class="login-caja equipo-bienvenida" role="dialog" aria-modal="true" aria-labelledby="bienv-titulo">
-          <div class="login-titulo" id="bienv-titulo">🏪 Tu restaurante</div>
+          <div class="login-titulo" id="bienv-titulo"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg> Tu restaurante</div>
           <div class="login-subtitulo">Crea tu restaurante o únete al de tu equipo</div>
           <div class="equipo-opciones" role="tablist">
-            <button type="button" class="sub-tab activo" data-op="crear" role="tab" aria-selected="true">＋ Crear restaurante</button>
-            <button type="button" class="sub-tab" data-op="unirse" role="tab" aria-selected="false">🔑 Tengo un código</button>
+            <button type="button" class="sub-tab activo" data-op="crear" role="tab" aria-selected="true"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg> Crear restaurante</button>
+            <button type="button" class="sub-tab" data-op="unirse" role="tab" aria-selected="false"><svg class="ic" aria-hidden="true"><use href="#i-key-round"/></svg> Tengo un código</button>
           </div>
           <form id="bienv-crear" class="equipo-form">
             <label for="bienv-nombre">Nombre del restaurante</label>
@@ -198,13 +198,13 @@ const ModuloEquipo = (() => {
 
     cont.innerHTML = `
       <div class="tarjeta">
-        <div class="tarjeta-titulo">🏪 Restaurante y equipo</div>
+        <div class="tarjeta-titulo"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg> Restaurante y equipo</div>
         <div class="equipo-actual">
           <div>
             <div class="equipo-nombre" id="eq-nombre-txt">${esc(act.nombre)}</div>
             <span class="equipo-rol rol-${esc(act.rol)}">${esc(ROLES[act.rol]?.label || act.rol)}</span>
           </div>
-          ${prop ? `<button class="btn-mini btn-editar" type="button" data-eq="renombrar">✏ Cambiar nombre</button>` : ''}
+          ${prop ? `<button class="btn-mini btn-editar" type="button" data-eq="renombrar"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Cambiar nombre</button>` : ''}
         </div>
 
         ${otros.length ? `<div class="equipo-bloque">
@@ -215,8 +215,8 @@ const ModuloEquipo = (() => {
           </div></div>` : ''}
 
         <div class="form-acciones">
-          <button class="btn btn-secundario-sm" type="button" data-eq="crear">＋ Crear otro restaurante</button>
-          <button class="btn btn-secundario-sm" type="button" data-eq="unirse">🔑 Unirme con un código</button>
+          <button class="btn btn-secundario-sm" type="button" data-eq="crear"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg> Crear otro restaurante</button>
+          <button class="btn btn-secundario-sm" type="button" data-eq="unirse"><svg class="ic" aria-hidden="true"><use href="#i-key-round"/></svg> Unirme con un código</button>
         </div>
 
         ${gest ? `<div class="equipo-bloque">
@@ -230,7 +230,7 @@ const ModuloEquipo = (() => {
               <option value="cocina">Cocina — ${ROLES.cocina.desc}</option>
               ${prop ? `<option value="encargado">Encargado — ${ROLES.encargado.desc}</option>` : ''}
             </select>
-            <button class="btn btn-primario-sm" type="button" data-eq="invitar">🔑 Generar código</button>
+            <button class="btn btn-primario-sm" type="button" data-eq="invitar"><svg class="ic" aria-hidden="true"><use href="#i-user-plus"/></svg> Generar código</button>
           </div>
           <div id="eq-codigo"></div>
           <div id="eq-invitaciones"></div>
@@ -240,13 +240,13 @@ const ModuloEquipo = (() => {
           <h3>Mi nombre en el equipo</h3>
           <div class="equipo-invitar">
             <input id="eq-minombre" class="inp" maxlength="60" placeholder="Tu nombre" autocomplete="name">
-            <button class="btn btn-secundario-sm" type="button" data-eq="minombre">✔ Guardar</button>
+            <button class="btn btn-secundario-sm" type="button" data-eq="minombre"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Guardar</button>
           </div>
         </div>
 
         <div class="equipo-peligro">
-          <button class="btn-mini" type="button" data-eq="salir">🚪 Salir de este restaurante</button>
-          ${prop ? `<button class="btn-mini btn-borrar" type="button" data-eq="eliminar">🗑 Eliminar restaurante</button>` : ''}
+          <button class="btn-mini" type="button" data-eq="salir"><svg class="ic" aria-hidden="true"><use href="#i-log-out"/></svg> Salir de este restaurante</button>
+          ${prop ? `<button class="btn-mini btn-borrar" type="button" data-eq="eliminar"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg> Eliminar restaurante</button>` : ''}
         </div>
       </div>`;
 
@@ -285,7 +285,7 @@ const ModuloEquipo = (() => {
     try { inv = (await SB.obtenerInvitaciones()).filter(i => i.usos < i.usos_max); } catch { return; }
     cont.innerHTML = inv.length ? `<div class="equipo-pendientes"><small>Códigos sin usar:</small>
       ${inv.map(i => `<span class="equipo-inv"><code>${esc(i.codigo)}</code> ${esc(ROLES[i.rol]?.label || i.rol)} · caduca ${new Date(i.expira_en).toLocaleDateString('es-ES')}
-        <button class="btn-mini" type="button" data-eq="anular" data-codigo="${esc(i.codigo)}" aria-label="Anular código ${esc(i.codigo)}">✕</button></span>`).join('')}</div>` : '';
+        <button class="btn-mini" type="button" data-eq="anular" data-codigo="${esc(i.codigo)}" aria-label="Anular código ${esc(i.codigo)}"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></span>`).join('')}</div>` : '';
   }
 
   function _mostrarCodigo(codigo, rolInv) {
@@ -296,8 +296,8 @@ const ModuloEquipo = (() => {
       <div class="equipo-codigo-valor" aria-label="Código de invitación">${esc(codigo)}</div>
       <small>Válido 7 días · un solo uso · rol: ${esc(ROLES[rolInv]?.label || rolInv)}</small>
       <div class="form-acciones">
-        <a class="btn btn-primario-sm" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a>
-        <button class="btn btn-secundario-sm" type="button" data-eq="copiar">📋 Copiar invitación</button>
+        <a class="btn btn-primario-sm" href="https://wa.me/?text=${encodeURIComponent(texto)}" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-message-circle"/></svg> Enviar por WhatsApp</a>
+        <button class="btn btn-secundario-sm" type="button" data-eq="copiar"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg> Copiar invitación</button>
       </div></div>`;
     $('eq-codigo').dataset.texto = texto;
   }

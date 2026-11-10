@@ -31,13 +31,13 @@ const ModuloAppcc = (() => {
   ];
 
   const VISTAS = [
-    ['hoy',         '✅ Hoy'],
-    ['temperatura', '🌡 Temperaturas'],
-    ['limpieza',    '🧽 Limpieza'],
-    ['recepcion',   '📦 Recepción'],
-    ['freidora',    '🍟 Aceite'],
-    ['informe',     '📄 Informe'],
-    ['ajustes',     '⚙ Equipos'],
+    ['hoy',         '<svg class="ic" aria-hidden="true"><use href="#i-list-checks"/></svg> Hoy'],
+    ['temperatura', '<svg class="ic" aria-hidden="true"><use href="#i-thermometer"/></svg> Temperaturas'],
+    ['limpieza',    '<svg class="ic" aria-hidden="true"><use href="#i-spray-can"/></svg> Limpieza'],
+    ['recepcion',   '<svg class="ic" aria-hidden="true"><use href="#i-package"/></svg> Recepción'],
+    ['freidora',    '<svg class="ic" aria-hidden="true"><use href="#i-droplets"/></svg> Aceite'],
+    ['informe',     '<svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg> Informe'],
+    ['ajustes',     '<svg class="ic" aria-hidden="true"><use href="#i-settings"/></svg> Equipos'],
   ];
 
   let _vista     = 'hoy';
@@ -190,7 +190,7 @@ const ModuloAppcc = (() => {
     if (!_elementos.length && !_gestiona()) {
       return `<div class="tarjeta appcc-vacio">
         <p><strong>Aún no hay equipos ni tareas de limpieza.</strong></p>
-        <p>El propietario o el encargado del restaurante tiene que darlos de alta en APPCC → ⚙ Equipos. Después aparecerán aquí para registrarlos.</p>
+        <p>El propietario o el encargado del restaurante tiene que darlos de alta en APPCC → <svg class="ic" aria-hidden="true"><use href="#i-settings"/></svg> Equipos. Después aparecerán aquí para registrarlos.</p>
       </div>`;
     }
     if (!_elementos.length) {
@@ -200,8 +200,8 @@ const ModuloAppcc = (() => {
         <p><strong>¿Cómo lleva el restaurante el APPCC?</strong> (míralo en vuestro plan o pregúntalo al gestor)</p>
         ${_htmlSelectorModo()}
         <div class="form-acciones">
-          <button class="btn btn-primario-sm" type="button" data-accion="ejemplos">✨ Empezar con ejemplos</button>
-          <button class="btn btn-secundario-sm" type="button" data-accion="ir-ajustes">⚙ Configurar a mano</button>
+          <button class="btn btn-primario-sm" type="button" data-accion="ejemplos"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg> Empezar con ejemplos</button>
+          <button class="btn btn-secundario-sm" type="button" data-accion="ir-ajustes"><svg class="ic" aria-hidden="true"><use href="#i-settings"/></svg> Configurar a mano</button>
         </div>
       </div>`;
     }
@@ -218,9 +218,9 @@ const ModuloAppcc = (() => {
       const u = unidad(el.tipo);
       const veces = c.necesarios > 1 ? ` (${Math.min(c.hechos, c.necesarios)}/${c.necesarios})` : '';
       const estado = ult && c.cumplido
-        ? `<span class="appcc-estado ${ult.correcto ? 'ok' : 'mal'}">${ult.correcto ? '✔' : '⚠'} ${fmt1(ult.valor)} ${u} · ${cuando(ult.fecha)}${ult.responsable ? ' · ' + esc(ult.responsable) : ''}${veces}</span>`
+        ? `<span class="appcc-estado ${ult.correcto ? 'ok' : 'mal'}">${ult.correcto ? '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>' : '<svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"/></svg>'} ${fmt1(ult.valor)} ${u} · ${cuando(ult.fecha)}${ult.responsable ? ' · ' + esc(ult.responsable) : ''}${veces}</span>`
         : incid
-          ? (ult ? `<span class="appcc-estado ${ult.correcto ? 'ok' : 'mal'}">${ult.correcto ? '✔' : '⚠'} ${fmt1(ult.valor)} ${u} · ${cuando(ult.fecha)}</span>` : `<span class="appcc-estado libre">Solo si hay incidencia</span>`)
+          ? (ult ? `<span class="appcc-estado ${ult.correcto ? 'ok' : 'mal'}">${ult.correcto ? '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>' : '<svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"/></svg>'} ${fmt1(ult.valor)} ${u} · ${cuando(ult.fecha)}</span>` : `<span class="appcc-estado libre">Solo si hay incidencia</span>`)
           : `<span class="appcc-estado pend">Pendiente${veces}</span>`;
       const extraFreidora = el.tipo === 'freidora'
         ? `<label class="appcc-check"><input type="checkbox" data-cambio="${esc(el.id)}"> Aceite cambiado</label>` : '';
@@ -234,10 +234,10 @@ const ModuloAppcc = (() => {
           <input class="inp appcc-valor" type="number" inputmode="decimal" step="0.1" placeholder="${el.tipo === 'freidora' ? '% polares' : '°C'}"
                  aria-label="${el.tipo === 'freidora' ? '% de compuestos polares' : 'Temperatura'} de ${esc(el.nombre)}" data-valor="${esc(el.id)}">
           ${extraFreidora}
-          <button class="btn btn-primario-sm" type="button" data-accion="registrar" data-id="${esc(el.id)}">${incid ? '⚠ Anotar' : c.cumplido ? '＋ Otra lectura' : '✔ Registrar'}</button>
+          <button class="btn btn-primario-sm" type="button" data-accion="registrar" data-id="${esc(el.id)}">${incid ? '<svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"/></svg> Anotar' : c.cumplido ? '<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg> Otra lectura' : '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Registrar'}</button>
         </div>
         <div class="appcc-accion" data-accion-box="${esc(el.id)}" hidden>
-          <label for="acc-${esc(el.id)}">⚠ Fuera de rango: indica la acción correctora *</label>
+          <label for="acc-${esc(el.id)}"><svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"/></svg> Fuera de rango: indica la acción correctora *</label>
           <textarea id="acc-${esc(el.id)}" class="inp" rows="2" placeholder="Ej.: Se revisa el cierre de la puerta, se trasladan los productos a otra cámara y se vuelve a medir en 1 h."></textarea>
         </div>
       </div>`;
@@ -252,8 +252,8 @@ const ModuloAppcc = (() => {
           <div><strong>${esc(el.nombre)}</strong>${el.zona ? ` <small>· ${esc(el.zona)}</small>` : ''}
             <div class="appcc-rango">${_frec(el).label}</div></div>
           ${hecho
-            ? `<span class="appcc-estado ok">✔ ${fecha(hecho.fecha) === fecha(new Date()) ? 'Hoy' : fecha(hecho.fecha)} ${hora(hecho.fecha)}${hecho.responsable ? ' · ' + esc(hecho.responsable) : ''}</span>`
-            : `<button class="btn btn-primario-sm" type="button" data-accion="limpieza" data-id="${esc(el.id)}">✔ Hecho${veces}</button>`}
+            ? `<span class="appcc-estado ok"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> ${fecha(hecho.fecha) === fecha(new Date()) ? 'Hoy' : fecha(hecho.fecha)} ${hora(hecho.fecha)}${hecho.responsable ? ' · ' + esc(hecho.responsable) : ''}</span>`
+            : `<button class="btn btn-primario-sm" type="button" data-accion="limpieza" data-id="${esc(el.id)}"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Hecho${veces}</button>`}
         </div>
       </div>`;
     };
@@ -264,10 +264,10 @@ const ModuloAppcc = (() => {
     const resumen = incid
       ? `<div class="tarjeta appcc-resumen">
           <div class="appcc-resumen-txt">
-            <strong>📝 Registro por incidencias</strong>
+            <strong><svg class="ic" aria-hidden="true"><use href="#i-notebook-pen"/></svg> Registro por incidencias</strong>
             <span>${capitalizar(new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }))}</span>
           </div>
-          <p class="appcc-nota" style="margin:0">Solo hace falta anotar lo que salga mal (una temperatura fuera de rango, aceite pasado…), con su acción correctora. Puedes cambiar el modo en ⚙ Equipos.</p>
+          <p class="appcc-nota" style="margin:0">Solo hace falta anotar lo que salga mal (una temperatura fuera de rango, aceite pasado…), con su acción correctora. Puedes cambiar el modo en <svg class="ic" aria-hidden="true"><use href="#i-settings"/></svg> Equipos.</p>
         </div>`
       : `<div class="tarjeta appcc-resumen">
           <div class="appcc-resumen-txt">
@@ -281,10 +281,10 @@ const ModuloAppcc = (() => {
 
     return `
       ${resumen}
-      ${seccion('🌡 Temperaturas de equipos', _activos('temperatura'), bloqueEquipo)}
-      ${seccion('🍟 Aceite de fritura', _activos('freidora'), bloqueEquipo)}
-      ${seccion('🧽 Limpieza', _activos('limpieza'), bloqueLimpieza)}
-      <p class="appcc-nota">La recepción de mercancía se registra en la pestaña 📦 Recepción, cada vez que llega un pedido.</p>`;
+      ${seccion('<svg class="ic" aria-hidden="true"><use href="#i-thermometer"/></svg> Temperaturas de equipos', _activos('temperatura'), bloqueEquipo)}
+      ${seccion('<svg class="ic" aria-hidden="true"><use href="#i-droplets"/></svg> Aceite de fritura', _activos('freidora'), bloqueEquipo)}
+      ${seccion('<svg class="ic" aria-hidden="true"><use href="#i-spray-can"/></svg> Limpieza', _activos('limpieza'), bloqueLimpieza)}
+      <p class="appcc-nota">La recepción de mercancía se registra en la pestaña <svg class="ic" aria-hidden="true"><use href="#i-package"/></svg> Recepción, cada vez que llega un pedido.</p>`;
   }
 
   async function _registrarLectura(id, boton) {
@@ -303,7 +303,7 @@ const ModuloAppcc = (() => {
       // Fuera de rango: hace falta la acción correctora antes de guardar
       if (caja) { caja.hidden = false; caja.querySelector('textarea')?.focus(); }
       aviso(`${fmt1(v)} ${unidad(el.tipo)} está fuera de rango (${_rangoTexto(el)}). Anota la acción correctora y pulsa de nuevo.`, { tipo: 'error', ms: 7000 });
-      if (boton) boton.textContent = '✔ Guardar con acción correctora';
+      if (boton) boton.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Guardar con acción correctora';
       return;
     }
     const cambio = el.tipo === 'freidora' && !!document.querySelector(`[data-cambio="${CSS.escape(id)}"]`)?.checked;
@@ -345,7 +345,7 @@ const ModuloAppcc = (() => {
     const d = r.datos || {};
     let detalle = '';
     if (r.tipo === 'temperatura') detalle = `${fmt1(r.valor)} °C`;
-    if (r.tipo === 'freidora')    detalle = `${fmt1(r.valor)} % polares${d.cambio_aceite ? ' · 🔄 aceite cambiado' : ''}`;
+    if (r.tipo === 'freidora')    detalle = `${fmt1(r.valor)} % polares${d.cambio_aceite ? ' · <svg class="ic" aria-hidden="true"><use href="#i-refresh-cw"/></svg> aceite cambiado' : ''}`;
     if (r.tipo === 'limpieza')    detalle = 'Realizada';
     if (r.tipo === 'recepcion')   detalle = `${esc(d.proveedor || '')}${d.lote ? ' · Lote ' + esc(d.lote) : ''}${r.valor != null ? ' · ' + fmt1(r.valor) + ' °C' : ''} · ${d.aceptado === false ? '✖ Rechazada' : '✔ Aceptada'}`;
     const titulo = r.tipo === 'recepcion' ? (d.producto || 'Recepción') : r.elemento_nombre;
@@ -354,19 +354,19 @@ const ModuloAppcc = (() => {
         <span><strong>${esc(titulo || '')}</strong> — ${detalle}</span>
         <small>${fecha(r.fecha)} ${hora(r.fecha)}${r.responsable ? ' · ' + esc(r.responsable) : ''}</small>
       </div>
-      ${r.accion_correctora ? `<div class="appcc-reg-accion">⚠ Acción correctora: ${esc(r.accion_correctora)}</div>` : ''}
-      ${borrable ? `<button class="btn-mini btn-borrar" type="button" data-accion="borrar-registro" data-id="${esc(r.id)}" aria-label="Eliminar registro (solo durante 24 h)" title="Se puede eliminar durante 24 h">🗑</button>` : ''}
+      ${r.accion_correctora ? `<div class="appcc-reg-accion"><svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"/></svg> Acción correctora: ${esc(r.accion_correctora)}</div>` : ''}
+      ${borrable ? `<button class="btn-mini btn-borrar" type="button" data-accion="borrar-registro" data-id="${esc(r.id)}" aria-label="Eliminar registro (solo durante 24 h)" title="Se puede eliminar durante 24 h"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg></button>` : ''}
     </div>`;
   }
 
   function _htmlHistorial(tipo) {
-    const titulos = { temperatura: '🌡 Temperaturas', freidora: '🍟 Aceite de fritura', limpieza: '🧽 Limpieza' };
+    const titulos = { temperatura: '<svg class="ic" aria-hidden="true"><use href="#i-thermometer"/></svg> Temperaturas', freidora: '<svg class="ic" aria-hidden="true"><use href="#i-droplets"/></svg> Aceite de fritura', limpieza: '<svg class="ic" aria-hidden="true"><use href="#i-spray-can"/></svg> Limpieza' };
     const lista = _registros.filter(r => r.tipo === tipo);
     const incid = lista.filter(r => !r.correcto).length;
     return `<div class="tarjeta">
       <div class="tarjeta-titulo">${titulos[tipo]} · últimos 40 días ${incid ? `<span class="appcc-incid">${incid} incidencia${incid > 1 ? 's' : ''}</span>` : ''}</div>
-      ${lista.length ? lista.map(_htmlFilaRegistro).join('') : '<p class="texto-vacio">Sin registros todavía. Se apuntan desde la pestaña ✅ Hoy.</p>'}
-      <p class="appcc-nota">Los registros solo se pueden eliminar durante las primeras 24 h (para corregir errores). Para meses anteriores usa 📄 Informe.</p>
+      ${lista.length ? lista.map(_htmlFilaRegistro).join('') : '<p class="texto-vacio">Sin registros todavía. Se apuntan desde la pestaña <svg class="ic" aria-hidden="true"><use href="#i-list-checks"/></svg> Hoy.</p>'}
+      <p class="appcc-nota">Los registros solo se pueden eliminar durante las primeras 24 h (para corregir errores). Para meses anteriores usa <svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg> Informe.</p>
     </div>`;
   }
 
@@ -378,7 +378,7 @@ const ModuloAppcc = (() => {
     const opts = Object.entries(CATEGORIAS_RECEPCION).map(([k, c]) => `<option value="${k}">${c.label} (${c.ayuda})</option>`).join('');
     const lista = _registros.filter(r => r.tipo === 'recepcion');
     return `<div class="tarjeta">
-      <div class="tarjeta-titulo">📦 Nueva recepción de mercancía</div>
+      <div class="tarjeta-titulo"><svg class="ic" aria-hidden="true"><use href="#i-package"/></svg> Nueva recepción de mercancía</div>
       <div class="form-grid">
         <div class="form-grupo"><label for="rec-proveedor">Proveedor *</label><input id="rec-proveedor" class="inp" list="rec-proveedores" placeholder="Ej.: Frutas García"></div>
         <div class="form-grupo"><label for="rec-producto">Producto *</label><input id="rec-producto" class="inp" placeholder="Ej.: Pechuga de pollo"></div>
@@ -394,8 +394,8 @@ const ModuloAppcc = (() => {
       </div>
       <datalist id="rec-proveedores">${[...new Set(lista.map(r => r.datos?.proveedor).filter(Boolean))].map(p => `<option value="${esc(p)}">`).join('')}</datalist>
       <div class="form-acciones">
-        <button class="btn btn-primario-sm" type="button" data-accion="recepcion" data-aceptado="1">✔ Aceptar mercancía</button>
-        <button class="btn btn-secundario-sm appcc-rechazar" type="button" data-accion="recepcion" data-aceptado="0">✖ Rechazar</button>
+        <button class="btn btn-primario-sm" type="button" data-accion="recepcion" data-aceptado="1"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Aceptar mercancía</button>
+        <button class="btn btn-secundario-sm appcc-rechazar" type="button" data-accion="recepcion" data-aceptado="0"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg> Rechazar</button>
       </div>
     </div>
     <div class="tarjeta" style="margin-top:16px">
@@ -441,7 +441,7 @@ const ModuloAppcc = (() => {
     const d = new Date();
     const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     return `<div class="tarjeta">
-      <div class="tarjeta-titulo">📄 Informe mensual para la inspección</div>
+      <div class="tarjeta-titulo"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg> Informe mensual para la inspección</div>
       <div class="form-grid">
         <div class="form-grupo"><label for="inf-mes">Mes</label><input id="inf-mes" type="month" class="inp" value="${mes}" max="${mes}"></div>
         <div class="form-grupo"><label for="inf-tipo">Registros</label>
@@ -454,7 +454,7 @@ const ModuloAppcc = (() => {
           </select></div>
       </div>
       <div class="form-acciones">
-        <button class="btn btn-primario-sm" type="button" data-accion="informe">🖨 Generar informe</button>
+        <button class="btn btn-primario-sm" type="button" data-accion="informe"><svg class="ic" aria-hidden="true"><use href="#i-printer"/></svg> Generar informe</button>
       </div>
       <p class="appcc-nota">Se abre listo para imprimir o guardar como PDF (en el diálogo de impresión elige «Guardar como PDF»).</p>
     </div>`;
@@ -578,17 +578,17 @@ ${secciones.join('')}
           <span><strong>${esc(e.nombre)}</strong>${e.zona ? ' · ' + esc(e.zona) : ''}
             <small>${tipo === 'limpieza' ? '' : _rangoTexto(e) + ' · '}${_frec(e).label}${e.activo === false ? ' · desactivado' : ''}</small></span>
           <span class="card-acciones">
-            <button class="btn-mini btn-editar" type="button" data-accion="editar-elemento" data-id="${esc(e.id)}">✏ Editar</button>
-            <button class="btn-mini btn-borrar" type="button" data-accion="borrar-elemento" data-id="${esc(e.id)}" aria-label="Eliminar ${esc(e.nombre)}">🗑</button>
+            <button class="btn-mini btn-editar" type="button" data-accion="editar-elemento" data-id="${esc(e.id)}"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Editar</button>
+            <button class="btn-mini btn-borrar" type="button" data-accion="borrar-elemento" data-id="${esc(e.id)}" aria-label="Eliminar ${esc(e.nombre)}"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg></button>
           </span></div>`).join('') : '<p class="texto-vacio">Ninguno.</p>'}
       </div>`;
     };
     return `<div class="tarjeta">
-      <div class="tarjeta-titulo">📋 Modo de registro</div>
+      <div class="tarjeta-titulo"><svg class="ic" aria-hidden="true"><use href="#i-clipboard"/></svg> Modo de registro</div>
       ${_htmlSelectorModo()}
     </div>
     <div class="tarjeta" style="margin-top:16px">
-      <div class="tarjeta-titulo" id="appcc-el-titulo">${_editando ? '✏ Editar' : '＋ Añadir equipo o tarea'}</div>
+      <div class="tarjeta-titulo" id="appcc-el-titulo">${_editando ? '<svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Editar' : '<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg> Añadir equipo o tarea'}</div>
       <div class="form-grid">
         <div class="form-grupo"><label for="el-tipo">Tipo</label>
           <select id="el-tipo" class="inp">
@@ -605,16 +605,16 @@ ${secciones.join('')}
         <div class="form-grupo"><label class="appcc-check" style="margin-top:26px"><input type="checkbox" id="el-activo" checked> Activo</label></div>
       </div>
       <div class="form-acciones">
-        <button class="btn btn-primario-sm" type="button" data-accion="guardar-elemento">✔ Guardar</button>
-        ${_editando ? '<button class="btn btn-secundario-sm" type="button" data-accion="cancelar-elemento">✖ Cancelar</button>' : ''}
-        ${!_elementos.length ? '<button class="btn btn-secundario-sm" type="button" data-accion="ejemplos">✨ Añadir ejemplos</button>' : ''}
+        <button class="btn btn-primario-sm" type="button" data-accion="guardar-elemento"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Guardar</button>
+        ${_editando ? '<button class="btn btn-secundario-sm" type="button" data-accion="cancelar-elemento"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg> Cancelar</button>' : ''}
+        ${!_elementos.length ? '<button class="btn btn-secundario-sm" type="button" data-accion="ejemplos"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg> Añadir ejemplos</button>' : ''}
       </div>
       <p class="appcc-nota">Referencias habituales: refrigeración 0 a 4 °C · congelación ≤ −18 °C · aceite de fritura ≤ 25 % de compuestos polares. Ajusta los rangos a tu plan APPCC.</p>
     </div>
     <div class="tarjeta" style="margin-top:16px">
-      ${grupo('temperatura', '🌡 Equipos de frío')}
-      ${grupo('freidora', '🍟 Freidoras')}
-      ${grupo('limpieza', '🧽 Tareas de limpieza')}
+      ${grupo('temperatura', '<svg class="ic" aria-hidden="true"><use href="#i-thermometer"/></svg> Equipos de frío')}
+      ${grupo('freidora', '<svg class="ic" aria-hidden="true"><use href="#i-droplets"/></svg> Freidoras')}
+      ${grupo('limpieza', '<svg class="ic" aria-hidden="true"><use href="#i-spray-can"/></svg> Tareas de limpieza')}
     </div>`;
   }
 

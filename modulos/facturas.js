@@ -65,12 +65,12 @@ const ModuloFacturas = (() => {
       cls  = f.estadoPresupuesto === 'aceptado'  ? 'estado-pres-aceptado'
            : f.estadoPresupuesto === 'rechazado' ? 'estado-pres-rechazado'
            : 'estado-pendiente';
-      etiq = f.estadoPresupuesto === 'aceptado'  ? '✔ Aceptado'
-           : f.estadoPresupuesto === 'rechazado' ? '✕ Rechazado'
-           : '⏳ Pendiente';
+      etiq = f.estadoPresupuesto === 'aceptado'  ? '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Aceptado'
+           : f.estadoPresupuesto === 'rechazado' ? '<svg class="ic" aria-hidden="true"><use href="#i-x"/></svg> Rechazado'
+           : '<svg class="ic" aria-hidden="true"><use href="#i-hourglass"/></svg> Pendiente';
     } else {
       cls  = f.pagada ? 'estado-pagada' : 'estado-pendiente';
-      etiq = f.pagada ? '✔ Pagada'      : '⏳ Pendiente';
+      etiq = f.pagada ? '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Pagada'      : '<svg class="ic" aria-hidden="true"><use href="#i-hourglass"/></svg> Pendiente';
     }
     return `<div class="card-factura" data-id="${f.id}">
       <div class="fac-card-cabecera">
@@ -78,26 +78,26 @@ const ModuloFacturas = (() => {
         <div class="badge-estado ${cls}">${etiq}</div>
       </div>
       <div class="fac-card-cliente">${_esc(f.cliente)}</div>
-      ${esPres && f.descripcionEvento ? `<div style="font-size:.8rem;color:var(--texto2);margin-bottom:2px">📅 ${_esc(f.descripcionEvento)}</div>` : ''}
+      ${esPres && f.descripcionEvento ? `<div style="font-size:.8rem;color:var(--texto2);margin-bottom:2px"><svg class="ic" aria-hidden="true"><use href="#i-calendar"/></svg> ${_esc(f.descripcionEvento)}</div>` : ''}
       <div class="fac-card-meta">
         <span>${VOZ.formatearFechaSolo(f.fecha)}</span>
         <strong>${dinero(f.total)} €</strong>
       </div>
       <div class="card-acciones">
-        <button class="btn-mini btn-ver"    onclick="ModuloFacturas.verFactura('${f.id}')">👁 Ver</button>
-        <button class="btn-mini btn-editar" onclick="ModuloFacturas.editarFactura('${f.id}')">✏ Editar</button>
+        <button class="btn-mini btn-ver"    onclick="ModuloFacturas.verFactura('${f.id}')"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg> Ver</button>
+        <button class="btn-mini btn-editar" onclick="ModuloFacturas.editarFactura('${f.id}')"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Editar</button>
         ${esPres
           ? (f.estadoPresupuesto !== 'aceptado'
-              ? `<button class="btn-mini btn-pagar" onclick="ModuloFacturas.aceptarPresupuesto('${f.id}')">✔ Aceptar</button>`
+              ? `<button class="btn-mini btn-pagar" onclick="ModuloFacturas.aceptarPresupuesto('${f.id}')"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Aceptar</button>`
               : '')
           : `<button class="btn-mini ${f.pagada ? 'btn-borrar' : 'btn-pagar'}"
                 onclick="ModuloFacturas.togglePagada('${f.id}',${f.pagada})">
-              ${f.pagada ? '↩ Pendiente' : '✔ Pagada'}
+              ${f.pagada ? '<svg class="ic" aria-hidden="true"><use href="#i-undo-2"/></svg> Pendiente' : '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Pagada'}
              </button>`
         }
-        <button class="btn-mini btn-email" onclick="ModuloFacturas.compartirEmail('${f.id}')" title="Enviar por email">📧</button>
-        <button class="btn-mini btn-wa"    onclick="ModuloFacturas.compartirWhatsApp('${f.id}')" title="Enviar por WhatsApp">💬</button>
-        <button class="btn-mini btn-borrar" title="Eliminar" aria-label="Eliminar" onclick="ModuloFacturas.borrarFactura('${f.id}')">🗑</button>
+        <button class="btn-mini btn-email" onclick="ModuloFacturas.compartirEmail('${f.id}')" title="Enviar por email" aria-label="Enviar por email"><svg class="ic" aria-hidden="true"><use href="#i-mail"/></svg></button>
+        <button class="btn-mini btn-wa"    onclick="ModuloFacturas.compartirWhatsApp('${f.id}')" title="Enviar por WhatsApp" aria-label="Enviar por WhatsApp"><svg class="ic" aria-hidden="true"><use href="#i-message-circle"/></svg></button>
+        <button class="btn-mini btn-borrar" title="Eliminar" aria-label="Eliminar" onclick="ModuloFacturas.borrarFactura('${f.id}')"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg></button>
       </div>
     </div>`;
   }
@@ -190,7 +190,7 @@ const ModuloFacturas = (() => {
         <td><input class="inp-linea inp-qty"    type="number" value="${l.cantidad}"             oninput="ModuloFacturas._actualizarLinea(${i},'cantidad',this.value)"    min="0.01" step="0.01"></td>
         <td><input class="inp-linea inp-precio" type="number" value="${l.precioUnitario || ''}" oninput="ModuloFacturas._actualizarLinea(${i},'precio',this.value)"      min="0"    step="0.01" placeholder="0.00"></td>
         <td class="linea-subtotal">${dinero(l.subtotal || 0)} €</td>
-        <td><button class="btn-mini btn-borrar" onclick="ModuloFacturas._eliminarLinea(${i})" title="Eliminar">✕</button></td>
+        <td><button class="btn-mini btn-borrar" onclick="ModuloFacturas._eliminarLinea(${i})" title="Eliminar" aria-label="Eliminar línea"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></td>
       </tr>`).join('');
     _calcularTotales();
   }
@@ -248,9 +248,9 @@ const ModuloFacturas = (() => {
     const esPres         = _tipoActual === 'presupuesto';
 
     const btn = document.getElementById('fac-btn-guardar');
-    const txtBtn = btn?.textContent;
+    const txtBtn = btn?.innerHTML;
     _guardando = true;
-    if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-hourglass"/></svg> Guardando…'; }
     try {
       let existente = null;
       if (_idFacturaActual) existente = await SB.obtenerFactura(_idFacturaActual);
@@ -297,7 +297,7 @@ const ModuloFacturas = (() => {
       alert(`No se ha podido guardar ${esPres ? 'el presupuesto' : 'la factura'}:\n\n${e.message}\n\nTus datos siguen en el formulario; inténtalo de nuevo.`);
     } finally {
       _guardando = false;
-      if (btn) { btn.disabled = false; btn.textContent = txtBtn; }
+      if (btn) { btn.disabled = false; btn.innerHTML = txtBtn; }
     }
   }
 

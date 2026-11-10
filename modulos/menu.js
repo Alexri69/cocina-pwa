@@ -109,8 +109,8 @@ const ModuloMenu = (() => {
           <div class="badges-alergenos">${badges}</div>
         </div>
         <div class="card-acciones">
-          <button class="btn-mini btn-editar" onclick="ModuloMenu.editarIngrediente('${ing.id}')" title="Editar">✏ Editar</button>
-          <button class="btn-mini btn-borrar" onclick="ModuloMenu.borrarIngrediente('${ing.id}')" title="Eliminar">🗑 Eliminar</button>
+          <button class="btn-mini btn-editar" onclick="ModuloMenu.editarIngrediente('${ing.id}')" title="Editar"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Editar</button>
+          <button class="btn-mini btn-borrar" onclick="ModuloMenu.borrarIngrediente('${ing.id}')" title="Eliminar"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg> Eliminar</button>
         </div>
       </div>`;
     }).join('');
@@ -125,7 +125,7 @@ const ModuloMenu = (() => {
       const cb = document.getElementById('ing-al-' + nombre.replace(/\s+/g, '-'));
       if (cb) cb.checked = ing.alergenos?.includes(nombre) ?? false;
     });
-    document.getElementById('ing-form-titulo').textContent = '✏ Editar Ingrediente';
+    document.getElementById('ing-form-titulo').textContent = 'Editar ingrediente';
     _activarSubtab('ingredientes');
     _mostrarVistaIngs('form');
     document.getElementById('ing-nombre').focus();
@@ -301,12 +301,12 @@ const ModuloMenu = (() => {
           <div class="card-plato-precio">${plato.precio > 0 ? dinero(plato.precio) + ' €' : ''}</div>
         </div>
         ${plato.descripcion ? `<div class="card-plato-desc">${_esc(plato.descripcion)}</div>` : ''}
-        <div class="card-plato-ingredientes">🥄 ${ings || 'Sin ingredientes asignados'}</div>
+        <div class="card-plato-ingredientes"><svg class="ic" aria-hidden="true"><use href="#i-carrot"/></svg> ${ings || 'Sin ingredientes asignados'}</div>
         <div class="badges-alergenos">${badgesAl}</div>
         <div class="card-acciones">
-          <button class="btn-mini btn-editar" onclick="ModuloMenu.editarPlato('${plato.id}')">✏ Editar</button>
-          <button class="btn-mini btn-pagar"  onclick="ModuloMenu.imprimirPlato('${plato.id}')">📄 PDF</button>
-          <button class="btn-mini btn-borrar" onclick="ModuloMenu.borrarPlato('${plato.id}')">🗑 Eliminar</button>
+          <button class="btn-mini btn-editar" onclick="ModuloMenu.editarPlato('${plato.id}')"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Editar</button>
+          <button class="btn-mini btn-pagar"  onclick="ModuloMenu.imprimirPlato('${plato.id}')"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg> PDF</button>
+          <button class="btn-mini btn-borrar" onclick="ModuloMenu.borrarPlato('${plato.id}')"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg> Eliminar</button>
         </div>
       </div>`;
     }).join('');
@@ -326,7 +326,7 @@ const ModuloMenu = (() => {
     const btn = document.getElementById('plato-pdf-seleccion');
     if (!btn) return;
     const n = _platoSeleccionados.size;
-    btn.textContent = `📄 PDF de seleccionados (${n})`;
+    btn.innerHTML = `<svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg> PDF de seleccionados (${n})`;
     btn.disabled = n === 0;
   }
 
@@ -443,7 +443,7 @@ ${platos.map(_platoToHtml).join('')}
     const idsPlato = plato.ingredientes?.map(i => i.id) || [];
     document.querySelectorAll('.plato-ing-check').forEach(cb => { cb.checked = idsPlato.includes(cb.value); });
     await _actualizarAlergenos_realtime();
-    document.getElementById('plato-form-titulo').textContent = '✏ Editar Plato';
+    document.getElementById('plato-form-titulo').textContent = 'Editar plato';
     _activarSubtab('platos');
     _mostrarVistaPlatos('form');
     document.getElementById('plato-nombre').focus();

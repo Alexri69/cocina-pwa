@@ -97,7 +97,7 @@ const ModuloEtiquetas = (() => {
     if (!cont) return;
     if (btnGest) {
       btnGest.style.display = _plantillas.length ? '' : 'none';
-      btnGest.textContent   = _gestionandoHab ? '✔ Hecho' : '✏ Gestionar';
+      btnGest.innerHTML     = _gestionandoHab ? '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Hecho' : '<svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Gestionar';
       btnGest.setAttribute('aria-pressed', String(_gestionandoHab));
     }
     if (buscar) buscar.style.display = _plantillas.length > 10 ? '' : 'none';
@@ -106,7 +106,7 @@ const ModuloEtiquetas = (() => {
 
     if (!_plantillas.length) {
       cont.innerHTML = `<p class="etq-hab-vacio">Guarda aquí los productos que abres a menudo y etiquétalos en un toque.<br>
-        Al crear una etiqueta en modo <strong>Manual</strong> marca <strong>⭐ Guardar como producto habitual</strong>, o pulsa ⭐ en el historial.</p>`;
+        Al crear una etiqueta en modo <strong>Manual</strong> marca <strong><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg> Guardar como producto habitual</strong>, o pulsa <svg class="ic" aria-hidden="true"><use href="#i-star"/></svg> en el historial.</p>`;
       return;
     }
     const q = _norm(_busquedaHab);
@@ -120,7 +120,7 @@ const ModuloEtiquetas = (() => {
         <span>${esc(p.nombre)}</span>
         <span class="chip-dias">${p.diasCaducidad} d</span>
         ${al ? `<span class="chip-al" aria-hidden="true">${al}</span>` : ''}
-        <span class="chip-borrar" aria-hidden="true">✕</span>
+        <span class="chip-borrar" aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></span>
       </button>`;
     }).join('');
   }
@@ -647,12 +647,12 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
         <div><strong>${esc(p.nombre)}</strong> — Lote: ${esc(p.lote)}</div>
         <small>Caduca: ${VOZ.formatearFecha(p.fechaCaducidad)}</small>
         <div class="card-acciones" style="margin-top:6px">
-          <button class="btn-mini btn-ver"    onclick="ModuloEtiquetas._verEtiqueta(${idxGlobal})">👁 Ver</button>
-          <button class="btn-mini btn-pagar"  onclick="ModuloEtiquetas._imprimirEtiqueta(${idxGlobal})">🖨 Imprimir</button>
+          <button class="btn-mini btn-ver"    onclick="ModuloEtiquetas._verEtiqueta(${idxGlobal})"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg> Ver</button>
+          <button class="btn-mini btn-pagar"  onclick="ModuloEtiquetas._imprimirEtiqueta(${idxGlobal})"><svg class="ic" aria-hidden="true"><use href="#i-printer"/></svg> Imprimir</button>
           ${_buscarPlantilla(p.nombre)
-            ? `<span class="btn-mini" title="Ya es un producto habitual" aria-label="Ya es un producto habitual" style="cursor:default;color:var(--warn)">⭐</span>`
-            : `<button class="btn-mini" title="Guardar como producto habitual" aria-label="Guardar ${esc(p.nombre)} como producto habitual" onclick="ModuloEtiquetas._habitualDesdeHistorial(${idxGlobal})">☆ Habitual</button>`}
-          <button class="btn-mini btn-borrar" title="Eliminar" aria-label="Eliminar" onclick="ModuloEtiquetas._borrarProducto(${idxGlobal})">🗑</button>
+            ? `<span class="btn-mini" title="Ya es un producto habitual" aria-label="Ya es un producto habitual" style="cursor:default;color:var(--warn)"><svg class="ic ic-relleno" aria-hidden="true"><use href="#i-star"/></svg></span>`
+            : `<button class="btn-mini" title="Guardar como producto habitual" aria-label="Guardar ${esc(p.nombre)} como producto habitual" onclick="ModuloEtiquetas._habitualDesdeHistorial(${idxGlobal})"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg> Habitual</button>`}
+          <button class="btn-mini btn-borrar" title="Eliminar" aria-label="Eliminar" onclick="ModuloEtiquetas._borrarProducto(${idxGlobal})"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg></button>
         </div>
       </div>`;
     }).join('');
@@ -677,13 +677,13 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     let html = '';
     if (caducados.length) {
       html += `<div class="item-historial rojo" style="margin:0 0 8px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-        <span>✖ <strong>${caducados.length} producto${caducados.length === 1 ? ' caducado' : 's caducados'}</strong></span>
-        <button type="button" class="btn-mini btn-borrar" onclick="ModuloEtiquetas.retirarCaducados()">🗑 Retirar caducados</button>
+        <span><svg class="ic ic-err" aria-hidden="true"><use href="#i-circle-x"/></svg> <strong>${caducados.length} producto${caducados.length === 1 ? ' caducado' : 's caducados'}</strong></span>
+        <button type="button" class="btn-mini btn-borrar" onclick="ModuloEtiquetas.retirarCaducados()"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg> Retirar caducados</button>
       </div>`;
     }
     if (proximos.length) {
       html += `<div class="item-historial amarillo" style="margin:0">
-        ⚡ <strong>${proximos.length} producto${proximos.length === 1 ? '' : 's'}</strong> a punto de caducar
+        <svg class="ic ic-warn" aria-hidden="true"><use href="#i-clock-alert"/></svg> <strong>${proximos.length} producto${proximos.length === 1 ? '' : 's'}</strong> a punto de caducar
       </div>`;
     }
     cont.innerHTML = html;
@@ -724,9 +724,9 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     // Verde = activos · rojo = desactivados o bloqueados
     btn.classList.toggle('btn-notif-on',  estado === 'activos');
     btn.classList.toggle('btn-notif-off', estado !== 'activos');
-    btn.textContent = estado === 'activos'    ? '🔔 Avisos activos'
-                    : estado === 'bloqueados' ? '🔕 Avisos bloqueados'
-                    :                           '🔕 Avisos desactivados';
+    btn.innerHTML   = estado === 'activos'    ? '<svg class="ic" aria-hidden="true"><use href="#i-bell"/></svg> Avisos activos'
+                    : estado === 'bloqueados' ? '<svg class="ic" aria-hidden="true"><use href="#i-bell-off"/></svg> Avisos bloqueados'
+                    :                           '<svg class="ic" aria-hidden="true"><use href="#i-bell-off"/></svg> Avisos desactivados';
     btn.title = estado === 'activos'    ? 'Pulsa para desactivar los avisos en este dispositivo'
               : estado === 'bloqueados' ? 'Bloqueados en el navegador: pulsa para ver cómo activarlos'
               :                           'Pulsa para activar los avisos de caducidad';
@@ -1017,7 +1017,7 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
 
     if (!VOZ.soportaVoz()) {
       const btn = document.getElementById('etq-btn-nuevo');
-      if (btn) { btn.disabled = true; btn.textContent = '⚠ Voz no soportada (usa Chrome)'; }
+      if (btn) { btn.disabled = true; btn.innerHTML = '<svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"/></svg> Voz no soportada (usa Chrome)'; }
       // Activar manual por defecto si no hay voz
       _activarModo('manual');
     }

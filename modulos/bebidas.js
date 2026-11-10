@@ -71,8 +71,8 @@ const ModuloBebidas = (() => {
             ? b.alergenos.map(a => `<span class="badge-alergeno">${(ALERGENOS.find(x => x[0] === a) || [])[1] || ''} ${_esc(a)}</span>`).join('')
             : '<span class="badge-sin-alergenos">Sin alérgenos</span>'}</div>
           <div class="card-acciones">
-            <button class="btn-mini btn-editar" onclick="ModuloBebidas.editarBebida('${b.id}')">✏ Editar</button>
-            <button class="btn-mini btn-borrar" onclick="ModuloBebidas.borrarBebida('${b.id}')">🗑 Eliminar</button>
+            <button class="btn-mini btn-editar" onclick="ModuloBebidas.editarBebida('${b.id}')"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Editar</button>
+            <button class="btn-mini btn-borrar" onclick="ModuloBebidas.borrarBebida('${b.id}')"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg> Eliminar</button>
           </div>
         </div>`;
       }).join('');
@@ -94,7 +94,7 @@ const ModuloBebidas = (() => {
     document.getElementById('beb-precio').value    = b.precio > 0 ? b.precio : '';
     document.getElementById('beb-categoria').value = b.categoria || 'otro';
     _renderChecksAlergenos(); _ponerAlergenos(b.alergenos || []);
-    document.getElementById('beb-form-titulo').textContent = '✏ Editar Bebida';
+    document.getElementById('beb-form-titulo').textContent = 'Editar bebida';
     _mostrarVista('form');
     document.getElementById('beb-nombre').focus();
   }

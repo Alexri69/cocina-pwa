@@ -28,13 +28,13 @@ const ModuloCartaQR = (() => {
     const pub = !!_token;
     cont.innerHTML = `<div class="tarjeta carta-qr-tarjeta">
       <button type="button" class="carta-qr-cab" data-cq="abrir" aria-expanded="${_abierto}">
-        <span class="carta-qr-icono" aria-hidden="true">📱</span>
+        <span class="carta-qr-icono" aria-hidden="true"><svg class="ic" aria-hidden="true"><use href="#i-qr-code"/></svg></span>
         <span class="carta-qr-textos">
           <span class="carta-qr-titulo">Carta de alérgenos para clientes</span>
           <span class="carta-qr-sub">${pub ? 'Publicada · los clientes la ven escaneando el QR' : 'Publícala con un código QR para las mesas'}</span>
         </span>
         <span class="carta-qr-estado ${pub ? 'on' : 'off'}">${pub ? 'Publicada' : 'Sin publicar'}</span>
-        <span class="carta-qr-flecha" aria-hidden="true">${_abierto ? '▴' : '▾'}</span>
+        <span class="carta-qr-flecha" aria-hidden="true">${_abierto ? '<svg class="ic" aria-hidden="true"><use href="#i-chevron-up"/></svg>' : '<svg class="ic" aria-hidden="true"><use href="#i-chevron-down"/></svg>'}</span>
       </button>
       ${_abierto ? (pub ? `
         <div class="carta-qr-cuerpo">
@@ -43,12 +43,12 @@ const ModuloCartaQR = (() => {
             <p>Los clientes escanean este código y ven vuestros platos y bebidas con sus alérgenos, y pueden filtrar (por ejemplo, <em>sin gluten</em>). Se actualiza sola al cambiar la carta.</p>
             <input class="inp carta-qr-enlace" readonly value="${esc(enlace())}" aria-label="Enlace de la carta pública">
             <div class="form-acciones">
-              <a class="btn btn-primario-sm" href="${esc(enlace())}" target="_blank" rel="noopener">👁 Ver carta</a>
-              <button class="btn btn-secundario-sm" type="button" data-cq="imprimir">🖨 Imprimir QR para mesas</button>
-              <button class="btn btn-secundario-sm" type="button" data-cq="copiar">📋 Copiar enlace</button>
+              <a class="btn btn-primario-sm" href="${esc(enlace())}" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg> Ver carta</a>
+              <button class="btn btn-secundario-sm" type="button" data-cq="imprimir"><svg class="ic" aria-hidden="true"><use href="#i-printer"/></svg> Imprimir QR para mesas</button>
+              <button class="btn btn-secundario-sm" type="button" data-cq="copiar"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg> Copiar enlace</button>
             </div>
             <div class="carta-qr-peligro">
-              <button class="btn-mini" type="button" data-cq="renovar" title="El enlace y los QR impresos anteriores dejarán de funcionar">🔄 Cambiar enlace</button>
+              <button class="btn-mini" type="button" data-cq="renovar" title="El enlace y los QR impresos anteriores dejarán de funcionar"><svg class="ic" aria-hidden="true"><use href="#i-refresh-cw"/></svg> Cambiar enlace</button>
               <button class="btn-mini btn-borrar" type="button" data-cq="despublicar">Dejar de publicar</button>
             </div>
           </div>
@@ -56,7 +56,7 @@ const ModuloCartaQR = (() => {
         <div class="carta-qr-cuerpo carta-qr-vacia">
           <p>Publica la carta en un enlace con código QR para que los clientes consulten los <strong>alérgenos</strong> de cada plato y bebida desde el móvil (Reglamento UE 1169/2011).</p>
           <p class="appcc-nota">Solo se muestra nombre, descripción, precio y alérgenos. Revisa antes que todos los platos tengan sus ingredientes y las bebidas sus alérgenos.</p>
-          <div class="form-acciones"><button class="btn btn-primario-sm" type="button" data-cq="publicar">📱 Publicar carta</button></div>
+          <div class="form-acciones"><button class="btn btn-primario-sm" type="button" data-cq="publicar"><svg class="ic" aria-hidden="true"><use href="#i-qr-code"/></svg> Publicar carta</button></div>
         </div>`) : ''}
     </div>`;
   }
