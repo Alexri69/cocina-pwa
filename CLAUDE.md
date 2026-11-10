@@ -42,7 +42,7 @@ Si se añade una columna nueva: añadirla a `supabase-setup.sql` (ADD COLUMN IF 
 - Chrome/Edge (Firefox no tiene SpeechRecognition).
 - Etiquetas: 62 mm Brother QL · Facturas: A4.
 - Escapar SIEMPRE con `esc()`/`_esc()` cualquier dato al meterlo en `innerHTML`; en `onclick` pasar solo ids.
-- **Al cambiar cualquier JS:** subir `?v=N` en `index.html` Y en `trabajador.js` (y `NOMBRE_CACHE`). `node scripts/validate.js` lo comprueba.
+- **Al cambiar cualquier JS o CSS:** subir `?v=N` en `index.html` Y en `trabajador.js` (y `NOMBRE_CACHE`). `node scripts/validate.js` lo comprueba.
 
 ## Arrancar en local
 ```bash
