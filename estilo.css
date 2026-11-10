@@ -564,7 +564,7 @@ html, body {
   font-size: .875rem; font-weight: 600; cursor: pointer;
   transition: background .12s;
 }
-.btn-wa:hover { background: #0c6b37; }
+.btn-wa:hover { background: #0c6b37; color: #fff; border-color: transparent; }  /* el botón relleno mantiene texto blanco */
 .btn-ver:hover    { border-color: var(--ok);     color: var(--ok); }
 .btn-pagar:hover  { border-color: var(--ok);     color: var(--ok); }
 
