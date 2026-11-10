@@ -294,7 +294,7 @@ html, body {
   background: transparent;
   border: none;
   color: var(--texto2);
-  font-size: .68rem;
+  font-size: .72rem;   /* ≥ 11 px: legible con 6 pestañas */
   font-weight: 500;
   cursor: pointer;
   transition: color .12s;

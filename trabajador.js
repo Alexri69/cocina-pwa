@@ -1,24 +1,24 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v54: módulo APPCC (temperaturas, limpieza, recepción, aceite, informe)
+// v55: barra inferior con texto ≥ 11 px
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v54';
+const NOMBRE_CACHE = 'cocina-etiquetas-v55';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=54',
+  './estilo.css?v=55',
   './manifest.json',
-  './core/voz.js?v=54',
-  './core/supabase.js?v=54',
-  './modulos/etiquetas.js?v=54',
-  './modulos/menu.js?v=54',
-  './modulos/bebidas.js?v=54',
-  './modulos/facturas.js?v=54',
-  './modulos/auth.js?v=54',
-  './modulos/config.js?v=54',
-  './modulos/appcc.js?v=54',
-  './app.js?v=54',
+  './core/voz.js?v=55',
+  './core/supabase.js?v=55',
+  './modulos/etiquetas.js?v=55',
+  './modulos/menu.js?v=55',
+  './modulos/bebidas.js?v=55',
+  './modulos/facturas.js?v=55',
+  './modulos/auth.js?v=55',
+  './modulos/config.js?v=55',
+  './modulos/appcc.js?v=55',
+  './app.js?v=55',
   './lib/jspdf.umd.min.js',
   './iconos/icono-192.png',
   './iconos/icono-512.png'
