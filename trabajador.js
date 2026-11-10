@@ -1,26 +1,26 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v64: iconos Lucide en toda la app; fondo de cocina tenue
+// v65: iconos más gruesos y tarjetas del inicio más presentes
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v64';
+const NOMBRE_CACHE = 'cocina-etiquetas-v65';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=64',
+  './estilo.css?v=65',
   './manifest.json',
-  './core/voz.js?v=64',
-  './core/supabase.js?v=64',
-  './modulos/etiquetas.js?v=64',
-  './modulos/menu.js?v=64',
-  './modulos/bebidas.js?v=64',
-  './modulos/facturas.js?v=64',
-  './modulos/auth.js?v=64',
-  './modulos/config.js?v=64',
-  './modulos/appcc.js?v=64',
-  './modulos/cartaqr.js?v=64',
-  './modulos/equipo.js?v=64',
-  './app.js?v=64',
+  './core/voz.js?v=65',
+  './core/supabase.js?v=65',
+  './modulos/etiquetas.js?v=65',
+  './modulos/menu.js?v=65',
+  './modulos/bebidas.js?v=65',
+  './modulos/facturas.js?v=65',
+  './modulos/auth.js?v=65',
+  './modulos/config.js?v=65',
+  './modulos/appcc.js?v=65',
+  './modulos/cartaqr.js?v=65',
+  './modulos/equipo.js?v=65',
+  './app.js?v=65',
   './lib/jspdf.umd.min.js',
   './lib/qrcode.min.js',
   './img/fondo-cocina.webp',
