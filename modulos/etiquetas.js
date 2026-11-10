@@ -558,28 +558,46 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     else                                            btn.textContent = '🔔 Activar avisos';
   }
 
+  // Muestra una notificación (a través del Service Worker si se puede: es lo que
+  // funciona también en Android y con la app instalada).
+  async function _mostrarNotificacion(titulo, opciones) {
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      if (reg) { await reg.showNotification(titulo, opciones); return true; }
+    } catch {}
+    try { new Notification(titulo, opciones); return true; } catch { return false; }
+  }
+
   async function _activarNotificaciones() {
     if (!('Notification' in window)) { alert('Tu navegador no soporta notificaciones.'); return; }
-    if (Notification.permission === 'granted') {
-      _revisarYAvisar();
-      return;
-    }
     if (Notification.permission === 'denied') {
-      alert('Has bloqueado las notificaciones. Reactívalas desde el icono del candado en la barra de direcciones.');
+      alert('Las notificaciones están bloqueadas para esta página.\n\nPara activarlas: pulsa el icono a la izquierda de la dirección (candado o ajustes) → Notificaciones → Permitir, y recarga la página.');
       return;
     }
-    const r = await Notification.requestPermission();
-    _actualizarBtnNotif();
-    if (r === 'granted') {
-      try {
-        new Notification('Cocina · Avisos activados', {
-          body: 'Te avisaremos cuando los productos estén a punto de caducar.',
-          icon: 'iconos/icono-192.png'
-        });
-      } catch {}
-      _revisarYAvisar();
-      _iniciarRevisionPeriodica();
+    if (Notification.permission !== 'granted') {
+      const r = await Notification.requestPermission();
+      _actualizarBtnNotif();
+      if (r !== 'granted') { aviso('No se han activado los avisos (permiso no concedido).', { tipo: 'error' }); return; }
     }
+
+    // Registrar este dispositivo para los avisos diarios con la app cerrada
+    let registrado = false;
+    try { if (typeof _suscribirPush === 'function') registrado = await _suscribirPush(); } catch {}
+
+    // Notificación de prueba: confirma que el sistema operativo las deja pasar
+    const ok = await _mostrarNotificacion('🔔 Cocina · Avisos activos', {
+      body: 'Así te llegarán los avisos de productos caducados o a punto de caducar.',
+      icon: 'iconos/icono-192.png',
+      tag:  'cocina-prueba'
+    });
+    aviso(
+      (ok ? '✔ Avisos activos: te hemos enviado una notificación de prueba. ' : '⚠ El navegador no ha podido mostrar la notificación. ')
+      + (registrado ? 'Este dispositivo recibirá el aviso diario aunque la app esté cerrada. ' : '')
+      + 'Si no ves la notificación, revisa que Windows permita las notificaciones de tu navegador (Configuración → Sistema → Notificaciones) y que no esté activado "No molestar".',
+      { tipo: ok ? 'ok' : 'error', ms: 12000 }
+    );
+    _revisarYAvisar();
+    _iniciarRevisionPeriodica();
   }
 
   async function _revisarYAvisar() {

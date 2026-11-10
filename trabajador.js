@@ -1,23 +1,23 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v48: avisa de versión nueva sin recargar a la fuerza; jsPDF local para PDF offline
+// v49: botón de avisos con notificación de prueba y registro push inmediato
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v48';
+const NOMBRE_CACHE = 'cocina-etiquetas-v49';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
   './estilo.css',
   './manifest.json',
-  './core/voz.js?v=48',
-  './core/supabase.js?v=48',
-  './modulos/etiquetas.js?v=48',
-  './modulos/menu.js?v=48',
-  './modulos/bebidas.js?v=48',
-  './modulos/facturas.js?v=48',
-  './modulos/auth.js?v=48',
-  './modulos/config.js?v=48',
-  './app.js?v=48',
+  './core/voz.js?v=49',
+  './core/supabase.js?v=49',
+  './modulos/etiquetas.js?v=49',
+  './modulos/menu.js?v=49',
+  './modulos/bebidas.js?v=49',
+  './modulos/facturas.js?v=49',
+  './modulos/auth.js?v=49',
+  './modulos/config.js?v=49',
+  './app.js?v=49',
   './lib/jspdf.umd.min.js',
   './iconos/icono-192.png',
   './iconos/icono-512.png'

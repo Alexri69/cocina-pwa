@@ -217,14 +217,16 @@ function _b64ToU8(b64) {
   return a;
 }
 
+// Devuelve true si el dispositivo quedó registrado en Supabase para recibir avisos.
 async function _suscribirPush() {
   try {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: _b64ToU8(VAPID_PUBLIC) });
     await SB.guardarPushSub(sub);
-  } catch (e) { console.warn('[App] No se pudo suscribir a push:', e); }
+    return true;
+  } catch (e) { console.warn('[App] No se pudo suscribir a push:', e); return false; }
 }
 
 // ---- Alertas de caducidad ----
