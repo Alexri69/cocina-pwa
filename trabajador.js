@@ -1,23 +1,23 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v50: botón de avisos verde (activos) / rojo (desactivados)
+// v51: estilo.css versionado y precache sin caché HTTP (evita archivos antiguos)
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v50';
+const NOMBRE_CACHE = 'cocina-etiquetas-v51';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css',
+  './estilo.css?v=51',
   './manifest.json',
-  './core/voz.js?v=50',
-  './core/supabase.js?v=50',
-  './modulos/etiquetas.js?v=50',
-  './modulos/menu.js?v=50',
-  './modulos/bebidas.js?v=50',
-  './modulos/facturas.js?v=50',
-  './modulos/auth.js?v=50',
-  './modulos/config.js?v=50',
-  './app.js?v=50',
+  './core/voz.js?v=51',
+  './core/supabase.js?v=51',
+  './modulos/etiquetas.js?v=51',
+  './modulos/menu.js?v=51',
+  './modulos/bebidas.js?v=51',
+  './modulos/facturas.js?v=51',
+  './modulos/auth.js?v=51',
+  './modulos/config.js?v=51',
+  './app.js?v=51',
   './lib/jspdf.umd.min.js',
   './iconos/icono-192.png',
   './iconos/icono-512.png'
@@ -27,11 +27,14 @@ const ARCHIVOS_A_CACHEAR = [
 self.addEventListener('install', (e) => {
   self.skipWaiting();
   e.waitUntil(
-    caches.open(NOMBRE_CACHE).then(cache =>
-      cache.addAll(ARCHIVOS_A_CACHEAR).catch(() =>
-        cache.addAll(ARCHIVOS_A_CACHEAR.filter(f => !f.includes('iconos')))
-      )
-    )
+    // cache: 'reload' → pedir SIEMPRE al servidor, sin usar la caché HTTP del navegador
+    // (GitHub Pages la guarda 10 min y se colaban versiones antiguas de los archivos)
+    caches.open(NOMBRE_CACHE).then(cache => {
+      const pedir = lista => cache.addAll(lista.map(u => new Request(u, { cache: 'reload' })));
+      return pedir(ARCHIVOS_A_CACHEAR).catch(() =>
+        pedir(ARCHIVOS_A_CACHEAR.filter(f => !f.includes('iconos')))
+      );
+    })
   );
 });
 

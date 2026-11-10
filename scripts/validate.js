@@ -56,7 +56,10 @@ try {
   for (const a of enSw) {
     if (!fs.existsSync(path.join(ROOT, a.split('?')[0]))) { errors++; console.error(`❌ trabajador.js precachea "${a}", que no existe`); }
   }
-  const enIndex = [...index.matchAll(/<script[^>]*\bsrc="(?!https?:)([^"]+)"/g)].map(m => m[1]);
+  const enIndex = [
+    ...[...index.matchAll(/<script[^>]*\bsrc="(?!https?:)([^"]+)"/g)].map(m => m[1]),
+    ...[...index.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="(?!https?:)([^"]+)"/g)].map(m => m[1]),
+  ];
   for (const s of enIndex) {
     if (!enSw.includes(s)) { errors++; console.error(`❌ index.html carga "${s}" pero trabajador.js no lo precachea (¿falta subir ?v= en los dos?)`); }
   }
