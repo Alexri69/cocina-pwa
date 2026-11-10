@@ -17,6 +17,7 @@ const ModuloBebidas = (() => {
   ];
 
   let _idEditando = null;
+  let _bebidas    = [];
 
   // ----------------------------------------------------------
   // VISTAS
@@ -37,6 +38,7 @@ const ModuloBebidas = (() => {
     lista.innerHTML = '<p class="texto-vacio">Cargando…</p>';
     try {
       const items = await SB.obtenerBebidas();
+      _bebidas = items || [];
       if (!items?.length) {
         lista.innerHTML = '<p class="texto-vacio">No hay bebidas. Añade la primera.</p>';
         return;
@@ -49,15 +51,15 @@ const ModuloBebidas = (() => {
             <div class="card-plato-precio">${b.precio > 0 ? b.precio.toFixed(2) + ' €' : ''}</div>
           </div>
           ${b.descripcion ? `<div class="card-plato-desc">${_esc(b.descripcion)}</div>` : ''}
-          <div class="card-plato-ingredientes">${cat?.label ?? b.categoria}</div>
+          <div class="card-plato-ingredientes">${cat?.label ?? _esc(b.categoria)}</div>
           <div class="card-acciones">
             <button class="btn-mini btn-editar" onclick="ModuloBebidas.editarBebida('${b.id}')">✏ Editar</button>
-            <button class="btn-mini btn-borrar" onclick="ModuloBebidas.borrarBebida('${b.id}','${b.nombre.replace(/'/g, "\\'")}')">🗑 Eliminar</button>
+            <button class="btn-mini btn-borrar" onclick="ModuloBebidas.borrarBebida('${b.id}')">🗑 Eliminar</button>
           </div>
         </div>`;
       }).join('');
     } catch (e) {
-      lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${e.message}</p>`;
+      lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${_esc(e.message)}</p>`;
     }
   }
 
@@ -78,9 +80,14 @@ const ModuloBebidas = (() => {
     document.getElementById('beb-nombre').focus();
   }
 
-  async function borrarBebida(id, nombre) {
+  async function borrarBebida(id) {
+    const nombre = _bebidas.find(b => b.id === id)?.nombre || 'esta bebida';
     if (!confirm(`¿Eliminar la bebida "${nombre}"?`)) return;
-    await SB.eliminarBebida(id);
+    try {
+      await SB.eliminarBebida(id);
+    } catch (e) {
+      alert('Error al eliminar la bebida: ' + e.message);
+    }
     await _renderLista();
   }
 

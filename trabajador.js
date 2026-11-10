@@ -1,23 +1,24 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v37: vuelve a stale-while-revalidate para evitar cuelgues
+// v48: avisa de versión nueva sin recargar a la fuerza; jsPDF local para PDF offline
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v47';
+const NOMBRE_CACHE = 'cocina-etiquetas-v48';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
   './estilo.css',
   './manifest.json',
-  './core/voz.js?v=47',
-  './core/supabase.js?v=47',
-  './modulos/etiquetas.js?v=47',
-  './modulos/menu.js?v=47',
-  './modulos/bebidas.js?v=47',
-  './modulos/facturas.js?v=47',
-  './modulos/auth.js?v=47',
-  './modulos/config.js?v=47',
-  './app.js?v=47',
+  './core/voz.js?v=48',
+  './core/supabase.js?v=48',
+  './modulos/etiquetas.js?v=48',
+  './modulos/menu.js?v=48',
+  './modulos/bebidas.js?v=48',
+  './modulos/facturas.js?v=48',
+  './modulos/auth.js?v=48',
+  './modulos/config.js?v=48',
+  './app.js?v=48',
+  './lib/jspdf.umd.min.js',
   './iconos/icono-192.png',
   './iconos/icono-512.png'
 ];

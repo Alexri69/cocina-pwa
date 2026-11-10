@@ -4,9 +4,20 @@
 
 // ---- Service Worker ----
 if ('serviceWorker' in navigator) {
+  // Si ya había un SW controlando la página, un SW nuevo = versión nueva de la app.
+  // En vez de recargar a la fuerza (se perdería lo que se esté escribiendo), se avisa.
+  const _habiaControlador = !!navigator.serviceWorker.controller;
+  let _avisoVersionMostrado = false;
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data?.tipo !== 'SW_ACTUALIZADO' || !_habiaControlador || _avisoVersionMostrado) return;
+    _avisoVersionMostrado = true;
+    aviso('Hay una versión nueva de la app.', {
+      ms: 0,
+      accion: { texto: 'Actualizar', fn: () => location.reload() }
+    });
+  });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./trabajador.js')
-      .then(r => console.log('[App] SW registrado:', r.scope))
       .catch(e => console.error('[App] SW error:', e));
   });
 }
@@ -60,12 +71,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const _mParam = new URLSearchParams(location.search).get('m');
   navegarA(_mParam || sessionStorage.getItem('moduloActivo') || 'dashboard');
 
-  // Inicializar módulos
-  await ModuloEtiquetas.init();
-  await ModuloMenu.init();
-  await ModuloBebidas.init();
-  await ModuloFacturas.init();
-  await ModuloConfig.init();
+  // Inicializar módulos en paralelo (son independientes). Si uno falla, el resto arranca igual.
+  const modulos = { ModuloConfig, ModuloEtiquetas, ModuloMenu, ModuloBebidas, ModuloFacturas };
+  const res = await Promise.allSettled(Object.values(modulos).map(m => m.init()));
+  res.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      console.error(`[App] Error iniciando ${Object.keys(modulos)[i]}:`, r.reason);
+      aviso('Algunos datos no se han podido cargar: ' + (r.reason?.message || r.reason), { tipo: 'error', ms: 7000 });
+    }
+  });
+
+  // Cambios guardados sin conexión que el servidor rechazó al sincronizar
+  _avisarErroresSync();
 
   // Estado de conexión inicial
   _actualizarBannerOffline();
@@ -113,6 +130,35 @@ window.addEventListener('online',  _actualizarBannerOffline);
 window.addEventListener('offline', _actualizarBannerOffline);
 // El outbox avisa de cambios pendientes (al encolar o al sincronizar)
 window.addEventListener('cocina:pendientes', _actualizarBannerOffline);
+window.addEventListener('cocina:errores-sync', () => _avisarErroresSync());
+
+// ---- Cambios que no se pudieron sincronizar ----
+
+function _describirOp(op) {
+  const nombres = { productos: 'Etiqueta', ingredientes: 'Ingrediente', platos: 'Plato', bebidas: 'Bebida', facturas: 'Factura/presupuesto' };
+  const accion  = { POST: 'crear', PATCH: 'modificar', DELETE: 'eliminar' }[op.metodo] || op.metodo;
+  const que     = op.datos?.nombre || op.datos?.numero || op.datos?.cliente || op.id || '';
+  return `${nombres[op.tabla] || op.tabla} (${accion}) ${que}`.trim();
+}
+
+function _avisarErroresSync() {
+  const errores = SB.erroresSync();
+  if (!errores.length) return;
+  aviso(`${errores.length} cambio(s) hechos sin conexión no se pudieron guardar en el servidor.`, {
+    tipo: 'error', ms: 0,
+    accion: {
+      texto: 'Ver',
+      fn: () => {
+        const lista = errores.map(e => '• ' + _describirOp(e) + '\n   Motivo: ' + e.error).join('\n');
+        if (confirm(`Estos cambios no se guardaron:\n\n${lista}\n\nRevísalos y vuelve a hacerlos si hace falta.\n\n¿Quitar este aviso?`)) {
+          SB.descartarErroresSync();
+        } else {
+          _avisarErroresSync();
+        }
+      }
+    }
+  });
+}
 
 // ---- Búsqueda global ----
 
@@ -153,7 +199,7 @@ async function _ejecutarBusqueda(q) {
                + filtrar(bebidas, '🥤', 'Bebida',      i => `navegarA('bebidas');ModuloBebidas.editarBebida('${i.id}');_cerrarBusqueda()`)
                + filtrar(ings,    '🥬', 'Ingrediente', i => `navegarA('menu');ModuloMenu.editarIngrediente('${i.id}');_cerrarBusqueda()`);
 
-    res.innerHTML = html || '<p style="padding:16px;color:var(--texto2);text-align:center">Sin resultados para "' + q + '"</p>';
+    res.innerHTML = html || '<p style="padding:16px;color:var(--texto2);text-align:center">Sin resultados para "' + esc(q) + '"</p>';
   } catch (e) {
     res.innerHTML = '<p style="padding:16px;color:var(--err)">Error al buscar</p>';
   }
@@ -199,14 +245,8 @@ async function _comprobarCaducidades() {
         : await Notification.requestPermission();
       if (perm === 'granted') {
         _suscribirPush();   // registrar el dispositivo para avisos con la app cerrada
-        const partes = [];
-        if (caducados.length) partes.push(`${caducados.length} caducado${caducados.length > 1 ? 's' : ''}`);
-        if (proximos.length)  partes.push(`${proximos.length} próximo${proximos.length > 1 ? 's' : ''} a caducar`);
-        new Notification('🍽 Cocina — Alerta de caducidad', {
-          body: partes.join(' · '),
-          icon: './iconos/icono-192.png',
-          tag:  'cocina-caducidad'
-        });
+        // Un único aviso resumen y solo de productos nuevos (no se repite en cada apertura)
+        ModuloEtiquetas.revisarYAvisar();
       }
     }
   } catch (e) { console.warn('[App] Error comprobando caducidades:', e); }

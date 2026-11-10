@@ -47,6 +47,23 @@ for (const f of list(ROOT, ['.json', '.webmanifest'])) {
   catch (e) { errors++; console.error(`❌ ${rel(f)} — JSON inválido: ${e.message}`); }
 }
 
+// ── Service Worker: los archivos precacheados existen y sus ?v= coinciden con index.html ──
+try {
+  const sw    = fs.readFileSync(path.join(ROOT, 'trabajador.js'), 'utf8');
+  const index = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const lista = (sw.match(/ARCHIVOS_A_CACHEAR\s*=\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  const enSw  = [...lista.matchAll(/'([^']+)'/g)].map(m => m[1].replace(/^\.\//, ''));
+  for (const a of enSw) {
+    if (!fs.existsSync(path.join(ROOT, a.split('?')[0]))) { errors++; console.error(`❌ trabajador.js precachea "${a}", que no existe`); }
+  }
+  const enIndex = [...index.matchAll(/<script[^>]*\bsrc="(?!https?:)([^"]+)"/g)].map(m => m[1]);
+  for (const s of enIndex) {
+    if (!enSw.includes(s)) { errors++; console.error(`❌ index.html carga "${s}" pero trabajador.js no lo precachea (¿falta subir ?v= en los dos?)`); }
+  }
+  if (!/ARCHIVOS_A_CACHEAR/.test(sw)) throw new Error('sin lista');
+  console.log(`✅ trabajador.js (${enSw.length} archivos precacheados, coherentes con index.html)`);
+} catch (e) { errors++; console.error('❌ No se pudo comprobar el Service Worker: ' + e.message); }
+
 console.log(`\n${jsFiles} JS · ${htmlBlocks} bloques HTML · ${errors} error(es)`);
 if (errors) { console.error('🚫 Validación FALLIDA.'); process.exit(1); }
 console.log('🎉 Todo correcto.');

@@ -82,7 +82,7 @@ const ModuloMenu = (() => {
       const items = await SB.obtenerIngredientes();
       _todosIngredientes = (items || []).slice().sort(_ordAlfa);
       _pintarIngredientes();
-    } catch (e) { lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${e.message}</p>`; }
+    } catch (e) { lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${_esc(e.message)}</p>`; }
   }
 
   function _pintarIngredientes() {
@@ -94,21 +94,21 @@ const ModuloMenu = (() => {
     }
     const filtrados = _todosIngredientes.filter(i => _coincide(i.nombre, _busquedaIng));
     if (!filtrados.length) {
-      lista.innerHTML = `<p class="texto-vacio">Ningún ingrediente coincide con "${_busquedaIng}".</p>`;
+      lista.innerHTML = `<p class="texto-vacio">Ningún ingrediente coincide con "${_esc(_busquedaIng)}".</p>`;
       return;
     }
     lista.innerHTML = filtrados.map(ing => {
       const badges = ing.alergenos?.length
-        ? ing.alergenos.map(a => { const i = ALERGENOS_INFO.find(x => x.nombre === a); return `<span class="badge-alergeno" title="${a}">${i?.emoji ?? ''} ${a}</span>`; }).join('')
+        ? ing.alergenos.map(a => { const i = ALERGENOS_INFO.find(x => x.nombre === a); return `<span class="badge-alergeno" title="${_esc(a)}">${i?.emoji ?? ''} ${_esc(a)}</span>`; }).join('')
         : '<span class="badge-sin-alergenos">Sin alérgenos</span>';
       return `<div class="card-ingrediente" data-id="${ing.id}">
         <div class="card-ing-info">
-          <span class="card-ing-nombre">${ing.nombre}</span>
+          <span class="card-ing-nombre">${_esc(ing.nombre)}</span>
           <div class="badges-alergenos">${badges}</div>
         </div>
         <div class="card-acciones">
           <button class="btn-mini btn-editar" onclick="ModuloMenu.editarIngrediente('${ing.id}')" title="Editar">✏ Editar</button>
-          <button class="btn-mini btn-borrar" onclick="ModuloMenu.borrarIngrediente('${ing.id}','${ing.nombre.replace(/'/g,"\\'")}');" title="Eliminar">🗑 Eliminar</button>
+          <button class="btn-mini btn-borrar" onclick="ModuloMenu.borrarIngrediente('${ing.id}')" title="Eliminar">🗑 Eliminar</button>
         </div>
       </div>`;
     }).join('');
@@ -129,18 +129,25 @@ const ModuloMenu = (() => {
     document.getElementById('ing-nombre').focus();
   }
 
-  async function borrarIngrediente(id, nombre) {
+  async function borrarIngrediente(id) {
+    const nombre = _todosIngredientes.find(i => i.id === id)?.nombre || 'este ingrediente';
     if (!confirm(`¿Eliminar el ingrediente "${nombre}"?\nSe eliminará también de los platos que lo usen.`)) return;
-    await SB.eliminarIngrediente(id);
-    const platos = await SB.obtenerPlatos();
-    for (const plato of platos) {
-      if (plato.ingredientes?.some(i => i.id === id)) {
-        const ingsFiltrados = plato.ingredientes.filter(i => i.id !== id);
-        const alergenos     = await _calcularAlergenos(ingsFiltrados.map(i => i.id));
-        await SB.actualizarPlato({ ...plato, ingredientes: ingsFiltrados, alergenos });
+    try {
+      await SB.eliminarIngrediente(id);
+      const [platos, ings] = await Promise.all([SB.obtenerPlatos(), SB.obtenerIngredientes()]);
+      const restantes = (ings || []).filter(i => i.id !== id);
+      for (const plato of platos) {
+        if (plato.ingredientes?.some(i => i.id === id)) {
+          const ingsFiltrados = plato.ingredientes.filter(i => i.id !== id);
+          const alergenos     = _alergenosDe(ingsFiltrados.map(i => i.id), restantes);
+          await SB.actualizarPlato({ ...plato, ingredientes: ingsFiltrados, alergenos });
+        }
       }
+    } catch (e) {
+      alert('Error al eliminar el ingrediente: ' + e.message);
     }
     await _renderIngredientes();
+    await _renderSelectorIngredientes();
     await _renderPlatos();
   }
 
@@ -155,12 +162,15 @@ const ModuloMenu = (() => {
         return cb?.checked;
       });
       if (_idIngredienteEditando !== null) {
-        await SB.actualizarIngrediente({ id: _idIngredienteEditando, nombre, alergenos });
-        const platos = await SB.obtenerPlatos();
+        const idEd = _idIngredienteEditando;
+        await SB.actualizarIngrediente({ id: idEd, nombre, alergenos });
+        const [platos, ings] = await Promise.all([SB.obtenerPlatos(), SB.obtenerIngredientes()]);
+        // Asegurar que el cálculo usa los alérgenos recién guardados (aunque la caché vaya por detrás)
+        const ingsAct = (ings || []).map(i => i.id === idEd ? { ...i, nombre, alergenos } : i);
         for (const plato of platos) {
-          if (plato.ingredientes?.some(i => i.id === _idIngredienteEditando)) {
-            const ingsActualizados = plato.ingredientes.map(i => i.id === _idIngredienteEditando ? { ...i, nombre } : i);
-            const nuevosAl         = await _calcularAlergenos(ingsActualizados.map(i => i.id));
+          if (plato.ingredientes?.some(i => i.id === idEd)) {
+            const ingsActualizados = plato.ingredientes.map(i => i.id === idEd ? { ...i, nombre } : i);
+            const nuevosAl         = _alergenosDe(ingsActualizados.map(i => i.id), ingsAct);
             await SB.actualizarPlato({ ...plato, ingredientes: ingsActualizados, alergenos: nuevosAl });
           }
         }
@@ -198,13 +208,17 @@ const ModuloMenu = (() => {
   // PLATOS
   // ----------------------------------------------------------
 
-  async function _calcularAlergenos(idsIngredientes) {
+  // Une los alérgenos de los ingredientes indicados (en el orden oficial de la lista)
+  function _alergenosDe(idsIngredientes, ingredientes) {
+    const porId = new Map((ingredientes || []).map(i => [i.id, i]));
     const conjunto = new Set();
-    for (const id of idsIngredientes) {
-      const ing = await SB.obtenerIngrediente(id);
-      if (ing) ing.alergenos?.forEach(a => conjunto.add(a));
-    }
-    return [...conjunto];
+    for (const id of idsIngredientes) porId.get(id)?.alergenos?.forEach(a => conjunto.add(a));
+    return NOMBRES_ALERGENOS.filter(a => conjunto.has(a)).concat([...conjunto].filter(a => !NOMBRES_ALERGENOS.includes(a)));
+  }
+
+  // Antes hacía una petición al servidor por cada ingrediente; ahora una sola.
+  async function _calcularAlergenos(idsIngredientes) {
+    return _alergenosDe(idsIngredientes, await SB.obtenerIngredientes());
   }
 
   async function _renderSelectorIngredientes() {
@@ -217,9 +231,9 @@ const ModuloMenu = (() => {
       return;
     }
     cont.innerHTML = _todosIngredientes.map(ing => `
-      <label class="check-ingrediente" data-nombre-busqueda="${ing.nombre.toLowerCase()}">
-        <input type="checkbox" class="plato-ing-check" value="${ing.id}" data-nombre="${ing.nombre}">
-        ${ing.nombre}
+      <label class="check-ingrediente" data-nombre-busqueda="${_esc(ing.nombre.toLowerCase())}">
+        <input type="checkbox" class="plato-ing-check" value="${ing.id}" data-nombre="${_esc(ing.nombre)}">
+        ${_esc(ing.nombre)}
         ${ing.alergenos?.length ? '<small>(' + ing.alergenos.map(a => { const i = ALERGENOS_INFO.find(x => x.nombre === a); return i?.emoji ?? a; }).join(' ') + ')</small>' : ''}
       </label>`).join('');
     cont.querySelectorAll('.plato-ing-check').forEach(cb => cb.addEventListener('change', _actualizarAlergenos_realtime));
@@ -236,11 +250,12 @@ const ModuloMenu = (() => {
 
   async function _actualizarAlergenos_realtime() {
     const ids       = [...document.querySelectorAll('.plato-ing-check:checked')].map(cb => cb.value);
-    const alergenos = await _calcularAlergenos(ids);
+    // Vista previa al marcar casillas: con los ingredientes ya cargados en memoria (sin red)
+    const alergenos = _alergenosDe(ids, _todosIngredientes);
     const div       = document.getElementById('plato-alergenos-calculados');
     if (!div) return;
     div.innerHTML = alergenos.length
-      ? alergenos.map(a => { const i = ALERGENOS_INFO.find(x => x.nombre === a); return `<span class="badge-alergeno">${i?.emoji ?? ''} ${a}</span>`; }).join('')
+      ? alergenos.map(a => { const i = ALERGENOS_INFO.find(x => x.nombre === a); return `<span class="badge-alergeno">${i?.emoji ?? ''} ${_esc(a)}</span>`; }).join('')
       : '<span class="badge-sin-alergenos">Ninguno</span>';
   }
 
@@ -252,7 +267,7 @@ const ModuloMenu = (() => {
       const platos = await SB.obtenerPlatos();
       _todosPlatos = (platos || []).slice().sort(_ordAlfa);
       _pintarPlatos();
-    } catch (e) { lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${e.message}</p>`; }
+    } catch (e) { lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${_esc(e.message)}</p>`; }
   }
 
   function _pintarPlatos() {
@@ -265,31 +280,31 @@ const ModuloMenu = (() => {
     }
     const filtrados = _todosPlatos.filter(p => _coincide(p.nombre, _busquedaPlato));
     if (!filtrados.length) {
-      lista.innerHTML = `<p class="texto-vacio">Ningún plato coincide con "${_busquedaPlato}".</p>`;
+      lista.innerHTML = `<p class="texto-vacio">Ningún plato coincide con "${_esc(_busquedaPlato)}".</p>`;
       _actualizarBotonPdfSeleccion();
       return;
     }
     lista.innerHTML = filtrados.map(plato => {
       const badgesAl = plato.alergenos?.length
-        ? plato.alergenos.map(a => { const i = ALERGENOS_INFO.find(x => x.nombre === a); return `<span class="badge-alergeno" title="${a}">${i?.emoji ?? ''} ${a}</span>`; }).join('')
+        ? plato.alergenos.map(a => { const i = ALERGENOS_INFO.find(x => x.nombre === a); return `<span class="badge-alergeno" title="${_esc(a)}">${i?.emoji ?? ''} ${_esc(a)}</span>`; }).join('')
         : '<span class="badge-sin-alergenos">Sin alérgenos</span>';
-      const ings = plato.ingredientes?.slice(0, 4).map(i => i.nombre).join(', ') + (plato.ingredientes?.length > 4 ? '…' : '');
+      const ings = _esc((plato.ingredientes || []).slice(0, 4).map(i => i.nombre).join(', ')) + (plato.ingredientes?.length > 4 ? '…' : '');
       const sel  = _platoSeleccionados.has(plato.id) ? 'checked' : '';
       return `<div class="card-plato" data-id="${plato.id}">
         <div class="card-plato-cabecera">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1">
             <input type="checkbox" class="plato-select" value="${plato.id}" ${sel} style="width:18px;height:18px">
-            <span class="card-plato-nombre">${plato.nombre}</span>
+            <span class="card-plato-nombre">${_esc(plato.nombre)}</span>
           </label>
           <div class="card-plato-precio">${plato.precio > 0 ? plato.precio.toFixed(2) + ' €' : ''}</div>
         </div>
-        ${plato.descripcion ? `<div class="card-plato-desc">${plato.descripcion}</div>` : ''}
+        ${plato.descripcion ? `<div class="card-plato-desc">${_esc(plato.descripcion)}</div>` : ''}
         <div class="card-plato-ingredientes">🥄 ${ings || 'Sin ingredientes asignados'}</div>
         <div class="badges-alergenos">${badgesAl}</div>
         <div class="card-acciones">
           <button class="btn-mini btn-editar" onclick="ModuloMenu.editarPlato('${plato.id}')">✏ Editar</button>
           <button class="btn-mini btn-pagar"  onclick="ModuloMenu.imprimirPlato('${plato.id}')">📄 PDF</button>
-          <button class="btn-mini btn-borrar" onclick="ModuloMenu.borrarPlato('${plato.id}','${plato.nombre.replace(/'/g,"\\'")}');">🗑 Eliminar</button>
+          <button class="btn-mini btn-borrar" onclick="ModuloMenu.borrarPlato('${plato.id}')">🗑 Eliminar</button>
         </div>
       </div>`;
     }).join('');
@@ -432,9 +447,15 @@ ${platos.map(_platoToHtml).join('')}
     document.getElementById('plato-nombre').focus();
   }
 
-  async function borrarPlato(id, nombre) {
+  async function borrarPlato(id) {
+    const nombre = _todosPlatos.find(p => p.id === id)?.nombre || 'este plato';
     if (!confirm(`¿Eliminar el plato "${nombre}" de la carta?`)) return;
-    await SB.eliminarPlato(id);
+    try {
+      await SB.eliminarPlato(id);
+      _platoSeleccionados.delete(id);
+    } catch (e) {
+      alert('Error al eliminar el plato: ' + e.message);
+    }
     await _renderPlatos();
   }
 

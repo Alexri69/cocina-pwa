@@ -43,16 +43,42 @@ const ModuloConfig = (() => {
     if (quitar)  quitar.style.display = logo ? '' : 'none';
   }
 
-  function _subirLogo(archivo) {
+  // Reduce el logo a un máximo de 400 px (PNG) antes de guardarlo: una foto de móvil
+  // de varios MB llenaba el almacenamiento del navegador (≈5 MB) y rompía la app.
+  function _reducirImagen(archivo, maxLado = 400) {
+    return new Promise((ok, err) => {
+      const url = URL.createObjectURL(archivo);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const k = Math.min(1, maxLado / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width  = Math.max(1, Math.round(img.width * k));
+        c.height = Math.max(1, Math.round(img.height * k));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        ok(c.toDataURL('image/png'));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); err(new Error('No se ha podido leer la imagen.')); };
+      img.src = url;
+    });
+  }
+
+  async function _subirLogo(archivo) {
     if (!archivo) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      localStorage.setItem(CLAVE_LOGO, e.target.result);
+    if (!archivo.type.startsWith('image/')) { alert('Elige un archivo de imagen (PNG o JPG).'); return; }
+    try {
+      const dataUrl = await _reducirImagen(archivo);
+      localStorage.setItem(CLAVE_LOGO, dataUrl);
       _cargarLogoEnUI();
       _actualizarCabecera();
       _pushRemota();
-    };
-    reader.readAsDataURL(archivo);
+      _mostrarMsg('cfg-msg', '✔ Logo guardado');
+    } catch (e) {
+      alert('No se ha podido guardar el logo: ' + (e.message || e));
+    } finally {
+      const inp = document.getElementById('cfg-logo-input');
+      if (inp) inp.value = '';
+    }
   }
 
   function _quitarLogo() {
@@ -213,6 +239,7 @@ const ModuloConfig = (() => {
       }
 
       const resumen = [
+        `${backup.datos.productos?.length ?? 0} etiquetas`,
         `${backup.datos.ingredientes?.length ?? 0} ingredientes`,
         `${backup.datos.platos?.length ?? 0} platos`,
         `${backup.datos.bebidas?.length ?? 0} bebidas`,
@@ -259,8 +286,10 @@ const ModuloConfig = (() => {
       if (!r) return;
       if (r.empresa   && Object.keys(r.empresa).length)   localStorage.setItem(CLAVE_EMP, JSON.stringify(r.empresa));
       if (r.impresora && Object.keys(r.impresora).length) localStorage.setItem(CLAVE_IMP, JSON.stringify(r.impresora));
-      if (r.logo) localStorage.setItem(CLAVE_LOGO, r.logo);
-      else        localStorage.removeItem(CLAVE_LOGO);
+      try {
+        if (r.logo) localStorage.setItem(CLAVE_LOGO, r.logo);
+        else        localStorage.removeItem(CLAVE_LOGO);
+      } catch { /* logo antiguo demasiado grande para el almacenamiento local */ }
       _cargarEnFormulario();
       _cargarImpresora();
       _actualizarCabecera();
@@ -300,8 +329,17 @@ const ModuloConfig = (() => {
     document.getElementById('bkp-input-archivo')?.addEventListener('change', e => _importar(e.target.files[0]));
     document.getElementById('cfg-logo-input')   ?.addEventListener('change', e => _subirLogo(e.target.files[0]));
     document.getElementById('cfg-logo-quitar')  ?.addEventListener('click', _quitarLogo);
-    document.getElementById('cfg-btn-logout')   ?.addEventListener('click', () => {
-      if (confirm('¿Cerrar sesión?')) { SB.logout(); location.reload(); }
+    document.getElementById('cfg-btn-logout')   ?.addEventListener('click', async () => {
+      // Intentar subir antes lo pendiente: al cerrar sesión se borran los datos del dispositivo
+      if (SB.pendientes() && navigator.onLine) await SB.flushOutbox();
+      const pend = SB.pendientes();
+      const msg = pend
+        ? `⚠ Tienes ${pend} cambio(s) sin sincronizar (hechos sin conexión).\nSi cierras sesión ahora SE PERDERÁN.\n\n¿Cerrar sesión de todas formas?`
+        : '¿Cerrar sesión?\n\nSe borrarán de este dispositivo los datos guardados (siguen a salvo en el servidor).';
+      if (!confirm(msg)) return;
+      SB.logout();
+      SB.limpiarDatosLocales(); // que la siguiente persona que use el dispositivo no vea tus datos
+      location.reload();
     });
 
     // Sincronizar con Supabase en segundo plano (trae la config de otros dispositivos)

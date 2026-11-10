@@ -104,29 +104,47 @@ const SB = (() => {
     _guardarSesion(await res.json());
   }
 
+  /** true si hay una sesión guardada (aunque el token haya caducado). Permite entrar sin conexión. */
+  function tieneSesion() {
+    _cargarSesion();
+    return !!_sesion?.refresh_token;
+  }
+
   /**
    * Intenta renovar el token de acceso usando el refresh_token.
-   * Devuelve true si tuvo éxito, false si hay que volver a logarse.
+   * Devuelve true si tuvo éxito, false si la sesión ya no es válida (hay que volver a logarse)
+   * o null si no se pudo comprobar por falta de red (la sesión se conserva).
    */
   async function refrescarSesion() {
     _cargarSesion();
     if (!_sesion?.refresh_token) return false;
+    let res;
     try {
-      const res = await fetch(`${BASE}/auth/v1/token?grant_type=refresh_token`, {
+      res = await fetch(`${BASE}/auth/v1/token?grant_type=refresh_token`, {
         method:  'POST',
         headers: { 'apikey': ANON, 'Content-Type': 'application/json' },
         body:    JSON.stringify({ refresh_token: _sesion.refresh_token })
       });
-      if (!res.ok) { _sesion = null; localStorage.removeItem(CLAVE_SESION); return false; }
-      _guardarSesion(await res.json());
-      return true;
-    } catch { return false; }
+    } catch { return null; } // sin red: no sabemos si es válida → no la borramos
+    if (res.status >= 500) return null; // fallo temporal del servidor
+    if (!res.ok) { _sesion = null; localStorage.removeItem(CLAVE_SESION); return false; }
+    _guardarSesion(await res.json());
+    return true;
   }
 
-  /** Cierra la sesión y limpia el almacenamiento local. */
+  /** Cierra la sesión y borra del dispositivo los datos del usuario (caché, cola, empresa, logo). */
   function logout() {
     _sesion = null;
     localStorage.removeItem(CLAVE_SESION);
+  }
+
+  function limpiarDatosLocales() {
+    const borrar = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('cocina_') && k !== 'cocina_tema') borrar.push(k);
+    }
+    borrar.forEach(k => localStorage.removeItem(k));
   }
 
   // ----------------------------------------------------------
@@ -159,6 +177,7 @@ const SB = (() => {
     // Si el token expiró, intentamos refrescarlo una vez y reintentamos
     if (res.status === 401) {
       const ok = await refrescarSesion();
+      if (ok === null) throw new Error('Sin conexión o error de red. Comprueba tu conexión a internet.');
       if (ok) {
         opciones.headers = { ...opciones.headers, 'Authorization': `Bearer ${_sesion.access_token}` };
         try {
@@ -270,26 +289,59 @@ const SB = (() => {
     }
   }
 
+  // Escrituras que el servidor rechazó (no por red). Se guardan para no perderlas en silencio.
+  const _ERRORES_KEY = 'cocina_outbox_errores';
+  function erroresSync()       { try { return JSON.parse(localStorage.getItem(_ERRORES_KEY)) || []; } catch { return []; } }
+  function descartarErroresSync() { try { localStorage.removeItem(_ERRORES_KEY); } catch {} }
+
+  let _sincronizando = false;
   // Reintenta las escrituras pendientes (al volver la conexión / al iniciar).
   async function flushOutbox() {
-    if (!navigator.onLine) return;
+    if (!navigator.onLine || _sincronizando) return;
     const q = _outboxLeer();
     if (!q.length) return;
+    _sincronizando = true;
     const restantes = [];
-    for (const op of q) {
-      try {
-        if (op.metodo === 'POST')
-          await _req(`${op.tabla}?on_conflict=id`, { method: 'POST', headers: _cab({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(op.datos) });
-        else if (op.metodo === 'PATCH')
-          await _req(`${op.tabla}?id=eq.${op.id}`, { method: 'PATCH', headers: _cab({ 'Prefer': 'return=minimal' }), body: JSON.stringify(op.datos) });
-        else if (op.metodo === 'DELETE')
-          await _req(`${op.tabla}?id=eq.${op.id}`, { method: 'DELETE', headers: _cab({ 'Prefer': '' }) });
-      } catch (e) {
-        if (_esRed(e)) restantes.push(op); // sigue sin conexión → reintentar luego
-        // otros errores (conflicto/validación) se descartan para no atascar la cola
+    const fallidas  = [];
+    try {
+      for (const op of q) {
+        try {
+          await _sinColumnasNuevas(op.datos, (datos) => {
+            if (op.metodo === 'POST')
+              return _req(`${op.tabla}?on_conflict=id`, { method: 'POST', headers: _cab({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(datos) });
+            if (op.metodo === 'PATCH')
+              return _req(`${op.tabla}?id=eq.${op.id}`, { method: 'PATCH', headers: _cab({ 'Prefer': 'return=minimal' }), body: JSON.stringify(datos) });
+            return _req(`${op.tabla}?id=eq.${op.id}`, { method: 'DELETE', headers: _cab({ 'Prefer': '' }) });
+          });
+        } catch (e) {
+          if (_esRed(e)) restantes.push(op); // sigue sin conexión → reintentar luego
+          else fallidas.push({ ...op, error: String(e.message || e).slice(0, 300), fecha: new Date().toISOString() });
+        }
       }
+    } finally {
+      _sincronizando = false;
     }
     _outboxEscribir(restantes);
+    if (fallidas.length) {
+      try { localStorage.setItem(_ERRORES_KEY, JSON.stringify([...erroresSync(), ...fallidas])); } catch {}
+      try { window.dispatchEvent(new CustomEvent('cocina:errores-sync', { detail: fallidas })); } catch {}
+    }
+  }
+
+  // Columnas añadidas en migraciones recientes: si la BD aún no las tiene,
+  // se reintenta sin ellas en vez de fallar el guardado entero.
+  const _COLUMNAS_NUEVAS = ['comensales'];
+  async function _sinColumnasNuevas(datos, fn) {
+    try {
+      return await fn(datos);
+    } catch (e) {
+      const msg = String(e?.message || '');
+      const col = _COLUMNAS_NUEVAS.find(c => datos && c in datos && msg.includes(`'${c}'`));
+      if (!col) throw e;
+      console.warn(`[SB] La columna "${col}" no existe aún en Supabase; ejecuta supabase-setup.sql. Guardando sin ella.`);
+      const { [col]: _omit, ...resto } = datos;
+      return fn(resto);
+    }
   }
 
   if (typeof window !== 'undefined') window.addEventListener('online', () => flushOutbox());
@@ -338,7 +390,9 @@ const SB = (() => {
       if (!r.ok) {
         // Intentar refrescar y reintentar verificación
         const ok = await refrescarSesion();
-        if (ok) {
+        if (ok === null) {
+          throw new Error('Sin conexión o error de red. Comprueba tu conexión a internet.');
+        } else if (ok) {
           const r2 = await fetch(`${BASE}/auth/v1/user`, {
             headers: { 'apikey': ANON, 'Authorization': `Bearer ${_sesion.access_token}` }
           });
@@ -488,8 +542,8 @@ const SB = (() => {
       throw e;
     }
   }
-  const guardarFactura      = (f)  => _post('facturas', { ..._facturaParaBD(f), user_id: _uid() }).then(r => _facturaDeBD(_primero(r)));
-  const actualizarFactura   = (f)  => _patch('facturas', f.id, _facturaParaBD(f)).then(r => _facturaDeBD(_primero(r)));
+  const guardarFactura      = (f)  => _sinColumnasNuevas({ ..._facturaParaBD(f), user_id: _uid() }, d => _post('facturas', d)).then(r => _facturaDeBD(_primero(r)));
+  const actualizarFactura   = (f)  => _sinColumnasNuevas(_facturaParaBD(f), d => _patch('facturas', f.id, d)).then(r => _facturaDeBD(_primero(r)));
   const borrarFactura       = (id) => _delete('facturas', id);
 
   // Devuelve el mayor sufijo numérico de una lista de números (p.ej. "2026-0007" → 7).
@@ -502,16 +556,33 @@ const SB = (() => {
     }, 0);
   }
 
-  async function siguienteNumeroFactura() {
-    const anyo = new Date().getFullYear();
-    const res  = await _get('facturas', `?select=numero&tipo=eq.factura&numero=like.${anyo}-%25`);
-    return `${anyo}-${String(_maxSufijo(res) + 1).padStart(4, '0')}`;
+  // Siguiente número correlativo. Sin conexión se calcula con la copia local
+  // (que incluye lo creado offline), para poder seguir facturando.
+  async function _siguienteNumero(tipo, prefijo, anyo) {
+    const filtroLocal = arr => (arr || []).filter(r => String(r.numero || '').startsWith(prefijo));
+    let enServidor = null;
+    try {
+      enServidor = await _get('facturas', `?select=numero&tipo=eq.${tipo}&numero=like.${prefijo}%25`);
+    } catch (e) {
+      if (!_esRed(e)) throw e;
+    }
+    const local = filtroLocal(_CACHE.leer(tipo === 'presupuesto' ? 'presupuestos' : 'facturas'));
+    const max   = Math.max(_maxSufijo(enServidor || []), _maxSufijo(local));
+    return `${prefijo}${String(max + 1).padStart(4, '0')}`;
   }
 
-  async function siguienteNumeroPresupuesto() {
-    const anyo = new Date().getFullYear();
-    const res  = await _get('facturas', `?select=numero&tipo=eq.presupuesto&numero=like.PRES-${anyo}-%25`);
-    return `PRES-${anyo}-${String(_maxSufijo(res) + 1).padStart(4, '0')}`;
+  // El año del número sigue al año de la fecha de la factura (no al año actual).
+  const _anyoDe = (fecha) => (/^\d{4}/.test(fecha || '') ? fecha.slice(0, 4) : String(new Date().getFullYear()));
+  const siguienteNumeroFactura     = (fecha) => { const a = _anyoDe(fecha); return _siguienteNumero('factura',     `${a}-`,      a); };
+  const siguienteNumeroPresupuesto = (fecha) => { const a = _anyoDe(fecha); return _siguienteNumero('presupuesto', `PRES-${a}-`, a); };
+
+  /** true si `numero` es la última factura de su serie (solo esa se puede borrar sin dejar huecos). */
+  async function esUltimaFactura(numero) {
+    const partes = String(numero || '').split('-');
+    const prefijo = partes.slice(0, -1).join('-') + '-';
+    const sig = await _siguienteNumero('factura', prefijo, partes[0]);
+    const n   = parseInt(partes[partes.length - 1], 10);
+    return parseInt(sig.split('-').pop(), 10) === n + 1;
   }
 
   // ----------------------------------------------------------
@@ -537,23 +608,33 @@ const SB = (() => {
   }
 
   async function restaurarDatos({ productos = [], ingredientes = [], platos = [], bebidas = [], facturas = [] }) {
+    const uid = _uid();
+    if (!uid) throw new Error('Sesión no válida. Vuelve a iniciar sesión.');
     const hdrs  = _cab({ 'Prefer': 'return=minimal,resolution=merge-duplicates' });
-    const upsert = (tabla, arr) => arr.length
-      ? _req(tabla, { method: 'POST', headers: hdrs, body: JSON.stringify(arr) })
-      : Promise.resolve();
+    // Se conserva el id original (así restaurar dos veces actualiza en vez de duplicar)
+    // y se asigna el usuario actual (la copia no lleva user_id).
+    const conId = (orig, conv) => ({ ...(orig.id ? { id: orig.id } : {}), ...conv, user_id: uid });
+    const upsert = async (tabla, arr) => {
+      if (!arr.length) return;
+      // PostgREST exige que todas las filas de un lote tengan las mismas columnas
+      const claves = [...new Set(arr.flatMap(o => Object.keys(o)))];
+      const filas  = arr.map(o => Object.fromEntries(claves.map(k => [k, o[k] ?? null]).filter(([, v]) => v !== null)));
+      const grupos = {};
+      for (const f of filas) (grupos[Object.keys(f).sort().join(',')] ??= []).push(f);
+      for (const g of Object.values(grupos)) {
+        await _sinColumnasNuevas(g[0], async (primera) => {
+          const sinCol = Object.keys(g[0]).filter(k => !(k in primera));
+          const lote   = sinCol.length ? g.map(f => { const c = { ...f }; sinCol.forEach(k => delete c[k]); return c; }) : g;
+          return _req(`${tabla}?on_conflict=id`, { method: 'POST', headers: hdrs, body: JSON.stringify(lote) });
+        });
+      }
+    };
 
-    // Facturas: convertir de camelCase a snake_case conservando el id original
-    const facSnake = facturas.map(f => {
-      const { id } = f;
-      const conv   = _facturaParaBD(f);
-      return id ? { id, ...conv } : conv;
-    });
-
-    await upsert('productos',    productos.map(_productoParaBD));
-    await upsert('ingredientes', ingredientes);
-    await upsert('platos',       platos);
-    await upsert('bebidas',      bebidas);
-    await upsert('facturas',     facSnake);
+    await upsert('productos',    productos.map(p => conId(p, _productoParaBD(p))));
+    await upsert('ingredientes', ingredientes.map(i => conId(i, i)));
+    await upsert('platos',       platos.map(p => conId(p, p)));
+    await upsert('bebidas',      bebidas.map(b => conId(b, b)));
+    await upsert('facturas',     facturas.map(f => conId(f, _facturaParaBD(f))));
   }
 
   // ----------------------------------------------------------
@@ -637,7 +718,7 @@ const SB = (() => {
 
   return {
     // Auth
-    isLoggedIn, login, signup, logout, refrescarSesion,
+    isLoggedIn, tieneSesion, login, signup, logout, refrescarSesion, limpiarDatosLocales,
     // Productos (etiquetas)
     obtenerProductos, guardarProducto, actualizarProducto, eliminarProducto,
     // Ingredientes
@@ -654,13 +735,13 @@ const SB = (() => {
     // Configuración sincronizada
     obtenerConfigRemota, guardarConfigRemota,
     // Cola de escritura offline
-    flushOutbox, pendientes,
+    flushOutbox, pendientes, erroresSync, descartarErroresSync,
     // Push (avisos de caducidad)
     guardarPushSub,
     // Facturas y Presupuestos
     obtenerFacturas, obtenerPresupuestos, obtenerFactura,
     guardarFactura, actualizarFactura, borrarFactura,
-    siguienteNumeroFactura, siguienteNumeroPresupuesto
+    siguienteNumeroFactura, siguienteNumeroPresupuesto, esUltimaFactura
   };
 
 })();

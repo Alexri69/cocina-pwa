@@ -44,6 +44,9 @@ const ModuloAuth = (() => {
     if (SB.isLoggedIn()) { _ocultarLogin(); return; }
     const refrescado = await SB.refrescarSesion();
     if (refrescado) { _ocultarLogin(); return; }
+    // Sin conexión con una sesión guardada: entrar igualmente con los datos locales.
+    // El token se renovará solo al volver la red.
+    if (refrescado === null && SB.tieneSesion()) { _ocultarLogin(); return; }
 
     _mostrarLogin();
 

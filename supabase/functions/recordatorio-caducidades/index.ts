@@ -26,10 +26,13 @@ Deno.serve(async (req) => {
 
   const hoy = new Date().toISOString().slice(0, 10);
   const lim = new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10); // hoy + 2 días
+  // Solo se recuerdan los caducados de la última semana: si no, un producto olvidado
+  // en el historial generaría un aviso diario para siempre.
+  const desde = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
 
-  // Productos caducados o que caducan en <= 2 días
+  // Productos caducados (última semana) o que caducan en <= 2 días
   const r = await fetch(
-    `${SUPABASE_URL}/rest/v1/productos?select=user_id,nombre,lote,fecha_caducidad&fecha_caducidad=lte.${lim}`,
+    `${SUPABASE_URL}/rest/v1/productos?select=user_id,nombre,lote,fecha_caducidad&fecha_caducidad=lte.${lim}&fecha_caducidad=gte.${desde}`,
     { headers: H },
   );
   const prods = await r.json().catch(() => []);

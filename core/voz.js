@@ -7,6 +7,43 @@
 // Formatea un importe a 2 decimales de forma segura (null/undefined/'' → 0.00).
 function dinero(n){ return (Number(n) || 0).toFixed(2); }
 
+// Redondea un importe a céntimos (evita descuadres de 0,01 € en facturas).
+// (toFixed(6) absorbe el error de coma flotante: 3 × 3,335 = 10,00499999… → 10,01)
+// Redondeo "medio hacia fuera" también en negativos (facturas rectificativas): −2,675 → −2,68.
+function r2(n){ const x = Number(n) || 0; return Math.sign(x) * Math.round(Number((Math.abs(x) * 100).toFixed(6))) / 100 || 0; }
+
+// Aviso flotante no bloqueante. opciones: { tipo: 'ok'|'error'|'info', ms, accion: { texto, fn } }
+function aviso(texto, opciones = {}) {
+  const { tipo = 'info', ms = 4000, accion = null } = opciones;
+  let cont = document.getElementById('avisos-cont');
+  if (!cont) {
+    cont = document.createElement('div');
+    cont.id = 'avisos-cont';
+    cont.setAttribute('aria-live', 'polite');
+    cont.style.cssText = 'position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;gap:8px;width:min(92vw,440px);pointer-events:none';
+    document.body.appendChild(cont);
+  }
+  const colores = { ok: '#1e7e46', error: '#b03a2e', info: '#2c3e50' };
+  const el = document.createElement('div');
+  el.setAttribute('role', tipo === 'error' ? 'alert' : 'status');
+  el.style.cssText = `background:${colores[tipo] || colores.info};color:#fff;padding:12px 14px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.35);display:flex;gap:12px;align-items:center;justify-content:space-between;font-size:.95rem;pointer-events:auto`;
+  const span = document.createElement('span');
+  span.textContent = texto;
+  el.appendChild(span);
+  const cerrar = () => el.remove();
+  if (accion) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = accion.texto;
+    b.style.cssText = 'background:#fff;color:#222;border:0;border-radius:6px;padding:6px 12px;font-weight:700;cursor:pointer;white-space:nowrap';
+    b.addEventListener('click', () => { cerrar(); accion.fn(); });
+    el.appendChild(b);
+  }
+  cont.appendChild(el);
+  if (ms > 0) setTimeout(cerrar, ms);
+  return cerrar;
+}
+
 // Escapa texto para insertarlo en HTML de forma segura (evita XSS con datos guardados).
 function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
@@ -83,6 +120,10 @@ const VOZ = (() => {
    *   - Resuelve con el texto reconocido.
    *   - Rechaza si hay error o silencio prolongado.
    */
+  let _cancelarActual = null; // corta la escucha en curso (botón Cancelar)
+
+  function cancelarEscucha() { if (_cancelarActual) _cancelarActual(); }
+
   function escuchar(timeoutMs = 9000) {
     return new Promise((ok, err) => {
       if (!SpeechRecognition) {
@@ -90,6 +131,7 @@ const VOZ = (() => {
         return;
       }
       const r = new SpeechRecognition();
+      _cancelarActual = () => _err(new Error('cancelado'));
       r.lang            = 'es-ES';
       r.interimResults  = false;
       r.maxAlternatives = 1;
@@ -97,8 +139,9 @@ const VOZ = (() => {
 
       let resuelto = false;
 
-      const _ok  = (txt) => { if (resuelto) return; resuelto = true; clearTimeout(tOut); try { r.stop(); } catch {} ok(txt); };
-      const _err = (e)   => { if (resuelto) return; resuelto = true; clearTimeout(tOut); try { r.stop(); } catch {} err(e); };
+      const _fin = () => { resuelto = true; clearTimeout(tOut); _cancelarActual = null; try { r.stop(); } catch {} };
+      function _ok(txt) { if (resuelto) return; _fin(); ok(txt); }
+      function _err(e)  { if (resuelto) return; _fin(); err(e); }
 
       // Tiempo máximo de espera por si no llega ningún resultado
       const tOut = setTimeout(() => _err(new Error('timeout')), timeoutMs);
@@ -186,12 +229,16 @@ const VOZ = (() => {
    * Devuelve true, false o null (ambiguo → repetir pregunta).
    */
   function detectarSiNo(texto) {
-    const t = texto.toLowerCase().trim();
-    const si = ['sí','si','yes','correcto','afirmativo','claro','tiene','contiene',
-                 'efectivamente','por supuesto','sip','aja','ajá','así'];
-    const no = ['no','nope','negativo','ninguno','tampoco','sin','nada','libre'];
-    if (si.some(p => t.includes(p))) return true;
-    if (no.some(p => t.includes(p))) return false;
+    // Se compara por palabras completas: antes "sin" o "así" contaban como "sí".
+    const palabras = String(texto || '').toLowerCase().split(/[^a-záéíóúüñ]+/).filter(Boolean);
+    const SI = new Set(['sí','si','yes','correcto','afirmativo','claro','tiene','contiene',
+                        'efectivamente','supuesto','sip','aja','ajá','vale','exacto']);
+    const NO = new Set(['no','nope','negativo','ninguno','ninguna','tampoco','sin','nada','libre','incorrecto']);
+    // Gana la primera palabra que sea claramente sí o no ("no, está bien" → no)
+    for (const p of palabras) {
+      if (NO.has(p)) return false;
+      if (SI.has(p)) return true;
+    }
     return null;
   }
 
@@ -238,7 +285,7 @@ const VOZ = (() => {
   // API PÚBLICA
   // ----------------------------------------------------------
   return {
-    hablar, escuchar, soportaVoz,
+    hablar, escuchar, cancelarEscucha, soportaVoz,
     palabrasANumero, limpiarLote, detectarSiNo, capitalizarNombre,
     formatearFecha, formatearFechaSolo, calcularColorCaducidad
   };

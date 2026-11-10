@@ -52,7 +52,7 @@ const ModuloFacturas = (() => {
       }
       lista.innerHTML = items.map(f => _cardHtml(f)).join('');
     } catch (e) {
-      lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${e.message}</p>`;
+      lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${_esc(e.message)}</p>`;
     }
   }
 
@@ -95,7 +95,7 @@ const ModuloFacturas = (() => {
         }
         <button class="btn-mini btn-email" onclick="ModuloFacturas.compartirEmail('${f.id}')" title="Enviar por email">📧</button>
         <button class="btn-mini btn-wa"    onclick="ModuloFacturas.compartirWhatsApp('${f.id}')" title="Enviar por WhatsApp">💬</button>
-        <button class="btn-mini btn-borrar" title="Eliminar" aria-label="Eliminar" onclick="ModuloFacturas.borrarFactura('${f.id}','${f.numero}')">🗑</button>
+        <button class="btn-mini btn-borrar" title="Eliminar" aria-label="Eliminar" onclick="ModuloFacturas.borrarFactura('${f.id}')">🗑</button>
       </div>
     </div>`;
   }
@@ -151,8 +151,9 @@ const ModuloFacturas = (() => {
     if (!sel) return;
     try {
       const [platos, bebidas] = await Promise.all([SB.obtenerPlatos(), SB.obtenerBebidas()]);
-      const optsPlatos  = (platos  || []).map(p => `<option value="${p.id}" data-nombre="${_esc(p.nombre)}" data-precio="${p.precio}">${p.nombre}${p.precio > 0 ? ' (' + p.precio.toFixed(2) + ' €)' : ''}</option>`).join('');
-      const optsBebidas = (bebidas || []).map(b => `<option value="${b.id}" data-nombre="${_esc(b.nombre)}" data-precio="${b.precio}">${b.nombre}${b.precio > 0 ? ' (' + b.precio.toFixed(2) + ' €)' : ''}</option>`).join('');
+      const opt = x => `<option value="${x.id}" data-nombre="${_esc(x.nombre)}" data-precio="${Number(x.precio) || 0}">${_esc(x.nombre)}${x.precio > 0 ? ' (' + dinero(x.precio) + ' €)' : ''}</option>`;
+      const optsPlatos  = (platos  || []).map(opt).join('');
+      const optsBebidas = (bebidas || []).map(opt).join('');
       sel.innerHTML = '<option value="">— Importar plato o bebida —</option>'
         + (optsPlatos  ? `<optgroup label="🍽 Platos">${optsPlatos}</optgroup>`   : '')
         + (optsBebidas ? `<optgroup label="🥤 Bebidas">${optsBebidas}</optgroup>` : '');
@@ -160,8 +161,17 @@ const ModuloFacturas = (() => {
   }
 
   function _agregarLinea(nombre = '', precioUnitario = 0, cantidad = 1) {
-    _lineas.push({ descripcion: nombre, cantidad, precioUnitario, subtotal: cantidad * precioUnitario });
+    _lineas.push({ descripcion: nombre, cantidad, precioUnitario, subtotal: r2(cantidad * precioUnitario) });
     _renderLineas();
+  }
+
+  // Importes de la factura, todos redondeados a céntimos para que siempre cuadren:
+  // base = suma de líneas, cuotas sobre la base, total = base + IGIC − IRPF.
+  function _importes(lineas, pIgic, pIrpf) {
+    const subtotal  = r2((lineas || []).reduce((s, l) => s + r2(l.subtotal), 0));
+    const cuotaIgic = r2(subtotal * (pIgic || 0) / 100);
+    const cuotaIrpf = r2(subtotal * (pIrpf || 0) / 100);
+    return { subtotal, cuotaIgic, cuotaIrpf, total: r2(subtotal + cuotaIgic - cuotaIrpf) };
   }
 
   function _renderLineas() {
@@ -187,7 +197,7 @@ const ModuloFacturas = (() => {
     if (campo === 'descripcion') { _lineas[idx].descripcion = valor; return; }
     if (campo === 'cantidad')    _lineas[idx].cantidad       = parseFloat(valor) || 0;
     if (campo === 'precio')      _lineas[idx].precioUnitario = parseFloat(valor) || 0;
-    _lineas[idx].subtotal = _lineas[idx].cantidad * _lineas[idx].precioUnitario;
+    _lineas[idx].subtotal = r2(_lineas[idx].cantidad * _lineas[idx].precioUnitario);
     const cel = document.querySelectorAll('#fac-lineas-body tr')[idx]?.querySelector('.linea-subtotal');
     if (cel) cel.textContent = _lineas[idx].subtotal.toFixed(2) + ' €';
     _calcularTotales();
@@ -196,12 +206,9 @@ const ModuloFacturas = (() => {
   function _eliminarLinea(idx) { _lineas.splice(idx, 1); _renderLineas(); }
 
   function _calcularTotales() {
-    const subtotal  = _lineas.reduce((s, l) => s + (l.subtotal || 0), 0);
     const pIgic     = parseFloat(document.getElementById('fac-iva')?.value)  || 0;
-    const cuotaIgic = subtotal * pIgic / 100;
     const pIrpf     = parseFloat(document.getElementById('fac-irpf')?.value) || 0;
-    const cuotaIrpf = subtotal * pIrpf / 100;
-    const total     = subtotal + cuotaIgic - cuotaIrpf;
+    const { subtotal, cuotaIgic, cuotaIrpf, total } = _importes(_lineas, pIgic, pIrpf);
 
     const cfg    = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
     const impNom = cfg.regimen === 'iva' ? 'IVA' : 'IGIC';
@@ -217,58 +224,79 @@ const ModuloFacturas = (() => {
     if (filaIrpf) filaIrpf.style.display = pIrpf > 0 ? 'flex' : 'none';
   }
 
+  let _guardando = false;
+
   async function _guardarFactura() {
+    if (_guardando) return; // evita doble clic → dos facturas con el mismo número
     const cliente = document.getElementById('fac-cliente').value.trim();
     if (!cliente)        { alert('El nombre del cliente es obligatorio.'); return; }
     if (!_lineas.length) { alert('Añade al menos una línea.'); return; }
+    if (_lineas.some(l => !String(l.descripcion || '').trim())) { alert('Todas las líneas necesitan un concepto.'); return; }
+    const fecha = document.getElementById('fac-fecha').value;
+    if (!fecha) { alert('La fecha es obligatoria.'); return; }
 
     const nifCliente = document.getElementById('fac-nif').value.trim();
     if (nifCliente && !validarNif(nifCliente) &&
         !confirm('El NIF/CIF del cliente no parece válido.\n\n¿Guardar de todas formas?')) return;
 
-    const subtotal       = _lineas.reduce((s, l) => s + (l.subtotal || 0), 0);
     const porcentajeIgic = parseFloat(document.getElementById('fac-iva').value)  || 0;
-    const cuotaIgic      = subtotal * porcentajeIgic / 100;
     const retencionIrpf  = parseFloat(document.getElementById('fac-irpf').value) || 0;
-    const cuotaIrpf      = subtotal * retencionIrpf / 100;
+    const lineas         = _lineas.map(l => ({ ...l, subtotal: r2(l.cantidad * l.precioUnitario) }));
+    const { subtotal, cuotaIgic, cuotaIrpf, total } = _importes(lineas, porcentajeIgic, retencionIrpf);
     const esPres         = _tipoActual === 'presupuesto';
 
-    let existente = null;
-    if (_idFacturaActual) existente = await SB.obtenerFactura(_idFacturaActual);
+    const btn = document.getElementById('fac-btn-guardar');
+    const txtBtn = btn?.textContent;
+    _guardando = true;
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Guardando…'; }
+    try {
+      let existente = null;
+      if (_idFacturaActual) existente = await SB.obtenerFactura(_idFacturaActual);
 
-    const datos = {
-      numero:            existente ? existente.numero
-                       : esPres   ? await SB.siguienteNumeroPresupuesto()
-                       :            await SB.siguienteNumeroFactura(),
-      cliente,
-      nif:               document.getElementById('fac-nif').value.trim(),
-      direccion:         document.getElementById('fac-direccion').value.trim(),
-      fecha:             document.getElementById('fac-fecha').value,
-      lineas:            _lineas,
-      subtotal,
-      porcentajeIgic,
-      cuotaIgic,
-      retencionIrpf,
-      cuotaIrpf,
-      total:             subtotal + cuotaIgic - cuotaIrpf,
-      pagada:            existente ? existente.pagada : false,
-      notas:             document.getElementById('fac-notas').value.trim(),
-      formaPago:         document.getElementById('fac-forma-pago').value || 'efectivo',
-      vencimiento:       document.getElementById('fac-vencimiento').value || null,
-      tipo:              _tipoActual,
-      estadoPresupuesto: esPres ? (existente?.estadoPresupuesto || 'pendiente') : null,
-      descripcionEvento: esPres ? (document.getElementById('fac-evento-desc')?.value.trim()  || '') : '',
-      fechaEvento:       esPres ? (document.getElementById('fac-evento-fecha')?.value || null)      : null,
-    };
+      const comensales = parseInt(document.getElementById('fac-evento-comensales')?.value, 10);
+      const datos = {
+        numero:            existente ? existente.numero
+                         : esPres   ? await SB.siguienteNumeroPresupuesto(fecha)
+                         :            await SB.siguienteNumeroFactura(fecha),
+        cliente,
+        nif:               nifCliente,
+        direccion:         document.getElementById('fac-direccion').value.trim(),
+        fecha,
+        lineas,
+        subtotal,
+        porcentajeIgic,
+        cuotaIgic,
+        retencionIrpf,
+        cuotaIrpf,
+        total,
+        pagada:            existente ? existente.pagada : false,
+        notas:             document.getElementById('fac-notas').value.trim(),
+        formaPago:         document.getElementById('fac-forma-pago').value || 'efectivo',
+        vencimiento:       document.getElementById('fac-vencimiento').value || null,
+        tipo:              _tipoActual,
+        estadoPresupuesto: esPres ? (existente?.estadoPresupuesto || 'pendiente') : null,
+        descripcionEvento: esPres ? (document.getElementById('fac-evento-desc')?.value.trim()  || '') : '',
+        fechaEvento:       esPres ? (document.getElementById('fac-evento-fecha')?.value || null)      : null,
+        comensales:        esPres && comensales > 0 ? comensales : null,
+      };
 
-    if (_idFacturaActual) {
-      await SB.actualizarFactura({ id: _idFacturaActual, ...datos });
-    } else {
-      await SB.guardarFactura(datos);
+      if (_idFacturaActual) {
+        await SB.actualizarFactura({ id: _idFacturaActual, ...datos });
+      } else {
+        await SB.guardarFactura(datos);
+      }
+
+      const offline = !navigator.onLine;
+      aviso(`✔ ${esPres ? 'Presupuesto' : 'Factura'} ${datos.numero} guardad${esPres ? 'o' : 'a'}${offline ? ' (se enviará al volver la conexión)' : ''}.`, { tipo: 'ok' });
+      _mostrarVista('lista');
+      await _renderLista();
+    } catch (e) {
+      console.error('[Facturas] Error al guardar:', e);
+      alert(`No se ha podido guardar ${esPres ? 'el presupuesto' : 'la factura'}:\n\n${e.message}\n\nTus datos siguen en el formulario; inténtalo de nuevo.`);
+    } finally {
+      _guardando = false;
+      if (btn) { btn.disabled = false; btn.textContent = txtBtn; }
     }
-
-    _mostrarVista('lista');
-    await _renderLista();
   }
 
   // ----------------------------------------------------------
@@ -337,6 +365,7 @@ const ModuloFacturas = (() => {
            <div class="fac-receptor-titulo">Descripción del evento</div>
            <strong>${_esc(f.descripcionEvento)}</strong>
            ${f.fechaEvento ? `<br>Fecha del evento: <strong>${VOZ.formatearFechaSolo(f.fechaEvento)}</strong>` : ''}
+           ${f.comensales  ? `<br>Comensales: <strong>${Number(f.comensales)}</strong>` : ''}
          </div>`
       : '';
 
@@ -344,6 +373,7 @@ const ModuloFacturas = (() => {
       <div class="factura-imprimible">
         <div class="fac-cabecera-print">
           <div class="fac-emisor">
+            ${_logo() ? `<img src="${_logo()}" alt="" style="max-height:60px;max-width:180px;display:block;margin-bottom:6px">` : ''}
             <strong class="fac-emisor-nombre">${_esc(emisorNombre)}</strong>
             ${emisorLineas ? `<div class="fac-emisor-datos">${emisorLineas}</div>` : ''}
           </div>
@@ -400,52 +430,99 @@ const ModuloFacturas = (() => {
       </div>`;
   }
 
+  // Ejecuta una acción mostrando el error si falla (antes fallaban en silencio)
+  async function _intentar(fn, msgError) {
+    try { await fn(); }
+    catch (e) { console.error('[Facturas]', e); alert(`${msgError}:\n\n${e.message}`); }
+  }
+
   async function editarFactura(id) {
-    const f = await SB.obtenerFactura(id);
-    if (f) await _abrirFormulario(f);
+    await _intentar(async () => {
+      const f = await SB.obtenerFactura(id);
+      if (!f) return;
+      // Una factura emitida no debería cambiarse: lo correcto es una factura rectificativa
+      if (f.tipo !== 'presupuesto' && !confirm(
+        `La factura ${f.numero} ya está emitida.\n\n` +
+        'Si ya la has entregado al cliente, no deberías modificarla: lo correcto es emitir una factura rectificativa.\n\n' +
+        '¿Editarla de todas formas (por ejemplo, para corregir un error antes de enviarla)?')) return;
+      await _abrirFormulario(f);
+    }, 'No se ha podido abrir');
   }
 
   async function togglePagada(id, estabaPageada) {
-    const f = await SB.obtenerFactura(id);
-    if (!f) return;
-    await SB.actualizarFactura({ ...f, pagada: !estabaPageada });
+    await _intentar(async () => {
+      const f = await SB.obtenerFactura(id);
+      if (!f) return;
+      await SB.actualizarFactura({ ...f, pagada: !estabaPageada });
+    }, 'No se ha podido cambiar el estado');
     await _renderLista();
   }
 
   async function aceptarPresupuesto(id) {
-    const f = await SB.obtenerFactura(id);
-    if (!f) return;
-    await SB.actualizarFactura({ ...f, estadoPresupuesto: 'aceptado' });
+    await _intentar(async () => {
+      const f = await SB.obtenerFactura(id);
+      if (!f) return;
+      await SB.actualizarFactura({ ...f, estadoPresupuesto: 'aceptado' });
+    }, 'No se ha podido aceptar el presupuesto');
     await _renderLista();
   }
 
+  let _convirtiendo = false;
   async function _convertirAFactura() {
-    if (!_idFacturaActual) return;
-    if (!confirm('¿Convertir este presupuesto en factura?\nSe creará una nueva factura con los mismos datos.')) return;
-    const pres = await SB.obtenerFactura(_idFacturaActual);
+    if (!_idFacturaActual || _convirtiendo) return;
+    let pres;
+    try { pres = await SB.obtenerFactura(_idFacturaActual); }
+    catch (e) { alert('No se ha podido leer el presupuesto:\n\n' + e.message); return; }
     if (!pres) return;
+    const aviso1 = pres.estadoPresupuesto === 'aceptado'
+      ? `El presupuesto ${pres.numero} ya está aceptado y puede que ya lo hayas facturado.\n\n¿Crear OTRA factura con sus datos?`
+      : '¿Convertir este presupuesto en factura?\nSe creará una nueva factura con los mismos datos.';
+    if (!confirm(aviso1)) return;
 
-    const numero = await SB.siguienteNumeroFactura();
-    const { id: _i, user_id: _u, timestamp: _t, ...resto } = pres;
-    const nuevaFac = await SB.guardarFactura({
-      ...resto,
-      numero,
-      tipo:              'factura',
-      estadoPresupuesto: null,
-      pagada:            false,
-      fecha:             new Date().toISOString().split('T')[0],
-    });
-    await SB.actualizarFactura({ ...pres, estadoPresupuesto: 'aceptado' });
+    _convirtiendo = true;
+    try {
+      const hoy    = new Date().toISOString().split('T')[0];
+      const numero = await SB.siguienteNumeroFactura(hoy);
+      const { id: _i, user_id: _u, timestamp: _t, ...resto } = pres;
+      const nuevaFac = await SB.guardarFactura({
+        ...resto,
+        numero,
+        tipo:              'factura',
+        estadoPresupuesto: null,
+        pagada:            false,
+        fecha:             hoy,
+        timestamp:         Date.now(),
+      });
+      await SB.actualizarFactura({ ...pres, estadoPresupuesto: 'aceptado' });
 
-    alert(`✔ Factura ${numero} creada correctamente.`);
-    _tipoVista = 'factura';
-    _actualizarSubTabs();
-    await verFactura(nuevaFac.id);
+      aviso(`✔ Factura ${numero} creada correctamente.`, { tipo: 'ok' });
+      _tipoVista = 'factura';
+      _actualizarSubTabs();
+      await verFactura(nuevaFac.id);
+    } catch (e) {
+      alert('No se ha podido crear la factura:\n\n' + e.message);
+    } finally {
+      _convirtiendo = false;
+    }
   }
 
-  async function borrarFactura(id, numero) {
-    if (!confirm(`¿Eliminar "${numero}"? Esta acción no se puede deshacer.`)) return;
-    await SB.borrarFactura(id);
+  async function borrarFactura(id) {
+    await _intentar(async () => {
+      const f = await SB.obtenerFactura(id);
+      if (!f) return;
+      if (f.tipo !== 'presupuesto') {
+        // Las facturas deben ser correlativas y sin huecos: solo se puede borrar la última
+        const ultima = await SB.esUltimaFactura(f.numero);
+        if (!ultima) {
+          alert(`No se puede eliminar la factura ${f.numero}: dejaría un hueco en la numeración.\n\n` +
+                'Para anularla, emite una factura rectificativa (una nueva factura con los mismos conceptos en negativo ' +
+                `y en notas "Rectifica la factura ${f.numero}").`);
+          return;
+        }
+        if (!confirm(`¿Eliminar la factura ${f.numero}?\n\nSolo hazlo si NO la has entregado al cliente. Esta acción no se puede deshacer.`)) return;
+      } else if (!confirm(`¿Eliminar el presupuesto ${f.numero}? Esta acción no se puede deshacer.`)) return;
+      await SB.borrarFactura(id);
+    }, 'No se ha podido eliminar');
     await _renderLista();
   }
 
@@ -502,6 +579,19 @@ const ModuloFacturas = (() => {
     const checkNuevaPagina = (alturaNecesaria) => {
       if (y + alturaNecesaria > PAGINA_H - MB) { doc.addPage(); y = MT; }
     };
+
+    // ----- LOGO (si hay) -----
+    const logo = _logo();
+    if (logo) {
+      try {
+        const props = doc.getImageProperties(logo);
+        const altoMax = 18, anchoMax = 50;
+        const k = Math.min(altoMax / props.height, anchoMax / props.width);
+        const w = props.width * k, h = props.height * k;
+        doc.addImage(logo, props.fileType || 'PNG', ML, y - 4, w, h);
+        y += h + 2;
+      } catch (e) { console.warn('[Facturas] No se pudo añadir el logo al PDF:', e); }
+    }
 
     // ----- CABECERA: Empresa izquierda, doc derecha -----
     doc.setFont('helvetica', 'bold');
@@ -566,7 +656,8 @@ const ModuloFacturas = (() => {
 
     // Evento (presupuesto)
     if (esPres && f.descripcionEvento) {
-      const ev = `Evento: ${f.descripcionEvento}` + (f.fechaEvento ? ` · ${VOZ.formatearFechaSolo(f.fechaEvento)}` : '');
+      const ev = `Evento: ${f.descripcionEvento}` + (f.fechaEvento ? ` · ${VOZ.formatearFechaSolo(f.fechaEvento)}` : '')
+               + (f.comensales ? ` · ${Number(f.comensales)} comensales` : '');
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(9);
       setColor([60, 60, 60]);
@@ -787,6 +878,11 @@ const ModuloFacturas = (() => {
   // ----------------------------------------------------------
 
   function _setText(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
+  function _logo() { try { const l = localStorage.getItem('cocina_logo'); return l && l.startsWith('data:image/') ? l : null; } catch { return null; } }
+  function _nombreImpuesto() {
+    const cfg = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
+    return cfg.regimen === 'iva' ? 'IVA' : 'IGIC';
+  }
   function _esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
   // ----------------------------------------------------------
@@ -860,7 +956,7 @@ const ModuloFacturas = (() => {
           <thead><tr>
             <th style="text-align:left">Periodo</th><th>Nº</th>
             <th style="text-align:right">Base imponible</th>
-            <th style="text-align:right">IGIC repercutido</th>
+            <th style="text-align:right">${_nombreImpuesto()} repercutido</th>
             <th style="text-align:right">IRPF retenido</th>
             <th style="text-align:right">Total facturado</th>
           </tr></thead>
@@ -889,7 +985,7 @@ const ModuloFacturas = (() => {
     const anyo = _infAnyo || String(new Date().getFullYear());
     const delAnyo = _infFacturas.filter(f => (f.fecha || '').startsWith(anyo))
       .sort((a, b) => (a.fecha || '') < (b.fecha || '') ? -1 : 1);
-    const filas = [['Numero', 'Fecha', 'Cliente', 'NIF', 'Base', 'IGIC', 'IRPF', 'Total', 'Pagada']];
+    const filas = [['Numero', 'Fecha', 'Cliente', 'NIF', 'Base', _nombreImpuesto(), 'IRPF', 'Total', 'Pagada']];
     for (const f of delAnyo) {
       filas.push([
         f.numero, f.fecha, (f.cliente || '').replace(/;/g, ','), f.nif || '',
@@ -900,8 +996,9 @@ const ModuloFacturas = (() => {
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    a.href = url; a.download = `facturacion-${anyo}.csv`; a.click();
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = `facturacion-${anyo}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500); // revocar al instante cancela la descarga en algunos navegadores
   }
 
   // ----------------------------------------------------------

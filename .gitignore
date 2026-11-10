@@ -12,3 +12,7 @@ desktop.ini
 *.log
 # Configuración local de Claude Code (no versionar)
 .claude/
+
+# Secretos locales (tokens de Supabase, etc.) — NUNCA versionar
+.env
+.env.*

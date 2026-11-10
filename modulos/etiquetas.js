@@ -24,6 +24,13 @@ const ModuloEtiquetas = (() => {
     producto: {}
   };
 
+  // Etiqueta que se está mostrando en la vista previa (la que se imprime)
+  let _etiquetaActual = null;
+
+  // Error especial para cortar el flujo de voz cuando el usuario pulsa Cancelar
+  const CANCELADO = new Error('cancelado');
+  function _comprobarCancelado() { if (estado.cancelado) throw CANCELADO; }
+
   // ----------------------------------------------------------
   // CAMBIO DE MODO (VOZ / MANUAL)
   // ----------------------------------------------------------
@@ -149,84 +156,93 @@ const ModuloEtiquetas = (() => {
         case PASOS.CONFIRMAR: await _pasoConfirmar(); break;
       }
     } catch (e) {
+      if (e === CANCELADO || estado.cancelado) return; // el usuario canceló: salir en silencio
       console.error('[Etiquetas] Error:', e);
       await VOZ.hablar('Ha ocurrido un error. Por favor, inicia el proceso de nuevo.');
       _reiniciar();
     }
   }
 
+  // hablar/escuchar que se cortan en cuanto el usuario pulsa Cancelar
+  async function _hablar(t) { _comprobarCancelado(); await VOZ.hablar(t); _comprobarCancelado(); }
+  async function _escuchar() {
+    _comprobarCancelado();
+    try { return await VOZ.escuchar(); }
+    finally { _comprobarCancelado(); }
+  }
+
   async function _pasoNombre() {
-    await VOZ.hablar('¿Qué producto has abierto?');
-    try {
-      const r = await VOZ.escuchar();
-      if (!r || r.length < 2) { await VOZ.hablar('No he entendido el nombre. ¿Puedes repetirlo?'); return _pasoNombre(); }
-      estado.producto.nombre = VOZ.capitalizarNombre(r);
-      estado.paso = PASOS.LOTE;
-      await _despachar();
-    } catch { await VOZ.hablar('No te he escuchado. ¿Cuál es el nombre del producto?'); await _pasoNombre(); }
+    await _hablar('¿Qué producto has abierto?');
+    let r;
+    try { r = await _escuchar(); }
+    catch (e) { if (e === CANCELADO) throw e; await _hablar('No te he escuchado. ¿Cuál es el nombre del producto?'); return _pasoNombre(); }
+    if (!r || r.length < 2) { await _hablar('No he entendido el nombre. ¿Puedes repetirlo?'); return _pasoNombre(); }
+    estado.producto.nombre = VOZ.capitalizarNombre(r);
+    estado.paso = PASOS.LOTE;
+    await _despachar();
   }
 
   async function _pasoLote() {
-    await VOZ.hablar('¿Número de lote?');
-    try {
-      const r = await VOZ.escuchar();
-      if (!r) { await VOZ.hablar('No he escuchado el lote. Por favor repítelo.'); return _pasoLote(); }
-      estado.producto.lote = VOZ.limpiarLote(r);
-      estado.paso = PASOS.DIAS;
-      await _despachar();
-    } catch { await VOZ.hablar('No he captado el lote. Por favor repite.'); await _pasoLote(); }
+    await _hablar('¿Número de lote?');
+    let r;
+    try { r = await _escuchar(); }
+    catch (e) { if (e === CANCELADO) throw e; await _hablar('No he captado el lote. Por favor repite.'); return _pasoLote(); }
+    if (!r) { await _hablar('No he escuchado el lote. Por favor repítelo.'); return _pasoLote(); }
+    estado.producto.lote = VOZ.limpiarLote(r);
+    estado.paso = PASOS.DIAS;
+    await _despachar();
   }
 
   async function _pasoDias() {
-    await VOZ.hablar('¿En cuántos días caduca una vez abierto?');
-    try {
-      const r = await VOZ.escuchar();
-      const n = VOZ.palabrasANumero(r);
-      if (!n || n <= 0 || !Number.isInteger(n)) {
-        await VOZ.hablar('Necesito un número entero de días mayor que cero. Por ejemplo: tres, siete. ¿Cuántos días?');
-        return _pasoDias();
-      }
-      estado.producto.diasCaducidad = n;
-      estado.paso = PASOS.ALERGENO;
-      estado.indiceAlergeno = 0;
-      await _despachar();
-    } catch { await VOZ.hablar('No he entendido los días. Di solo el número.'); await _pasoDias(); }
+    await _hablar('¿En cuántos días caduca una vez abierto?');
+    let r;
+    try { r = await _escuchar(); }
+    catch (e) { if (e === CANCELADO) throw e; await _hablar('No he entendido los días. Di solo el número.'); return _pasoDias(); }
+    const n = VOZ.palabrasANumero(r);
+    if (!n || n <= 0 || !Number.isInteger(n)) {
+      await _hablar('Necesito un número entero de días mayor que cero. Por ejemplo: tres, siete. ¿Cuántos días?');
+      return _pasoDias();
+    }
+    estado.producto.diasCaducidad = n;
+    estado.paso = PASOS.ALERGENO;
+    estado.indiceAlergeno = 0;
+    await _despachar();
   }
 
-  // Detecta qué alérgenos del listado oficial aparecen en el texto libre del usuario
+  // Detecta qué alérgenos del listado oficial aparecen en el texto libre del usuario.
+  // Compara palabras completas (con plural opcional): antes "nata" saltaba con "natural".
+  const _SINONIMOS = {
+    'gluten':            ['gluten','trigo','cebada','avena','centeno','espelta','harina'],
+    'crustáceos':        ['crustáceo','crustaceo','marisco','gamba','langosta','cangrejo','langostino','cigala','bogavante'],
+    'huevo':             ['huevo','mayonesa'],
+    'pescado':           ['pescado','atún','atun','salmón','salmon','bacalao','merluza','boquerón','boquerones','anchoa','sardina'],
+    'cacahuetes':        ['cacahuete','maní','mani'],
+    'soja':              ['soja','soya'],
+    'leche':             ['leche','lácteo','lacteo','lactosa','mantequilla','queso','nata','yogur','yogures','crema'],
+    'frutos de cáscara': ['cáscara','cascara','nuez','nueces','almendra','avellana','pistacho','anacardo','piñón','piñones','castaña','fruto seco','frutos secos'],
+    'apio':              ['apio'],
+    'mostaza':           ['mostaza'],
+    'granos de sésamo':  ['sésamo','sesamo','tahini','ajonjolí'],
+    'altramuces':        ['altramuz','altramuces'],
+    'moluscos':          ['molusco','calamar','pulpo','mejillón','mejillon','mejillones','ostra','berberecho','almeja','sepia','choco'],
+    'sulfitos':          ['sulfito','sulfuroso','azufre'],
+  };
+  const _L = 'a-záéíóúüñ';
+  const _reAlergeno = Object.fromEntries(Object.entries(_SINONIMOS).map(([a, ks]) =>
+    [a, new RegExp(`(?:^|[^${_L}])(?:${ks.join('|')})(?:s|es)?(?=$|[^${_L}])`, 'i')]));
+
   function _detectarAlergenos(texto) {
-    const t = texto.toLowerCase();
-    if (/ninguno|no (contiene|tiene)|sin alérgeno|libre/.test(t)) return [];
-
-    const sinonimos = {
-      'gluten':            ['gluten','trigo','cebada','avena','centeno','espelta'],
-      'crustáceos':        ['crustáceo','crustaceo','marisco','gamba','langosta','cangrejo','langostino'],
-      'huevo':             ['huevo'],
-      'pescado':           ['pescado','atún','atun','salmón','salmon','bacalao','merluza','boquerón'],
-      'cacahuetes':        ['cacahuete','maní','mani'],
-      'soja':              ['soja','soya'],
-      'leche':             ['leche','lácteo','lacteo','lactosa','mantequilla','queso','nata','yogur'],
-      'frutos de cáscara': ['cáscara','cascara','nuez','nueces','almendra','avellana','pistacho','anacardo','piñón','castaña'],
-      'apio':              ['apio'],
-      'mostaza':           ['mostaza'],
-      'granos de sésamo':  ['sésamo','sesamo','tahini'],
-      'altramuces':        ['altramuz','altramuces'],
-      'moluscos':          ['molusco','calamar','pulpo','mejillón','ostra','berberecho'],
-      'sulfitos':          ['sulfito','sulfuroso','azufre'],
-    };
-
-    return ALERGENOS.filter(a => (sinonimos[a] || [a]).some(k => t.includes(k)));
+    const t = String(texto || '').toLowerCase();
+    if (/\bninguno\b|\bno (contiene|tiene)\b|sin alérgeno|sin alergeno/.test(t)) return [];
+    return ALERGENOS.filter(a => _reAlergeno[a]?.test(t));
   }
 
   async function _pasoAlergeno() {
-    await VOZ.hablar('¿Qué alérgenos contiene? Di los que tiene, por ejemplo: gluten y leche. O di ninguno.');
-    try {
-      const r = await VOZ.escuchar();
-      estado.producto.alergenos = _detectarAlergenos(r);
-    } catch {
-      await VOZ.hablar('No te he escuchado. ¿Qué alérgenos contiene?');
-      return _pasoAlergeno();
-    }
+    await _hablar('¿Qué alérgenos contiene? Di los que tiene, por ejemplo: gluten y leche. O di ninguno.');
+    let r;
+    try { r = await _escuchar(); }
+    catch (e) { if (e === CANCELADO) throw e; await _hablar('No te he escuchado. ¿Qué alérgenos contiene?'); return _pasoAlergeno(); }
+    estado.producto.alergenos = _detectarAlergenos(r);
     await _confirmarAlergenos();
   }
 
@@ -235,40 +251,35 @@ const ModuloEtiquetas = (() => {
     const resumen = lista.length
       ? `He anotado: ${lista.join(', ')}. ¿Falta alguno?`
       : 'Sin alérgenos anotados. ¿Falta alguno?';
-    await VOZ.hablar(resumen);
+    await _hablar(resumen);
 
-    try {
-      const r  = await VOZ.escuchar();
-      const sn = VOZ.detectarSiNo(r);
+    let r;
+    try { r = await _escuchar(); }
+    catch (e) { if (e === CANCELADO) throw e; await _hablar('Responde sí si falta alguno, o no para continuar.'); return _confirmarAlergenos(); }
+    const sn = VOZ.detectarSiNo(r);
+    const directos = _detectarAlergenos(r);
 
-      if (sn === true) {
-        await VOZ.hablar('¿Cuál?');
-        try {
-          const r2     = await VOZ.escuchar();
-          const nuevos = _detectarAlergenos(r2);
-          if (nuevos.length) {
-            nuevos.forEach(a => { if (!estado.producto.alergenos.includes(a)) estado.producto.alergenos.push(a); });
-          } else {
-            await VOZ.hablar('No he reconocido ese alérgeno. Prueba de nuevo.');
-          }
-        } catch {
-          await VOZ.hablar('No te he escuchado.');
-        }
-        return _confirmarAlergenos(); // vuelve a confirmar sin reiniciar el proceso
+    // "sí, falta el huevo" o directamente "huevo": se añade lo que diga
+    if (sn === true || (sn === null && directos.length)) {
+      let nuevos = directos;
+      if (!nuevos.length) {
+        await _hablar('¿Cuál?');
+        try { nuevos = _detectarAlergenos(await _escuchar()); }
+        catch (e) { if (e === CANCELADO) throw e; await _hablar('No te he escuchado.'); }
+        if (!nuevos.length) await _hablar('No he reconocido ese alérgeno. Prueba de nuevo.');
       }
-
-      // sn === false o null → dar por terminado
-      estado.paso = PASOS.CONFIRMAR;
-      _setProgreso(ALERGENOS.length);
-      await _despachar();
-
-    } catch {
-      await VOZ.hablar('Responde sí si falta alguno, o no para continuar.');
-      return _confirmarAlergenos();
+      nuevos.forEach(a => { if (!estado.producto.alergenos.includes(a)) estado.producto.alergenos.push(a); });
+      return _confirmarAlergenos(); // vuelve a confirmar sin reiniciar el proceso
     }
+
+    // sn === false o null → dar por terminado
+    estado.paso = PASOS.CONFIRMAR;
+    _setProgreso(ALERGENOS.length);
+    await _despachar();
   }
 
   async function _pasoConfirmar() {
+    _comprobarCancelado();
     const ahora = new Date();
     const cad   = new Date(ahora.getTime() + estado.producto.diasCaducidad * 86400000);
     estado.producto.fechaApertura  = ahora.toISOString();
@@ -282,14 +293,14 @@ const ModuloEtiquetas = (() => {
     const resumen = `He entendido: ${estado.producto.nombre}, lote ${loteVoz}, `
       + `caduca en ${estado.producto.diasCaducidad} días, ${alVerb}. ¿Es correcto?`;
 
-    await VOZ.hablar(resumen);
-    try {
-      const r  = await VOZ.escuchar();
-      const sn = VOZ.detectarSiNo(r);
-      if (sn === null) { await VOZ.hablar('Responde sí para confirmar o no para empezar de nuevo.'); return _pasoConfirmar(); }
-      if (sn) await _finalizar();
-      else    { await VOZ.hablar('De acuerdo, empecemos de nuevo.'); await iniciarFlujo(); }
-    } catch { await VOZ.hablar('¿Es correcto? Sí o no.'); await _pasoConfirmar(); }
+    await _hablar(resumen);
+    let r;
+    try { r = await _escuchar(); }
+    catch (e) { if (e === CANCELADO) throw e; await _hablar('¿Es correcto? Sí o no.'); return _pasoConfirmar(); }
+    const sn = VOZ.detectarSiNo(r);
+    if (sn === null) { await _hablar('Responde sí para confirmar o no para empezar de nuevo.'); return _pasoConfirmar(); }
+    if (sn) await _finalizar();
+    else    { await _hablar('De acuerdo, empecemos de nuevo.'); await iniciarFlujo(); }
   }
 
   async function _finalizar() {
@@ -331,6 +342,7 @@ const ModuloEtiquetas = (() => {
       ? p.alergenos.map(a => a.toUpperCase()).join(' · ')
       : 'NINGUNO DECLARADO';
 
+    _etiquetaActual = p;
     prev.innerHTML = `
       <div class="etiqueta">
         <div class="etiqueta-nombre">${esc(p.nombre).toUpperCase()}</div>
@@ -349,6 +361,7 @@ const ModuloEtiquetas = (() => {
   function _ocultarEtiqueta() {
     const sec = document.getElementById('etq-seccion-etiqueta');
     if (sec) sec.style.display = 'none';
+    _etiquetaActual = null;
   }
 
   // ----------------------------------------------------------
@@ -384,9 +397,17 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
   }
 
   async function _imprimir() {
-    if (navigator.bluetooth) {
-      try { await _imprimirBluetooth(estado.producto); return; }
-      catch (e) { console.warn('[Impresora] Bluetooth falló, usando ventana emergente:', e); }
+    // Se imprime la etiqueta que está en pantalla (antes usaba la última hecha por voz)
+    const p = _etiquetaActual;
+    if (!p) { alert('Primero genera una etiqueta.'); return; }
+    const imp = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfigImpresora() : {};
+    // Bluetooth solo si está configurado así; si no, impresión normal del sistema
+    if (imp.conexion === 'bluetooth' && navigator.bluetooth) {
+      try { await _imprimirBluetooth(p); return; }
+      catch (e) {
+        if (e?.name === 'NotFoundError') return; // el usuario cerró el selector de dispositivos
+        console.warn('[Impresora] Bluetooth falló, usando ventana emergente:', e);
+      }
     }
     _abrirVentanaImpresion();
   }
@@ -497,8 +518,9 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
 
     let html = '';
     if (caducados.length) {
-      html += `<div class="item-historial rojo" style="margin:0 0 8px 0">
-        ✖ <strong>${caducados.length} producto${caducados.length === 1 ? ' caducado' : 's caducados'}</strong>
+      html += `<div class="item-historial rojo" style="margin:0 0 8px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+        <span>✖ <strong>${caducados.length} producto${caducados.length === 1 ? ' caducado' : 's caducados'}</strong></span>
+        <button type="button" class="btn-mini btn-borrar" onclick="ModuloEtiquetas.retirarCaducados()">🗑 Retirar caducados</button>
       </div>`;
     }
     if (proximos.length) {
@@ -514,7 +536,17 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
   // NOTIFICACIONES DEL NAVEGADOR
   // ----------------------------------------------------------
 
-  let _avisadas       = new Set();          // ids ya avisados en esta sesión
+  // Avisos ya enviados (id + estado), guardados en el dispositivo para no repetirlos
+  // cada vez que se abre la app. Se olvidan los de hace más de 30 días.
+  const _CLAVE_AVISADAS = 'cocina_avisadas';
+  function _leerAvisadas() {
+    try {
+      const obj = JSON.parse(localStorage.getItem(_CLAVE_AVISADAS)) || {};
+      const limite = Date.now() - 30 * 86400000;
+      return Object.fromEntries(Object.entries(obj).filter(([, t]) => t > limite));
+    } catch { return {}; }
+  }
+  function _guardarAvisadas(obj) { try { localStorage.setItem(_CLAVE_AVISADAS, JSON.stringify(obj)); } catch {} }
   let _intervaloAvisos = null;
 
   function _actualizarBtnNotif() {
@@ -552,31 +584,55 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
 
   async function _revisarYAvisar() {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    const productos = _historial.length ? _historial : await SB.obtenerProductos();
+    let productos = _historial;
+    if (!productos.length) { try { productos = await SB.obtenerProductos(); } catch { return; } }
 
-    productos.forEach(p => {
+    // Solo productos que han cambiado de estado desde el último aviso
+    const avisadas = _leerAvisadas();
+    const nuevos = productos.filter(p => {
       const c = VOZ.calcularColorCaducidad(p.fechaCaducidad);
-      if (c !== 'rojo' && c !== 'amarillo') return;
-      const clave = p.id + '-' + c;
-      if (_avisadas.has(clave)) return;
-      _avisadas.add(clave);
-      try {
-        if (c === 'rojo') {
-          new Notification('✖ Producto caducado', {
-            body: `${p.nombre} (Lote ${p.lote}) caducó el ${VOZ.formatearFecha(p.fechaCaducidad)}`,
-            icon: 'iconos/icono-192.png',
-            tag:  'caducado-' + p.id,
-            requireInteraction: true
-          });
-        } else {
-          new Notification('⚡ A punto de caducar', {
-            body: `${p.nombre} (Lote ${p.lote}) caduca el ${VOZ.formatearFecha(p.fechaCaducidad)}`,
-            icon: 'iconos/icono-192.png',
-            tag:  'proximo-' + p.id
-          });
-        }
-      } catch (e) { console.warn('[Etiquetas] No se pudo crear notificación:', e); }
+      return (c === 'rojo' || c === 'amarillo') && !avisadas[p.id + '-' + c];
     });
+    if (!nuevos.length) return;
+
+    const cad  = nuevos.filter(p => VOZ.calcularColorCaducidad(p.fechaCaducidad) === 'rojo');
+    const prox = nuevos.filter(p => VOZ.calcularColorCaducidad(p.fechaCaducidad) === 'amarillo');
+    const titulo = cad.length ? '✖ Productos caducados' : '⚡ Productos a punto de caducar';
+    const nombres = nuevos.slice(0, 3).map(p => p.nombre).join(', ') + (nuevos.length > 3 ? `… (+${nuevos.length - 3})` : '');
+    const partes = [];
+    if (cad.length)  partes.push(`${cad.length} caducado${cad.length > 1 ? 's' : ''}`);
+    if (prox.length) partes.push(`${prox.length} próximo${prox.length > 1 ? 's' : ''} a caducar`);
+
+    // Una sola notificación resumen en vez de una por producto
+    try {
+      new Notification(titulo, {
+        body: `${partes.join(' · ')}: ${nombres}`,
+        icon: 'iconos/icono-192.png',
+        tag:  'cocina-caducidad'
+      });
+    } catch (e) {
+      // En Android las notificaciones deben salir del Service Worker
+      try { (await navigator.serviceWorker?.ready)?.showNotification(titulo, { body: `${partes.join(' · ')}: ${nombres}`, icon: 'iconos/icono-192.png', tag: 'cocina-caducidad' }); }
+      catch { console.warn('[Etiquetas] No se pudo crear notificación:', e); }
+    }
+    const ahora = Date.now();
+    nuevos.forEach(p => { avisadas[p.id + '-' + VOZ.calcularColorCaducidad(p.fechaCaducidad)] = ahora; });
+    _guardarAvisadas(avisadas);
+  }
+
+  // Elimina de una vez todos los productos ya caducados (se retiraron de la cámara)
+  async function retirarCaducados() {
+    const caducados = _historial.filter(p => VOZ.calcularColorCaducidad(p.fechaCaducidad) === 'rojo');
+    if (!caducados.length) return;
+    const lista = caducados.slice(0, 10).map(p => `• ${p.nombre} — Lote ${p.lote}`).join('\n') + (caducados.length > 10 ? `\n… y ${caducados.length - 10} más` : '');
+    if (!confirm(`¿Retirar ${caducados.length} producto(s) caducado(s)?\n\n${lista}\n\nSe eliminarán del historial.`)) return;
+    let fallos = 0;
+    for (const p of caducados) {
+      try { await SB.eliminarProducto(p.id); } catch { fallos++; }
+    }
+    await _actualizarHistorial();
+    if (fallos) aviso(`No se pudieron eliminar ${fallos} producto(s). Inténtalo de nuevo.`, { tipo: 'error' });
+    else        aviso(`✔ ${caducados.length} producto(s) retirados.`, { tipo: 'ok' });
   }
 
   function _iniciarRevisionPeriodica() {
@@ -592,7 +648,12 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     const p = _historial[idx];
     if (!p) return;
     if (!confirm(`¿Eliminar "${p.nombre}" — Lote ${p.lote}?`)) return;
-    await SB.eliminarProducto(p.id);
+    try {
+      await SB.eliminarProducto(p.id);
+    } catch (e) {
+      aviso('No se pudo eliminar: ' + e.message, { tipo: 'error' });
+      return;
+    }
     await _actualizarHistorial();
   }
 
@@ -608,7 +669,7 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     if (!p) return;
     _mostrarEtiqueta(p);
     await new Promise(r => setTimeout(r, 200));
-    _abrirVentanaImpresion();
+    await _imprimir();
   }
 
   // ----------------------------------------------------------
@@ -631,8 +692,9 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
   }
 
   function _reiniciar() {
+    // OJO: no se toca estado.cancelado (antes se ponía a false aquí y por eso
+    // Cancelar no detenía el flujo). iniciarFlujo() crea un estado nuevo.
     estado.paso = PASOS.INACTIVO;
-    estado.cancelado = false;
     const btn = document.getElementById('etq-btn-nuevo');
     if (btn) btn.disabled = false;
   }
@@ -664,6 +726,7 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     document.getElementById('etq-btn-cancelar')?.addEventListener('click', () => {
       estado.cancelado = true;
       window.speechSynthesis.cancel();
+      VOZ.cancelarEscucha();   // corta el micrófono al instante
       _reiniciar();
       _ocultarEtiqueta();
       _setRespuesta('');
@@ -710,6 +773,6 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     };
   }
 
-  return { init, verificarCaducidades, _verEtiqueta, _imprimirEtiqueta, _borrarProducto };
+  return { init, verificarCaducidades, revisarYAvisar: _revisarYAvisar, retirarCaducados, _verEtiqueta, _imprimirEtiqueta, _borrarProducto };
 
 })();
