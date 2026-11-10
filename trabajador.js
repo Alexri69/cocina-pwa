@@ -1,24 +1,25 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v56: APPCC con frecuencias configurables y modo por incidencias
+// v57: restaurantes y equipo (roles e invitaciones)
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v56';
+const NOMBRE_CACHE = 'cocina-etiquetas-v57';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=56',
+  './estilo.css?v=57',
   './manifest.json',
-  './core/voz.js?v=56',
-  './core/supabase.js?v=56',
-  './modulos/etiquetas.js?v=56',
-  './modulos/menu.js?v=56',
-  './modulos/bebidas.js?v=56',
-  './modulos/facturas.js?v=56',
-  './modulos/auth.js?v=56',
-  './modulos/config.js?v=56',
-  './modulos/appcc.js?v=56',
-  './app.js?v=56',
+  './core/voz.js?v=57',
+  './core/supabase.js?v=57',
+  './modulos/etiquetas.js?v=57',
+  './modulos/menu.js?v=57',
+  './modulos/bebidas.js?v=57',
+  './modulos/facturas.js?v=57',
+  './modulos/auth.js?v=57',
+  './modulos/config.js?v=57',
+  './modulos/appcc.js?v=57',
+  './modulos/equipo.js?v=57',
+  './app.js?v=57',
   './lib/jspdf.umd.min.js',
   './iconos/icono-192.png',
   './iconos/icono-512.png'
@@ -59,7 +60,7 @@ self.addEventListener('push', (e) => {
     icon:  './iconos/icono-192.png',
     badge: './iconos/icono-192.png',
     vibrate: [120, 60, 120],
-    tag:   data.tag || 'cocina-caducidad',
+    tag:   data.tag || 'cocina-caducidad',   // una por restaurante
     data:  { url: data.url || './index.html?m=etiquetas' }
   }));
 });

@@ -13,7 +13,7 @@ HTML5 · CSS3 · JS vainilla · Supabase (Auth + PostgREST + RLS) · Service Wor
 index.html / estilo.css / app.js / manifest.json / trabajador.js (Service Worker)
 core/voz.js        — utilidades globales (dinero, r2, esc, aviso, validarNif/Email/Iban) + VOZ.*
 core/supabase.js   — SB.*: auth, CRUD, caché offline, cola offline (outbox), numeración
-modulos/auth.js · etiquetas.js · appcc.js · menu.js · bebidas.js · facturas.js · config.js
+modulos/auth.js · equipo.js · etiquetas.js · appcc.js · menu.js · bebidas.js · facturas.js · config.js
 lib/jspdf.umd.min.js — jsPDF 2.5.1 (local para que los PDF funcionen offline)
 supabase-setup.sql — esquema COMPLETO e idempotente (7 tablas + RLS)
 supabase/functions/recordatorio-caducidades — Edge Function de avisos push diarios
@@ -21,7 +21,15 @@ scripts/validate.js — validador (sintaxis + coherencia del precache del SW); l
 ```
 **Orden de carga:** `lib/jspdf` → `core/voz.js` → `core/supabase.js` → `modulos/*.js` → `app.js`
 
-## Tablas Supabase (todas con RLS "solo_propietario" por `user_id`)
+## Restaurantes y equipo
+- Los datos pertenecen a un **restaurante** (`restaurante_id`); `user_id` = quién creó la fila.
+- `restaurantes`, `miembros` (rol `propietario` | `encargado` | `cocina`), `invitaciones` (código de 8 caracteres, 7 días, 1 uso).
+- RPC: `crear_restaurante`, `crear_invitacion`, `unirse_con_codigo`, `salir_restaurante`. Trigger: siempre queda un propietario.
+- RLS con `es_miembro(r)`, `rol_en(r)`, `puede_gestionar(r)`. Cocina: etiquetas, habituales, registros APPCC; lee carta/equipos/config; sin facturas.
+- Cliente: `SB.restauranteActivo()`; `_get` añade `restaurante_id=eq.<activo>` y `_post` lo inserta en las tablas de `_TABLAS_RESTAURANTE`. Caché `cocina_c_<rid>_<tabla>`; ficha/logo/impresora `cocina_*_<rid>`.
+- Al entrar: `ModuloEquipo.iniciar()` (bienvenida si no hay restaurante; `?unirse=CODIGO` para invitaciones). UI por rol con `body[data-rol]` y `data-solo="gestion"`.
+
+## Tablas Supabase (todas con RLS por restaurante)
 `productos`, `plantillas_etiqueta` (productos habituales, nombre único por usuario), `appcc_elementos` (equipos de frío, freidoras, tareas de limpieza) y `appcc_registros` (lecturas/limpiezas/recepciones; snake_case también en el JS), `ingredientes`, `platos`, `bebidas`, `facturas` (facturas y presupuestos, columna `tipo`), `config` (1 fila por usuario), `push_subscriptions`.
 Cambios de esquema: editar `supabase-setup.sql` y aplicarlo con la Management API (token en `.env`, nunca versionado).
 El JS usa camelCase y la BD snake_case: conversión en `_productoDeBD/_productoParaBD` y `_facturaDeBD/_facturaParaBD`.

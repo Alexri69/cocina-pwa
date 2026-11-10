@@ -1041,3 +1041,63 @@ select:focus-visible,
 .appcc-modo.activo { border-color: var(--acento); background: rgba(91,124,246,.12); }
 [data-tema="claro"] .appcc-modo.activo { background: #e8edff; }
 .appcc-estado.libre { color: var(--texto2); background: transparent; border: 1px dashed var(--borde); font-weight: 500; }
+
+
+/* ============================================================
+   RESTAURANTES Y EQUIPO
+   ============================================================ */
+/* Lo marcado como data-solo="gestion" no se muestra al personal de cocina */
+body[data-rol="cocina"] [data-solo="gestion"] { display: none !important; }
+/* Cocina: la carta y las bebidas son de solo lectura */
+body[data-rol="cocina"] #modulo-menu .btn-editar,
+body[data-rol="cocina"] #modulo-menu .btn-borrar,
+body[data-rol="cocina"] #modulo-menu .vista-list-bar .btn-primario-sm,
+body[data-rol="cocina"] #modulo-bebidas .btn-editar,
+body[data-rol="cocina"] #modulo-bebidas .btn-borrar,
+body[data-rol="cocina"] #modulo-bebidas .vista-list-bar .btn-primario-sm { display: none !important; }
+
+.cabecera-cambiar-rest { margin-left: 4px; font-size: 1rem; min-width: 36px; min-height: 36px; }
+
+.pantalla-restaurante { position: fixed; inset: 0; z-index: 1001; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+.equipo-bienvenida { max-width: 420px; gap: 12px; }
+.equipo-opciones { display: flex; gap: 6px; }
+.equipo-opciones .sub-tab { flex: 1; min-height: 42px; }
+.equipo-form { display: flex; flex-direction: column; gap: 8px; }
+.equipo-form[hidden] { display: none; }
+.equipo-form label { font-size: .875rem; color: var(--texto); }
+.equipo-form small { color: var(--texto2); font-size: .82rem; line-height: 1.4; }
+.equipo-codigo-inp { text-transform: uppercase; letter-spacing: 3px; font-size: 1.2rem; text-align: center; }
+.equipo-salir { background: none; border: none; color: var(--texto2); font-size: .85rem; cursor: pointer; text-decoration: underline; margin-top: 4px; }
+
+.equipo-actual { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.equipo-nombre { font-size: 1.15rem; font-weight: 700; color: var(--texto); margin-bottom: 4px; }
+.equipo-rol { display: inline-block; font-size: .78rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+.rol-propietario { color: #c4b5fd; background: rgba(167,139,250,.15); }
+.rol-encargado   { color: #93c5fd; background: rgba(96,165,250,.15); }
+.rol-cocina      { color: #fcd34d; background: rgba(251,191,36,.14); }
+[data-tema="claro"] .rol-propietario { color: #6d28d9; background: #ede9fe; }
+[data-tema="claro"] .rol-encargado   { color: #1d4ed8; background: #dbeafe; }
+[data-tema="claro"] .rol-cocina      { color: #92400e; background: #fef3c7; }
+
+.equipo-bloque { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--borde); }
+.equipo-bloque h3 { font-size: .95rem; color: var(--texto); margin-bottom: 10px; }
+.equipo-lista-rest { display: flex; flex-direction: column; gap: 6px; }
+.equipo-rest { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; background: var(--surface); color: var(--texto); border: 1px solid var(--borde); border-radius: var(--radio); cursor: pointer; font-size: .95rem; text-align: left; }
+.equipo-rest:hover { border-color: var(--acento); }
+.equipo-rest small { color: var(--texto2); }
+.equipo-miembro { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
+.equipo-quien { color: var(--texto); font-size: .92rem; }
+.equipo-quien small { display: block; color: var(--texto2); font-size: .8rem; }
+.equipo-quien em { color: var(--texto2); font-style: normal; font-size: .82rem; }
+.eq-rol-sel { width: auto; min-height: 36px; padding: 4px 8px; }
+.equipo-invitar { display: flex; gap: 8px; flex-wrap: wrap; }
+.equipo-invitar .inp { flex: 1; min-width: 200px; }
+.equipo-codigo { margin-top: 12px; padding: 14px; border: 1px dashed var(--acento); border-radius: var(--radio); text-align: center; }
+.equipo-codigo-valor { font-size: 1.8rem; font-weight: 700; letter-spacing: 6px; color: var(--texto); font-family: ui-monospace, Consolas, monospace; }
+.equipo-codigo small { color: var(--texto2); }
+.equipo-codigo .form-acciones { justify-content: center; }
+.equipo-pendientes { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.equipo-pendientes small { color: var(--texto2); }
+.equipo-inv { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--texto); flex-wrap: wrap; }
+.equipo-inv code { font-family: ui-monospace, Consolas, monospace; letter-spacing: 2px; font-weight: 700; }
+.equipo-peligro { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--borde); display: flex; gap: 8px; flex-wrap: wrap; }

@@ -5,17 +5,20 @@
 
 const ModuloConfig = (() => {
 
-  const CLAVE_EMP  = 'cocina_empresa_config';
-  const CLAVE_IMP  = 'cocina_impresora_config';
-  const CLAVE_LOGO = 'cocina_logo';
+  // Claves por restaurante: cada restaurante tiene su propia ficha, logo e impresora
+  const _rid = () => (typeof SB !== 'undefined' && SB.restauranteId && SB.restauranteId()) || '';
+  const _k   = base => _rid() ? `${base}_${_rid()}` : base;
+  const CLAVE_EMP  = () => _k('cocina_empresa_config');
+  const CLAVE_IMP  = () => _k('cocina_impresora_config');
+  const CLAVE_LOGO = () => _k('cocina_logo');
 
   function obtenerConfig() {
-    try { return JSON.parse(localStorage.getItem(CLAVE_EMP)) || {}; }
+    try { return JSON.parse(localStorage.getItem(CLAVE_EMP())) || {}; }
     catch { return {}; }
   }
 
   function obtenerConfigImpresora() {
-    try { return JSON.parse(localStorage.getItem(CLAVE_IMP)) || {}; }
+    try { return JSON.parse(localStorage.getItem(CLAVE_IMP())) || {}; }
     catch { return {}; }
   }
 
@@ -24,9 +27,9 @@ const ModuloConfig = (() => {
   function _actualizarCabecera() {
     const cfg   = obtenerConfig();
     const titulo = document.getElementById('cabecera-titulo');
-    if (titulo) titulo.textContent = cfg.razonSocial || 'Cocina';
+    if (titulo) titulo.textContent = cfg.razonSocial || SB.restauranteActivo()?.nombre || 'Cocina';
 
-    const logo = localStorage.getItem(CLAVE_LOGO);
+    const logo = localStorage.getItem(CLAVE_LOGO());
     const img  = document.getElementById('cabecera-logo-img');
     const emo  = document.getElementById('cabecera-logo-emoji');
     if (img && emo) {
@@ -36,7 +39,7 @@ const ModuloConfig = (() => {
   }
 
   function _cargarLogoEnUI() {
-    const logo    = localStorage.getItem(CLAVE_LOGO);
+    const logo    = localStorage.getItem(CLAVE_LOGO());
     const preview = document.getElementById('cfg-logo-preview');
     const quitar  = document.getElementById('cfg-logo-quitar');
     if (preview) { preview.src = logo || ''; preview.style.display = logo ? '' : 'none'; }
@@ -68,7 +71,7 @@ const ModuloConfig = (() => {
     if (!archivo.type.startsWith('image/')) { alert('Elige un archivo de imagen (PNG o JPG).'); return; }
     try {
       const dataUrl = await _reducirImagen(archivo);
-      localStorage.setItem(CLAVE_LOGO, dataUrl);
+      localStorage.setItem(CLAVE_LOGO(), dataUrl);
       _cargarLogoEnUI();
       _actualizarCabecera();
       _pushRemota();
@@ -82,7 +85,7 @@ const ModuloConfig = (() => {
   }
 
   function _quitarLogo() {
-    localStorage.removeItem(CLAVE_LOGO);
+    localStorage.removeItem(CLAVE_LOGO());
     _cargarLogoEnUI();
     _actualizarCabecera();
     _pushRemota();
@@ -138,7 +141,7 @@ const ModuloConfig = (() => {
     if (probl.length && !confirm(`Estos datos no parecen válidos: ${probl.join(', ')}.\n\n¿Guardar de todas formas?`)) return;
 
     // Se conservan otros ajustes guardados en la misma ficha (p. ej. el modo APPCC)
-    localStorage.setItem(CLAVE_EMP, JSON.stringify({ ...obtenerConfig(), ...datos }));
+    localStorage.setItem(CLAVE_EMP(), JSON.stringify({ ...obtenerConfig(), ...datos }));
     _pushRemota();
     _mostrarMsg('cfg-msg', '✔ Guardado');
     _actualizarCabecera();
@@ -169,7 +172,7 @@ const ModuloConfig = (() => {
       ip:       val('imp-ip'),
       puerto:   val('imp-puerto') || '9100',
     };
-    localStorage.setItem(CLAVE_IMP, JSON.stringify(datos));
+    localStorage.setItem(CLAVE_IMP(), JSON.stringify(datos));
     _pushRemota();
     _mostrarMsg('imp-msg', '✔ Guardado');
   }
@@ -205,8 +208,8 @@ const ModuloConfig = (() => {
         fecha:   new Date().toISOString(),
         app:     'cocina-pwa',
         config: {
-          empresa:   JSON.parse(localStorage.getItem(CLAVE_EMP)  || '{}'),
-          impresora: JSON.parse(localStorage.getItem(CLAVE_IMP)  || '{}'),
+          empresa:   JSON.parse(localStorage.getItem(CLAVE_EMP())  || '{}'),
+          impresora: JSON.parse(localStorage.getItem(CLAVE_IMP())  || '{}'),
         },
         datos,
       };
@@ -252,8 +255,8 @@ const ModuloConfig = (() => {
 
       await SB.restaurarDatos(backup.datos);
 
-      if (backup.config?.empresa)   localStorage.setItem(CLAVE_EMP, JSON.stringify(backup.config.empresa));
-      if (backup.config?.impresora) localStorage.setItem(CLAVE_IMP, JSON.stringify(backup.config.impresora));
+      if (backup.config?.empresa)   localStorage.setItem(CLAVE_EMP(), JSON.stringify(backup.config.empresa));
+      if (backup.config?.impresora) localStorage.setItem(CLAVE_IMP(), JSON.stringify(backup.config.impresora));
       _pushRemota();
 
       _cargarEnFormulario();
@@ -276,7 +279,7 @@ const ModuloConfig = (() => {
       SB.guardarConfigRemota({
         empresa:   obtenerConfig(),
         impresora: obtenerConfigImpresora(),
-        logo:      localStorage.getItem(CLAVE_LOGO) || null,
+        logo:      localStorage.getItem(CLAVE_LOGO()) || null,
       })?.catch(() => {});
     } catch { /* offline: se queda en local, se subirá al próximo guardado con conexión */ }
   }
@@ -286,11 +289,11 @@ const ModuloConfig = (() => {
     try {
       const r = await SB.obtenerConfigRemota();
       if (!r) return;
-      if (r.empresa   && Object.keys(r.empresa).length)   localStorage.setItem(CLAVE_EMP, JSON.stringify(r.empresa));
-      if (r.impresora && Object.keys(r.impresora).length) localStorage.setItem(CLAVE_IMP, JSON.stringify(r.impresora));
+      if (r.empresa   && Object.keys(r.empresa).length)   localStorage.setItem(CLAVE_EMP(), JSON.stringify(r.empresa));
+      if (r.impresora && Object.keys(r.impresora).length) localStorage.setItem(CLAVE_IMP(), JSON.stringify(r.impresora));
       try {
-        if (r.logo) localStorage.setItem(CLAVE_LOGO, r.logo);
-        else        localStorage.removeItem(CLAVE_LOGO);
+        if (r.logo) localStorage.setItem(CLAVE_LOGO(), r.logo);
+        else        localStorage.removeItem(CLAVE_LOGO());
       } catch { /* logo antiguo demasiado grande para el almacenamiento local */ }
       _cargarEnFormulario();
       _cargarImpresora();
@@ -298,7 +301,7 @@ const ModuloConfig = (() => {
       _cargarLogoEnUI();
       const cfg = obtenerConfig();
       const dashNombre = document.getElementById('dash-nombre-restaurante');
-      if (dashNombre && cfg.razonSocial) dashNombre.textContent = cfg.razonSocial;
+      if (dashNombre) dashNombre.textContent = cfg.razonSocial || SB.restauranteActivo()?.nombre || 'Cocina';
     } catch { /* sin conexión: nos quedamos con lo de localStorage */ }
   }
 
@@ -321,7 +324,7 @@ const ModuloConfig = (() => {
 
     const cfg = obtenerConfig();
     const dashNombre = document.getElementById('dash-nombre-restaurante');
-    if (dashNombre && cfg.razonSocial) dashNombre.textContent = cfg.razonSocial;
+    if (dashNombre) dashNombre.textContent = cfg.razonSocial || SB.restauranteActivo()?.nombre || 'Cocina';
 
     document.getElementById('cfg-btn-guardar')  ?.addEventListener('click', _guardarDesdeFormulario);
     document.getElementById('imp-btn-guardar')  ?.addEventListener('click', _guardarImpresora);
@@ -352,10 +355,14 @@ const ModuloConfig = (() => {
   function guardarAjuste(clave, valor) {
     const cfg = obtenerConfig();
     cfg[clave] = valor;
-    try { localStorage.setItem(CLAVE_EMP, JSON.stringify(cfg)); } catch {}
+    try { localStorage.setItem(CLAVE_EMP(), JSON.stringify(cfg)); } catch {}
     _pushRemota();
   }
 
-  return { init, obtenerConfig, obtenerConfigImpresora, guardarAjuste };
+  function obtenerLogo() {
+    try { const l = localStorage.getItem(CLAVE_LOGO()); return l && l.startsWith('data:image/') ? l : null; } catch { return null; }
+  }
+
+  return { init, obtenerConfig, obtenerConfigImpresora, guardarAjuste, obtenerLogo, recargar: _hidratarRemota };
 
 })();

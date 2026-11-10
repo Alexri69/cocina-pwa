@@ -357,7 +357,7 @@ const ModuloMenu = (() => {
       if (typeof ModuloConfig !== 'undefined' && ModuloConfig.obtenerConfig) {
         return ModuloConfig.obtenerConfig() || {};
       }
-      return JSON.parse(localStorage.getItem('cocina_empresa_config') || '{}');
+      return {};
     } catch { return {}; }
   }
 

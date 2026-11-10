@@ -16,3 +16,6 @@ desktop.ini
 # Secretos locales (tokens de Supabase, etc.) — NUNCA versionar
 .env
 .env.*
+
+# Copias de seguridad locales de la base de datos (contienen datos reales)
+backups/

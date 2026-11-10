@@ -100,6 +100,8 @@ const ModuloAppcc = (() => {
     catch { return 'completo'; }
   }
   const _porIncidencias = () => modo() === 'incidencias';
+  // Propietario/encargado pueden configurar equipos y modo; la cocina solo registra
+  const _gestiona = () => (typeof SB === 'undefined' || !SB.puedeGestionar) ? true : SB.puedeGestionar();
 
   // Registros del elemento dentro de su periodo actual (hoy, últimos 7 o 30 días)
   function _regsPeriodo(el) {
@@ -185,6 +187,12 @@ const ModuloAppcc = (() => {
   // ----------------------------------------------------------
 
   function _htmlHoy() {
+    if (!_elementos.length && !_gestiona()) {
+      return `<div class="tarjeta appcc-vacio">
+        <p><strong>Aún no hay equipos ni tareas de limpieza.</strong></p>
+        <p>El propietario o el encargado del restaurante tiene que darlos de alta en APPCC → ⚙ Equipos. Después aparecerán aquí para registrarlos.</p>
+      </div>`;
+    }
     if (!_elementos.length) {
       return `<div class="tarjeta appcc-vacio">
         <p><strong>Aún no hay equipos ni tareas de limpieza.</strong></p>
@@ -717,7 +725,8 @@ ${secciones.join('')}
 
   async function init() {
     const nav = $('appcc-subnav');
-    if (nav) nav.innerHTML = VISTAS.map(([v, t]) =>
+    // El personal de cocina registra, pero no configura equipos ni el modo
+    if (nav) nav.innerHTML = VISTAS.filter(([v]) => v !== 'ajustes' || _gestiona()).map(([v, t]) =>
       `<button class="sub-tab${v === _vista ? ' activo' : ''}" type="button" role="tab" aria-selected="${v === _vista}" data-vista="${v}">${t}</button>`).join('');
     nav?.addEventListener('click', e => { const b = e.target.closest('[data-vista]'); if (b) _irA(b.dataset.vista); });
 

@@ -203,12 +203,47 @@ const SB = (() => {
     return res.json();
   }
 
+  // ----------------------------------------------------------
+  // RESTAURANTE ACTIVO (los datos pertenecen a un restaurante; un usuario puede tener varios)
+  // ----------------------------------------------------------
+
+  // Tablas cuyos datos van por restaurante: se filtran y se insertan con restaurante_id
+  const _TABLAS_RESTAURANTE = new Set(['productos','plantillas_etiqueta','ingredientes','platos','bebidas','facturas','appcc_elementos','appcc_registros','config']);
+  const CLAVE_RESTAURANTE = 'cocina_restaurante';
+  let _restaurante = null; // { id, nombre, rol }
+
+  function _cargarRestaurante() {
+    if (_restaurante) return;
+    try {
+      const r = JSON.parse(localStorage.getItem(CLAVE_RESTAURANTE));
+      // Solo vale si es del usuario que tiene la sesión abierta
+      if (r && r.uid && r.uid === _uid()) _restaurante = r;
+    } catch {}
+  }
+  function restauranteActivo() { _cargarRestaurante(); return _restaurante; }
+  const restauranteId = () => restauranteActivo()?.id || null;
+  const rol = () => restauranteActivo()?.rol || null;
+  const puedeGestionar = () => ['propietario', 'encargado'].includes(rol());
+  const esPropietario = () => rol() === 'propietario';
+  function seleccionarRestaurante(r) {
+    _restaurante = r ? { id: r.id, nombre: r.nombre, rol: r.rol, uid: _uid() } : null;
+    try { r ? localStorage.setItem(CLAVE_RESTAURANTE, JSON.stringify(_restaurante)) : localStorage.removeItem(CLAVE_RESTAURANTE); } catch {}
+  }
+
+  // Añade el filtro del restaurante activo a las consultas de tablas de datos
+  function _conRestaurante(tabla, q) {
+    const rid = restauranteId();
+    if (!rid || !_TABLAS_RESTAURANTE.has(tabla)) return q;
+    return (q && q.startsWith('?') ? q + '&' : '?') + `restaurante_id=eq.${rid}`;
+  }
+
   // CRUD genérico (las escrituras se encolan si no hay conexión → outbox)
-  const _get = (tabla, q = '') => _req(`${tabla}${q}`, { headers: _cab({ 'Prefer': '' }) });
+  const _get = (tabla, q = '') => _req(`${tabla}${_conRestaurante(tabla, q)}`, { headers: _cab({ 'Prefer': '' }) });
 
   // INSERT: genera un id de cliente para poder reintentar offline sin duplicar.
   async function _post(tabla, datos) {
     if (!datos.id && typeof crypto !== 'undefined' && crypto.randomUUID) datos = { id: crypto.randomUUID(), ...datos };
+    if (_TABLAS_RESTAURANTE.has(tabla) && !datos.restaurante_id && restauranteId()) datos = { ...datos, restaurante_id: restauranteId() };
     try {
       return await _req(tabla, { method: 'POST', headers: _cab(), body: JSON.stringify(datos) });
     } catch (e) {
@@ -247,10 +282,57 @@ const SB = (() => {
   // CACHÉ OFFLINE (localStorage, clave cocina_c_<tabla>)
   // ----------------------------------------------------------
 
+  // Cada restaurante tiene su propia caché (al cambiar de restaurante no se mezclan datos)
+  const _claveCache = k => 'cocina_c_' + (restauranteId() ? restauranteId() + '_' : '') + k;
   const _CACHE = {
-    guardar: (k, v) => { try { localStorage.setItem('cocina_c_' + k, JSON.stringify(v)); } catch {} },
-    leer:    (k)    => { try { return JSON.parse(localStorage.getItem('cocina_c_' + k)); } catch { return null; } }
+    guardar: (k, v) => { try { localStorage.setItem(_claveCache(k), JSON.stringify(v)); } catch {} },
+    leer:    (k)    => { try { return JSON.parse(localStorage.getItem(_claveCache(k))); } catch { return null; } }
   };
+
+  // ----------------------------------------------------------
+  // EQUIPO: restaurantes, miembros e invitaciones
+  // ----------------------------------------------------------
+
+  const _rpc = (fn, args) => _req(`rpc/${fn}`, { method: 'POST', headers: _cab(), body: JSON.stringify(args || {}) });
+  // Mensaje legible de un error de Supabase (p. ej. "Código no válido")
+  const _msgError = e => { const m = String(e?.message || e); const j = m.match(/"message"\s*:\s*"([^"]+)"/); return j ? j[1] : m; };
+  async function _rpcLegible(fn, args) {
+    try { return await _rpc(fn, args); }
+    catch (e) { throw _esRed(e) ? e : new Error(_msgError(e)); }
+  }
+
+  /** Restaurantes de los que soy miembro: [{ id, nombre, rol }] (con caché para trabajar sin conexión). */
+  async function misRestaurantes() {
+    const uid = _uid();
+    if (!uid) return [];
+    const clave = 'cocina_mis_restaurantes_' + uid;
+    try {
+      const filas = await _req(`miembros?user_id=eq.${uid}&select=rol,created_at,restaurantes(id,nombre)&order=created_at.asc`, { headers: _cab({ 'Prefer': '' }) });
+      const lista = (filas || []).filter(f => f.restaurantes).map(f => ({ id: f.restaurantes.id, nombre: f.restaurantes.nombre, rol: f.rol }));
+      try { localStorage.setItem(clave, JSON.stringify(lista)); } catch {}
+      return lista;
+    } catch (e) {
+      if (!_esRed(e)) throw e;
+      try { return JSON.parse(localStorage.getItem(clave)) || []; } catch { return []; }
+    }
+  }
+  const crearRestaurante  = (nombre)          => _rpcLegible('crear_restaurante', { p_nombre: nombre });
+  const unirseConCodigo   = (codigo, nombre)  => _rpcLegible('unirse_con_codigo', { p_codigo: codigo, p_nombre: nombre || '' });
+  const crearInvitacion   = (rolInvitado)     => _rpcLegible('crear_invitacion', { p_restaurante: restauranteId(), p_rol: rolInvitado });
+  const salirRestaurante  = (id)              => _rpcLegible('salir_restaurante', { p_restaurante: id || restauranteId() });
+  const obtenerMiembros   = ()                => _req(`miembros?restaurante_id=eq.${restauranteId()}&select=user_id,rol,nombre,email,created_at&order=created_at.asc`, { headers: _cab({ 'Prefer': '' }) });
+  const cambiarRolMiembro = (userId, nuevo)   => _req(`miembros?restaurante_id=eq.${restauranteId()}&user_id=eq.${userId}`, { method: 'PATCH', headers: _cab(), body: JSON.stringify({ rol: nuevo }) }).catch(e => { throw _esRed(e) ? e : new Error(_msgError(e)); });
+  const cambiarMiNombre   = (nombre)          => _req(`miembros?restaurante_id=eq.${restauranteId()}&user_id=eq.${_uid()}`, { method: 'PATCH', headers: _cab(), body: JSON.stringify({ nombre }) });
+  const expulsarMiembro   = (userId)          => _req(`miembros?restaurante_id=eq.${restauranteId()}&user_id=eq.${userId}`, { method: 'DELETE', headers: _cab({ 'Prefer': '' }) }).catch(e => { throw _esRed(e) ? e : new Error(_msgError(e)); });
+  const obtenerInvitaciones = ()              => _req(`invitaciones?restaurante_id=eq.${restauranteId()}&select=codigo,rol,expira_en,usos,usos_max&expira_en=gt.${encodeURIComponent(new Date().toISOString())}&order=created_at.desc`, { headers: _cab({ 'Prefer': '' }) });
+  const borrarInvitacion  = (codigo)          => _req(`invitaciones?codigo=eq.${encodeURIComponent(codigo)}`, { method: 'DELETE', headers: _cab({ 'Prefer': '' }) });
+  async function renombrarRestaurante(nombre) {
+    await _req(`restaurantes?id=eq.${restauranteId()}`, { method: 'PATCH', headers: _cab(), body: JSON.stringify({ nombre }) });
+    if (_restaurante) seleccionarRestaurante({ ..._restaurante, nombre });
+  }
+  async function eliminarRestaurante(id) {
+    await _req(`restaurantes?id=eq.${id}`, { method: 'DELETE', headers: _cab({ 'Prefer': '' }) });
+  }
 
   // ----------------------------------------------------------
   // COLA DE ESCRITURA OFFLINE (outbox)
@@ -686,7 +768,7 @@ const SB = (() => {
       _get('facturas',     '?select=*&order=timestamp.desc'),
       _get('plantillas_etiqueta', '?select=*').catch(() => []),
     ]);
-    const strip = arr => (arr || []).map(({ user_id, ...r }) => r);
+    const strip = arr => (arr || []).map(({ user_id, restaurante_id, ...r }) => r);
     return {
       plantillas:   strip(plantillas),   // formato BD (snake_case)
       productos:    strip(prods).map(_productoDeBD),
@@ -703,7 +785,10 @@ const SB = (() => {
     const hdrs  = _cab({ 'Prefer': 'return=minimal,resolution=merge-duplicates' });
     // Se conserva el id original (así restaurar dos veces actualiza en vez de duplicar)
     // y se asigna el usuario actual (la copia no lleva user_id).
-    const conId = (orig, conv) => ({ ...(orig.id ? { id: orig.id } : {}), ...conv, user_id: uid });
+    const rid = restauranteId();
+    if (!rid) throw new Error('No hay ningún restaurante seleccionado.');
+    // Se restaura en el restaurante activo, a nombre del usuario actual
+    const conId = (orig, conv) => { const { restaurante_id: _r, ...c } = conv; return { ...(orig.id ? { id: orig.id } : {}), ...c, user_id: uid, restaurante_id: rid }; };
     const upsert = async (tabla, arr) => {
       if (!arr.length) return;
       // PostgREST exige que todas las filas de un lote tengan las mismas columnas
@@ -758,30 +843,30 @@ const SB = (() => {
   const eliminarBebida   = (id) => _delete('bebidas', id);
 
   // ----------------------------------------------------------
-  // CONFIGURACIÓN (empresa + impresora + logo, 1 fila por usuario)
+  // CONFIGURACIÓN (empresa + impresora + logo, 1 fila por restaurante)
   // localStorage sigue siendo la copia local rápida/offline; esto la sincroniza.
   // ----------------------------------------------------------
 
   async function obtenerConfigRemota() {
-    const uid = _uid();
-    if (!uid) return null;
+    if (!restauranteId()) return null;
     try {
-      const arr = await _get('config', `?user_id=eq.${uid}&select=empresa,impresora,logo`);
+      const arr = await _get('config', '?select=empresa,impresora,logo');
       return _primero(arr);
     } catch { return null; }
   }
 
   async function guardarConfigRemota({ empresa, impresora, logo }) {
     const uid = _uid();
-    if (!uid) return;
+    if (!uid || !restauranteId() || !puedeGestionar()) return; // la cocina no cambia la ficha del restaurante
     const payload = {
+      restaurante_id: restauranteId(),
       user_id:    uid,
       empresa:    empresa   ?? {},
       impresora:  impresora ?? {},
       logo:       logo      ?? null,
       updated_at: new Date().toISOString(),
     };
-    return _req('config?on_conflict=user_id', {
+    return _req('config?on_conflict=restaurante_id', {
       method:  'POST',
       headers: _cab({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
       body:    JSON.stringify(payload),
@@ -818,6 +903,11 @@ const SB = (() => {
   return {
     // Auth
     isLoggedIn, tieneSesion, login, signup, logout, refrescarSesion, limpiarDatosLocales,
+    // Restaurante activo y equipo
+    restauranteActivo, restauranteId, rol, puedeGestionar, esPropietario, seleccionarRestaurante,
+    misRestaurantes, crearRestaurante, unirseConCodigo, crearInvitacion, salirRestaurante,
+    obtenerMiembros, cambiarRolMiembro, cambiarMiNombre, expulsarMiembro, obtenerInvitaciones, borrarInvitacion,
+    renombrarRestaurante, eliminarRestaurante, userId: () => _uid(),
     // Productos (etiquetas)
     obtenerProductos, guardarProducto, actualizarProducto, eliminarProducto,
     // Productos habituales (plantillas de etiqueta)

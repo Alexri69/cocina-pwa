@@ -32,39 +32,52 @@ Deno.serve(async (req) => {
 
   // Productos caducados (última semana) o que caducan en <= 2 días
   const r = await fetch(
-    `${SUPABASE_URL}/rest/v1/productos?select=user_id,nombre,lote,fecha_caducidad&fecha_caducidad=lte.${lim}&fecha_caducidad=gte.${desde}`,
+    `${SUPABASE_URL}/rest/v1/productos?select=restaurante_id,nombre,lote,fecha_caducidad&fecha_caducidad=lte.${lim}&fecha_caducidad=gte.${desde}`,
     { headers: H },
   );
   const prods = await r.json().catch(() => []);
   if (!Array.isArray(prods)) return json({ error: "consulta fallida" });
 
-  // Agrupar por usuario
-  const byUser: Record<string, { cad: number; prox: number }> = {};
+  // Agrupar por restaurante: avisa a todo su equipo
+  const porRest: Record<string, { cad: number; prox: number }> = {};
   for (const p of prods) {
-    const u = (byUser[p.user_id] ??= { cad: 0, prox: 0 });
+    if (!p.restaurante_id) continue;
+    const u = (porRest[p.restaurante_id] ??= { cad: 0, prox: 0 });
     if ((p.fecha_caducidad || "") < hoy) u.cad++; else u.prox++;
   }
 
   let enviados = 0;
-  for (const uid of Object.keys(byUser)) {
-    const { cad, prox } = byUser[uid];
+  const yaAvisados = new Set<string>(); // un dispositivo en varios restaurantes recibe cada aviso una vez por restaurante
+  for (const rid of Object.keys(porRest)) {
+    const { cad, prox } = porRest[rid];
     if (!cad && !prox) continue;
     const partes: string[] = [];
     if (cad)  partes.push(`${cad} caducado${cad > 1 ? "s" : ""}`);
     if (prox) partes.push(`${prox} próximo${prox > 1 ? "s" : ""} a caducar`);
 
+    // Nombre del restaurante y miembros del equipo
+    const restR = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${rid}&select=nombre`, { headers: H });
+    const nombre = ((await restR.json().catch(() => []))[0] || {}).nombre || "Cocina";
+    const miemR = await fetch(`${SUPABASE_URL}/rest/v1/miembros?restaurante_id=eq.${rid}&select=user_id`, { headers: H });
+    const uids = ((await miemR.json().catch(() => [])) as { user_id: string }[]).map(m => m.user_id);
+    if (!uids.length) continue;
+
     const subsR = await fetch(
-      `${SUPABASE_URL}/rest/v1/push_subscriptions?user_id=eq.${uid}&select=endpoint,p256dh,auth`,
+      `${SUPABASE_URL}/rest/v1/push_subscriptions?user_id=in.(${uids.join(",")})&select=endpoint,p256dh,auth`,
       { headers: H },
     );
     const subs = await subsR.json().catch(() => []);
     const payload = JSON.stringify({
-      title: "🍽 Cocina — Caducidades",
+      title: `🍽 ${nombre} — Caducidades`,
       body:  partes.join(" · "),
       url:   "./index.html?m=etiquetas",
+      tag:   `cocina-caducidad-${rid}`,
     });
 
     for (const s of subs) {
+      const clave = `${rid}|${s.endpoint}`;
+      if (yaAvisados.has(clave)) continue;
+      yaAvisados.add(clave);
       try {
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
         enviados++;
@@ -77,5 +90,5 @@ Deno.serve(async (req) => {
       }
     }
   }
-  return json({ ok: true, usuarios: Object.keys(byUser).length, enviados });
+  return json({ ok: true, restaurantes: Object.keys(porRest).length, enviados });
 });

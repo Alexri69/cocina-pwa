@@ -878,7 +878,7 @@ const ModuloFacturas = (() => {
   // ----------------------------------------------------------
 
   function _setText(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; }
-  function _logo() { try { const l = localStorage.getItem('cocina_logo'); return l && l.startsWith('data:image/') ? l : null; } catch { return null; } }
+  function _logo() { return (typeof ModuloConfig !== 'undefined' && ModuloConfig.obtenerLogo) ? ModuloConfig.obtenerLogo() : null; }
   function _nombreImpuesto() {
     const cfg = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
     return cfg.regimen === 'iva' ? 'IVA' : 'IGIC';

@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="iconos/icono-192.png">
   <link rel="apple-touch-icon" href="iconos/icono-192.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="estilo.css?v=56">
+  <link rel="stylesheet" href="estilo.css?v=57">
   <script>
     // Aplicar tema antes de pintar para evitar parpadeo
     document.documentElement.setAttribute('data-tema',
@@ -91,6 +91,7 @@
           <img id="cabecera-logo-img" style="display:none;height:32px;object-fit:contain;border-radius:4px" alt="logo">
           <span class="cabecera-titulo" id="cabecera-titulo">Cocina</span>
         </button>
+        <button id="cabecera-cambiar-rest" class="btn-mini cabecera-cambiar-rest" type="button" style="display:none" title="Cambiar de restaurante" aria-label="Cambiar de restaurante">⇄</button>
         <div class="cabecera-subtitulo">Reg. UE 1169/2011 · RD 126/2015</div>
       </div>
 
@@ -100,7 +101,7 @@
         <button class="nav-tab" data-modulo="appcc">✅ APPCC<span class="tab-badge" id="appcc-badge-nav" style="display:none">0</span></button>
         <button class="nav-tab" data-modulo="menu">📋 Carta</button>
         <button class="nav-tab" data-modulo="bebidas">🥤 Bebidas</button>
-        <button class="nav-tab" data-modulo="facturas">🧾 Facturas</button>
+        <button class="nav-tab" data-modulo="facturas" data-solo="gestion">🧾 Facturas</button>
         <button class="nav-tab" data-modulo="config">⚙ Config</button>
       </nav>
 
@@ -155,7 +156,7 @@
               <div class="dash-card-nombre">Bebidas</div>
               <div class="dash-card-desc">Carta de bebidas</div>
             </button>
-            <button class="dash-card" onclick="navegarA('facturas')">
+            <button class="dash-card" onclick="navegarA('facturas')" data-solo="gestion">
               <div class="dash-card-icon">🧾</div>
               <div class="dash-card-nombre">Facturas</div>
               <div class="dash-card-desc">Facturación legal</div>
@@ -671,7 +672,9 @@
 
       <div style="max-width:900px;margin:0 auto">
 
-      <div class="tarjeta">
+      <div id="equipo-panel" style="margin-bottom:16px"></div>
+
+      <div class="tarjeta" data-solo="gestion">
         <div class="tarjeta-titulo">Datos de la Empresa</div>
         <p style="font-size:.8rem;color:var(--texto2);margin-bottom:14px">
           Aparecerán en el encabezado de las facturas. Obligatorio para facturas legales en España.
@@ -816,7 +819,7 @@
         </div>
       </div>
 
-      <div class="tarjeta" style="margin-top:16px">
+      <div class="tarjeta" style="margin-top:16px" data-solo="gestion">
         <div class="tarjeta-titulo">Copias de Seguridad</div>
         <p style="font-size:.8rem;color:var(--texto2);margin-bottom:14px">
           Exporta todos los datos (ingredientes, platos, bebidas, facturas y configuración) a un archivo JSON.
@@ -857,7 +860,7 @@
       <button class="nav-bottom-tab" data-modulo="appcc"><span class="nb-icon">✅</span>APPCC<span class="tab-badge" id="appcc-badge-bottom" style="display:none">0</span></button>
       <button class="nav-bottom-tab" data-modulo="menu"><span class="nb-icon">📋</span>Carta</button>
       <button class="nav-bottom-tab" data-modulo="bebidas"><span class="nb-icon">🥤</span>Bebidas</button>
-      <button class="nav-bottom-tab" data-modulo="facturas"><span class="nb-icon">🧾</span>Facturas</button>
+      <button class="nav-bottom-tab" data-modulo="facturas" data-solo="gestion"><span class="nb-icon">🧾</span>Facturas</button>
       <button class="nav-bottom-tab" data-modulo="config"><span class="nb-icon">⚙</span>Config</button>
     </nav>
 
@@ -879,16 +882,17 @@
        ======================================================== -->
   <!-- jsPDF servido desde la propia app para que los PDF funcionen sin conexión -->
   <script src="lib/jspdf.umd.min.js" defer></script>
-  <script src="core/voz.js?v=56"></script>
-  <script src="core/supabase.js?v=56"></script>
-  <script src="modulos/etiquetas.js?v=56"></script>
-  <script src="modulos/menu.js?v=56"></script>
-  <script src="modulos/bebidas.js?v=56"></script>
-  <script src="modulos/facturas.js?v=56"></script>
-  <script src="modulos/auth.js?v=56"></script>
-  <script src="modulos/config.js?v=56"></script>
-  <script src="modulos/appcc.js?v=56"></script>
-  <script src="app.js?v=56"></script>
+  <script src="core/voz.js?v=57"></script>
+  <script src="core/supabase.js?v=57"></script>
+  <script src="modulos/etiquetas.js?v=57"></script>
+  <script src="modulos/menu.js?v=57"></script>
+  <script src="modulos/bebidas.js?v=57"></script>
+  <script src="modulos/facturas.js?v=57"></script>
+  <script src="modulos/auth.js?v=57"></script>
+  <script src="modulos/config.js?v=57"></script>
+  <script src="modulos/appcc.js?v=57"></script>
+  <script src="modulos/equipo.js?v=57"></script>
+  <script src="app.js?v=57"></script>
   <!-- Las actualizaciones de la app se avisan desde app.js (sin recargar a la fuerza) -->
 
 </body>

@@ -63,16 +63,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Autenticar (bloquea hasta que el login sea correcto)
   await ModuloAuth.init();
 
+  // Restaurante activo (crear o unirse si es la primera vez). Los datos van por restaurante.
+  await ModuloEquipo.iniciar();
+
   // Sincronizar escrituras que quedaran pendientes de una sesión offline anterior
   SB.flushOutbox();
 
   // Navegar al módulo correcto inmediatamente para evitar parpadeo
   // Acceso directo del icono (manifest shortcuts): ?m=etiquetas|facturas|…
   const _mParam = new URLSearchParams(location.search).get('m');
-  navegarA(_mParam || sessionStorage.getItem('moduloActivo') || 'dashboard');
+  let _destino = _mParam || sessionStorage.getItem('moduloActivo') || 'dashboard';
+  if (_destino === 'facturas' && !SB.puedeGestionar()) _destino = 'dashboard';
+  navegarA(_destino);
 
   // Inicializar módulos en paralelo (son independientes). Si uno falla, el resto arranca igual.
-  const modulos = { ModuloConfig, ModuloEtiquetas, ModuloAppcc, ModuloMenu, ModuloBebidas, ModuloFacturas };
+  const modulos = { ModuloConfig, ModuloEquipo, ModuloEtiquetas, ModuloAppcc, ModuloMenu, ModuloBebidas };
+  // Facturas solo para propietario y encargado
+  if (SB.puedeGestionar()) modulos.ModuloFacturas = ModuloFacturas;
   const res = await Promise.allSettled(Object.values(modulos).map(m => m.init()));
   res.forEach((r, i) => {
     if (r.status === 'rejected') {
