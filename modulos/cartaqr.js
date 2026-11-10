@@ -28,8 +28,13 @@ const ModuloCartaQR = (() => {
     const pub = !!_token;
     cont.innerHTML = `<div class="tarjeta carta-qr-tarjeta">
       <button type="button" class="carta-qr-cab" data-cq="abrir" aria-expanded="${_abierto}">
-        <span>📱 <strong>Carta de alérgenos para clientes</strong></span>
+        <span class="carta-qr-icono" aria-hidden="true">📱</span>
+        <span class="carta-qr-textos">
+          <span class="carta-qr-titulo">Carta de alérgenos para clientes</span>
+          <span class="carta-qr-sub">${pub ? 'Publicada · los clientes la ven escaneando el QR' : 'Publícala con un código QR para las mesas'}</span>
+        </span>
         <span class="carta-qr-estado ${pub ? 'on' : 'off'}">${pub ? 'Publicada' : 'Sin publicar'}</span>
+        <span class="carta-qr-flecha" aria-hidden="true">${_abierto ? '▴' : '▾'}</span>
       </button>
       ${_abierto ? (pub ? `
         <div class="carta-qr-cuerpo">

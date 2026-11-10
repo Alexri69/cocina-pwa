@@ -1,26 +1,26 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v58: carta de alérgenos pública con QR; alérgenos en bebidas
+// v59: tarjeta de la carta pública más visible
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v58';
+const NOMBRE_CACHE = 'cocina-etiquetas-v59';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=58',
+  './estilo.css?v=59',
   './manifest.json',
-  './core/voz.js?v=58',
-  './core/supabase.js?v=58',
-  './modulos/etiquetas.js?v=58',
-  './modulos/menu.js?v=58',
-  './modulos/bebidas.js?v=58',
-  './modulos/facturas.js?v=58',
-  './modulos/auth.js?v=58',
-  './modulos/config.js?v=58',
-  './modulos/appcc.js?v=58',
-  './modulos/cartaqr.js?v=58',
-  './modulos/equipo.js?v=58',
-  './app.js?v=58',
+  './core/voz.js?v=59',
+  './core/supabase.js?v=59',
+  './modulos/etiquetas.js?v=59',
+  './modulos/menu.js?v=59',
+  './modulos/bebidas.js?v=59',
+  './modulos/facturas.js?v=59',
+  './modulos/auth.js?v=59',
+  './modulos/config.js?v=59',
+  './modulos/appcc.js?v=59',
+  './modulos/cartaqr.js?v=59',
+  './modulos/equipo.js?v=59',
+  './app.js?v=59',
   './lib/jspdf.umd.min.js',
   './lib/qrcode.min.js',
   './iconos/icono-192.png',

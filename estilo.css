@@ -1106,8 +1106,16 @@ body[data-rol="cocina"] #modulo-bebidas .vista-list-bar .btn-primario-sm { displ
 /* ============================================================
    CARTA PÚBLICA CON QR (panel en Carta)
    ============================================================ */
-.carta-qr-tarjeta { padding: 0; overflow: hidden; }
-.carta-qr-cab { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 14px 16px; background: transparent; border: none; color: var(--texto); cursor: pointer; font-size: .95rem; text-align: left; min-height: 52px; }
+.carta-qr-tarjeta { padding: 0; overflow: hidden; border-left: 4px solid var(--acento); }
+.carta-qr-cab { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: transparent; border: none; color: var(--texto); cursor: pointer; text-align: left; min-height: 72px; }
+.carta-qr-cab:hover { background: rgba(91,124,246,.06); }
+.carta-qr-icono { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 1.5rem; background: rgba(91,124,246,.16); }
+.carta-qr-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.carta-qr-titulo { font-size: 1.05rem; font-weight: 700; color: var(--texto); line-height: 1.25; }
+.carta-qr-sub { font-size: .88rem; color: var(--texto); opacity: .75; line-height: 1.35; }
+.carta-qr-flecha { flex: 0 0 auto; font-size: 1.1rem; color: var(--texto); opacity: .7; }
+@media (max-width: 480px) { .carta-qr-estado { display: none; } }  /* en móvil ya lo dice el subtítulo */
+[data-tema="claro"] .carta-qr-icono { background: #e8edff; }
 .carta-qr-estado { font-size: .8rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
 .carta-qr-estado.on  { color: #4ade80; background: rgba(74,222,128,.12); }
 .carta-qr-estado.off { color: var(--texto2); border: 1px dashed var(--borde); }
