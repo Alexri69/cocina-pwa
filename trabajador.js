@@ -1,23 +1,23 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v51: estilo.css versionado y precache sin caché HTTP (evita archivos antiguos)
+// v52: interruptor de avisos (activar/desactivar por dispositivo)
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v51';
+const NOMBRE_CACHE = 'cocina-etiquetas-v52';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=51',
+  './estilo.css?v=52',
   './manifest.json',
-  './core/voz.js?v=51',
-  './core/supabase.js?v=51',
-  './modulos/etiquetas.js?v=51',
-  './modulos/menu.js?v=51',
-  './modulos/bebidas.js?v=51',
-  './modulos/facturas.js?v=51',
-  './modulos/auth.js?v=51',
-  './modulos/config.js?v=51',
-  './app.js?v=51',
+  './core/voz.js?v=52',
+  './core/supabase.js?v=52',
+  './modulos/etiquetas.js?v=52',
+  './modulos/menu.js?v=52',
+  './modulos/bebidas.js?v=52',
+  './modulos/facturas.js?v=52',
+  './modulos/auth.js?v=52',
+  './modulos/config.js?v=52',
+  './app.js?v=52',
   './lib/jspdf.umd.min.js',
   './iconos/icono-192.png',
   './iconos/icono-512.png'

@@ -233,7 +233,8 @@ async function _suscribirPush() {
 
 async function _comprobarCaducidades() {
   // Si ya hay permiso, registra este dispositivo para recibir avisos aunque la app esté cerrada
-  if ('Notification' in window && Notification.permission === 'granted') _suscribirPush();
+  // (salvo que el usuario los haya desactivado con el botón de Etiquetas)
+  if (ModuloEtiquetas.avisosActivos()) _suscribirPush();
   try {
     const { caducados, proximos } = await ModuloEtiquetas.verificarCaducidades();
     const total = caducados.length + proximos.length;
@@ -241,16 +242,12 @@ async function _comprobarCaducidades() {
     _actualizarBadgeEtiquetas(total);
     _renderAlertasDashboard(caducados, proximos);
 
-    if (total > 0 && 'Notification' in window && Notification.permission !== 'denied') {
-      const perm = Notification.permission === 'granted'
-        ? 'granted'
-        : await Notification.requestPermission();
-      if (perm === 'granted') {
-        _suscribirPush();   // registrar el dispositivo para avisos con la app cerrada
-        // Un único aviso resumen y solo de productos nuevos (no se repite en cada apertura)
-        ModuloEtiquetas.revisarYAvisar();
-      }
+    // Pedir permiso solo la primera vez (si aún no se ha decidido) y nunca si se desactivaron
+    if (total > 0 && 'Notification' in window && Notification.permission === 'default') {
+      if (await Notification.requestPermission() === 'granted') _suscribirPush();
     }
+    // Un único aviso resumen y solo de productos nuevos (no se repite en cada apertura)
+    if (total > 0) ModuloEtiquetas.revisarYAvisar();
   } catch (e) { console.warn('[App] Error comprobando caducidades:', e); }
 }
 

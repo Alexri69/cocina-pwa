@@ -711,6 +711,12 @@ const SB = (() => {
     });
   }
 
+  /** Da de baja un dispositivo de los avisos diarios (borra su suscripción en Supabase). */
+  async function borrarPushSub(endpoint) {
+    if (!endpoint) return;
+    return _req(`push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, { method: 'DELETE', headers: _cab({ 'Prefer': '' }) });
+  }
+
   // ----------------------------------------------------------
   // INICIO: cargar sesión al arrancar el script
   // ----------------------------------------------------------
@@ -737,7 +743,7 @@ const SB = (() => {
     // Cola de escritura offline
     flushOutbox, pendientes, erroresSync, descartarErroresSync,
     // Push (avisos de caducidad)
-    guardarPushSub,
+    guardarPushSub, borrarPushSub,
     // Facturas y Presupuestos
     obtenerFacturas, obtenerPresupuestos, obtenerFactura,
     guardarFactura, actualizarFactura, borrarFactura,

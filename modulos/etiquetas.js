@@ -549,21 +549,57 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
   function _guardarAvisadas(obj) { try { localStorage.setItem(_CLAVE_AVISADAS, JSON.stringify(obj)); } catch {} }
   let _intervaloAvisos = null;
 
+  // Interruptor propio de la app: una web no puede retirarse el permiso del navegador,
+  // así que "desactivar" = marca local + baja del dispositivo en Supabase.
+  const _CLAVE_OFF = 'cocina_avisos_off';
+  function avisosActivos() {
+    try {
+      return 'Notification' in window && Notification.permission === 'granted' && localStorage.getItem(_CLAVE_OFF) !== '1';
+    } catch { return false; }
+  }
+
   function _actualizarBtnNotif() {
     const btn = document.getElementById('etq-btn-notificaciones');
     if (!btn) return;
     if (!('Notification' in window))               { btn.style.display = 'none'; return; }
-    const p = Notification.permission;
+    const estado = Notification.permission === 'denied' ? 'bloqueados' : avisosActivos() ? 'activos' : 'desactivados';
     // Verde = activos · rojo = desactivados o bloqueados
-    btn.classList.toggle('btn-notif-on',  p === 'granted');
-    btn.classList.toggle('btn-notif-off', p !== 'granted');
-    btn.textContent = p === 'granted' ? '🔔 Avisos activos'
-                    : p === 'denied'  ? '🔕 Avisos bloqueados'
-                    :                   '🔕 Avisos desactivados · Activar';
-    btn.title = p === 'granted' ? 'Pulsa para enviar una notificación de prueba'
-              : p === 'denied'  ? 'Bloqueados en el navegador: pulsa para ver cómo activarlos'
-              :                   'Pulsa para activar los avisos de caducidad';
+    btn.classList.toggle('btn-notif-on',  estado === 'activos');
+    btn.classList.toggle('btn-notif-off', estado !== 'activos');
+    btn.textContent = estado === 'activos'    ? '🔔 Avisos activos'
+                    : estado === 'bloqueados' ? '🔕 Avisos bloqueados'
+                    :                           '🔕 Avisos desactivados';
+    btn.title = estado === 'activos'    ? 'Pulsa para desactivar los avisos en este dispositivo'
+              : estado === 'bloqueados' ? 'Bloqueados en el navegador: pulsa para ver cómo activarlos'
+              :                           'Pulsa para activar los avisos de caducidad';
     btn.setAttribute('aria-label', btn.textContent + '. ' + btn.title);
+    btn.setAttribute('aria-pressed', String(estado === 'activos'));
+  }
+
+  async function _clicBtnNotif() {
+    if (avisosActivos()) {
+      if (confirm('¿Desactivar los avisos de caducidad en este dispositivo?\n\nDejarás de recibir notificaciones aquí, también el aviso diario con la app cerrada.')) {
+        await _desactivarNotificaciones();
+      }
+    } else {
+      await _activarNotificaciones();
+    }
+  }
+
+  async function _desactivarNotificaciones() {
+    try { localStorage.setItem(_CLAVE_OFF, '1'); } catch {}
+    if (_intervaloAvisos) { clearInterval(_intervaloAvisos); _intervaloAvisos = null; }
+    // Dar de baja el dispositivo para que el aviso diario no le llegue
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      const sub = await reg?.pushManager?.getSubscription();
+      if (sub) {
+        try { await SB.borrarPushSub(sub.endpoint); } catch (e) { console.warn('[Etiquetas] No se pudo borrar la suscripción en el servidor:', e); }
+        await sub.unsubscribe();
+      }
+    } catch (e) { console.warn('[Etiquetas] Error al desactivar push:', e); }
+    _actualizarBtnNotif();
+    aviso('🔕 Avisos desactivados en este dispositivo.', { tipo: 'info' });
   }
 
   // Muestra una notificación (a través del Service Worker si se puede: es lo que
@@ -585,32 +621,28 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     if (Notification.permission !== 'granted') {
       const r = await Notification.requestPermission();
       _actualizarBtnNotif();
-      if (r !== 'granted') { aviso('No se han activado los avisos (permiso no concedido).', { tipo: 'error' }); return; }
+      if (r !== 'granted') { _actualizarBtnNotif(); aviso('No se han activado los avisos (permiso no concedido).', { tipo: 'error' }); return; }
     }
+    try { localStorage.removeItem(_CLAVE_OFF); } catch {}
+    _actualizarBtnNotif();
 
     // Registrar este dispositivo para los avisos diarios con la app cerrada
-    let registrado = false;
-    try { if (typeof _suscribirPush === 'function') registrado = await _suscribirPush(); } catch {}
+    try { if (typeof _suscribirPush === 'function') await _suscribirPush(); } catch {}
 
     // Notificación de prueba: confirma que el sistema operativo las deja pasar
-    const ok = await _mostrarNotificacion('🔔 Cocina · Avisos activos', {
+    const ok = await _mostrarNotificacion('🔔 Cocina · Avisos activados', {
       body: 'Así te llegarán los avisos de productos caducados o a punto de caducar.',
       icon: 'iconos/icono-192.png',
-      tag:  'cocina-prueba-' + Date.now(), // etiqueta única: si no, Windows la sustituye en silencio
-      requireInteraction: true             // se queda en pantalla hasta cerrarla
+      tag:  'cocina-prueba-' + Date.now() // etiqueta única: si no, Windows la sustituye en silencio
     });
-    aviso(
-      (ok ? '✔ Avisos activos: te hemos enviado una notificación de prueba. ' : '⚠ El navegador no ha podido mostrar la notificación. ')
-      + (registrado ? 'Este dispositivo recibirá el aviso diario aunque la app esté cerrada. ' : '')
-      + 'Si no la ves: mira el centro de notificaciones (Windows + N) y revisa que tu navegador tenga activado "Mostrar banners" en Configuración → Sistema → Notificaciones.',
-      { tipo: ok ? 'ok' : 'error', ms: 12000 }
-    );
+    if (ok) aviso('✔ Avisos activados.', { tipo: 'ok', ms: 2500 });
+    else    aviso('⚠ El navegador no ha podido mostrar la notificación. Revisa los ajustes de notificaciones del sistema.', { tipo: 'error', ms: 8000 });
     _revisarYAvisar();
     _iniciarRevisionPeriodica();
   }
 
   async function _revisarYAvisar() {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (!avisosActivos()) return;
     let productos = _historial;
     if (!productos.length) { try { productos = await SB.obtenerProductos(); } catch { return; } }
 
@@ -777,13 +809,13 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     });
 
     // Notificaciones
-    document.getElementById('etq-btn-notificaciones')?.addEventListener('click', _activarNotificaciones);
+    document.getElementById('etq-btn-notificaciones')?.addEventListener('click', _clicBtnNotif);
     _actualizarBtnNotif();
     // Si se cambia el permiso desde el candado del navegador, el botón cambia de color al momento
     try {
       navigator.permissions?.query({ name: 'notifications' }).then(st => { st.onchange = _actualizarBtnNotif; }).catch(() => {});
     } catch {}
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if (avisosActivos()) {
       _revisarYAvisar();
       _iniciarRevisionPeriodica();
     }
@@ -804,6 +836,6 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     };
   }
 
-  return { init, verificarCaducidades, revisarYAvisar: _revisarYAvisar, retirarCaducados, _verEtiqueta, _imprimirEtiqueta, _borrarProducto };
+  return { init, verificarCaducidades, revisarYAvisar: _revisarYAvisar, avisosActivos, retirarCaducados, _verEtiqueta, _imprimirEtiqueta, _borrarProducto };
 
 })();
