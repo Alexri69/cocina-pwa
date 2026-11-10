@@ -447,6 +447,65 @@ const SB = (() => {
   const eliminarPlantilla   = (id) => _delete('plantillas_etiqueta', id);
 
   // ----------------------------------------------------------
+  // APPCC (registros sanitarios). Formato = columnas de la BD (snake_case).
+  // ----------------------------------------------------------
+
+  async function obtenerElementosAppcc() {
+    try {
+      const datos = await _get('appcc_elementos', '?select=*&order=tipo.asc,orden.asc,nombre.asc');
+      _CACHE.guardar('appcc_elementos', datos || []);
+      return datos || [];
+    } catch (e) {
+      const cache = _CACHE.leer('appcc_elementos');
+      if (_esRed(e) && cache !== null) return cache;
+      throw e;
+    }
+  }
+  const _elementoAppcc = (d) => ({
+    tipo: d.tipo, nombre: d.nombre, zona: d.zona ?? '',
+    min: d.min === '' || d.min == null ? null : Number(d.min),
+    max: d.max === '' || d.max == null ? null : Number(d.max),
+    frecuencia: d.frecuencia || 'diaria', activo: d.activo ?? true, orden: d.orden ?? 0,
+  });
+  const guardarElementoAppcc    = (d)  => _post('appcc_elementos', { ..._elementoAppcc(d), timestamp: Date.now(), user_id: _uid() }).then(_primero);
+  const actualizarElementoAppcc = (d)  => _patch('appcc_elementos', d.id, _elementoAppcc(d)).then(_primero);
+  const eliminarElementoAppcc   = (id) => _delete('appcc_elementos', id);
+
+  /**
+   * Registros entre dos fechas (ISO). Los de los últimos 40 días se guardan en
+   * caché para trabajar sin conexión; los rangos más antiguos (informes) requieren red.
+   */
+  async function obtenerRegistrosAppcc(desde, hasta) {
+    const q = `?select=*&fecha=gte.${encodeURIComponent(desde)}&fecha=lt.${encodeURIComponent(hasta)}&order=fecha.desc`;
+    // Comparar como fechas (la BD devuelve "+00:00" y el cliente usa "Z")
+    const t = x => new Date(x).getTime();
+    const tDesde = t(desde), tHasta = t(hasta);
+    const reciente = (Date.now() - tDesde) <= 40 * 86400000;
+    try {
+      const datos = await _get('appcc_registros', q);
+      if (reciente) {
+        // Fusionar con lo ya cacheado para no perder el resto del periodo
+        const previo = (_CACHE.leer('appcc_registros') || []).filter(r => t(r.fecha) < tDesde || t(r.fecha) >= tHasta);
+        const limite = Date.now() - 40 * 86400000;
+        _CACHE.guardar('appcc_registros', [...(datos || []), ...previo].filter(r => t(r.fecha) >= limite));
+      }
+      return datos || [];
+    } catch (e) {
+      const cache = _CACHE.leer('appcc_registros');
+      if (_esRed(e) && cache !== null) return cache.filter(r => t(r.fecha) >= tDesde && t(r.fecha) < tHasta).sort((a, b) => t(b.fecha) - t(a.fecha));
+      throw e;
+    }
+  }
+  const guardarRegistroAppcc  = (r)  => _post('appcc_registros', {
+    tipo: r.tipo, elemento_id: r.elemento_id ?? null, elemento_nombre: r.elemento_nombre || '',
+    fecha: r.fecha || new Date().toISOString(),
+    valor: r.valor === '' || r.valor == null ? null : Number(r.valor),
+    correcto: r.correcto !== false, accion_correctora: r.accion_correctora || '',
+    responsable: r.responsable || '', datos: r.datos || {}, timestamp: Date.now(), user_id: _uid(),
+  }).then(_primero);
+  const eliminarRegistroAppcc = (id) => _delete('appcc_registros', id);
+
+  // ----------------------------------------------------------
   // INGREDIENTES
   // ----------------------------------------------------------
 
@@ -763,6 +822,9 @@ const SB = (() => {
     obtenerProductos, guardarProducto, actualizarProducto, eliminarProducto,
     // Productos habituales (plantillas de etiqueta)
     obtenerPlantillas, guardarPlantilla, actualizarPlantilla, eliminarPlantilla,
+    // APPCC
+    obtenerElementosAppcc, guardarElementoAppcc, actualizarElementoAppcc, eliminarElementoAppcc,
+    obtenerRegistrosAppcc, guardarRegistroAppcc, eliminarRegistroAppcc,
     // Ingredientes
     obtenerIngredientes, obtenerIngrediente,
     guardarIngrediente, actualizarIngrediente, eliminarIngrediente,

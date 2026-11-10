@@ -1,23 +1,24 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v53: productos habituales (etiquetar en un toque)
+// v54: módulo APPCC (temperaturas, limpieza, recepción, aceite, informe)
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v53';
+const NOMBRE_CACHE = 'cocina-etiquetas-v54';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=53',
+  './estilo.css?v=54',
   './manifest.json',
-  './core/voz.js?v=53',
-  './core/supabase.js?v=53',
-  './modulos/etiquetas.js?v=53',
-  './modulos/menu.js?v=53',
-  './modulos/bebidas.js?v=53',
-  './modulos/facturas.js?v=53',
-  './modulos/auth.js?v=53',
-  './modulos/config.js?v=53',
-  './app.js?v=53',
+  './core/voz.js?v=54',
+  './core/supabase.js?v=54',
+  './modulos/etiquetas.js?v=54',
+  './modulos/menu.js?v=54',
+  './modulos/bebidas.js?v=54',
+  './modulos/facturas.js?v=54',
+  './modulos/auth.js?v=54',
+  './modulos/config.js?v=54',
+  './modulos/appcc.js?v=54',
+  './app.js?v=54',
   './lib/jspdf.umd.min.js',
   './iconos/icono-192.png',
   './iconos/icono-512.png'

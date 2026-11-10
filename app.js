@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   navegarA(_mParam || sessionStorage.getItem('moduloActivo') || 'dashboard');
 
   // Inicializar módulos en paralelo (son independientes). Si uno falla, el resto arranca igual.
-  const modulos = { ModuloConfig, ModuloEtiquetas, ModuloMenu, ModuloBebidas, ModuloFacturas };
+  const modulos = { ModuloConfig, ModuloEtiquetas, ModuloAppcc, ModuloMenu, ModuloBebidas, ModuloFacturas };
   const res = await Promise.allSettled(Object.values(modulos).map(m => m.init()));
   res.forEach((r, i) => {
     if (r.status === 'rejected') {

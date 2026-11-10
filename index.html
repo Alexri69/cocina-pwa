@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="iconos/icono-192.png">
   <link rel="apple-touch-icon" href="iconos/icono-192.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="estilo.css?v=53">
+  <link rel="stylesheet" href="estilo.css?v=54">
   <script>
     // Aplicar tema antes de pintar para evitar parpadeo
     document.documentElement.setAttribute('data-tema',
@@ -97,6 +97,7 @@
       <!-- Tres pestañas de navegación -->
       <nav class="nav-tabs" role="navigation" aria-label="Módulos">
         <button class="nav-tab" data-modulo="etiquetas">🏷 Etiquetas<span class="tab-badge" id="etq-badge-nav" style="display:none">0</span></button>
+        <button class="nav-tab" data-modulo="appcc">✅ APPCC<span class="tab-badge" id="appcc-badge-nav" style="display:none">0</span></button>
         <button class="nav-tab" data-modulo="menu">📋 Carta</button>
         <button class="nav-tab" data-modulo="bebidas">🥤 Bebidas</button>
         <button class="nav-tab" data-modulo="facturas">🧾 Facturas</button>
@@ -138,6 +139,11 @@
               <div class="dash-card-icon">🏷</div>
               <div class="dash-card-nombre">Etiquetas</div>
               <div class="dash-card-desc">Trazabilidad · Alérgenos</div>
+            </button>
+            <button class="dash-card" onclick="navegarA('appcc')">
+              <div class="dash-card-icon">✅</div>
+              <div class="dash-card-nombre">APPCC</div>
+              <div class="dash-card-desc" id="dash-appcc-desc">Temperaturas · Limpieza</div>
             </button>
             <button class="dash-card" onclick="navegarA('menu')">
               <div class="dash-card-icon">📋</div>
@@ -288,6 +294,21 @@
     <!-- =====================================================
          MÓDULO 2: CARTA (Ingredientes + Platos)
          ===================================================== -->
+    <!-- =====================================================
+         MÓDULO: APPCC (registros sanitarios de autocontrol)
+         ===================================================== -->
+    <main id="modulo-appcc" class="modulo-seccion" role="main" style="display:none">
+      <div class="modulo-cabecera-inner">
+        <h2 class="modulo-h2">Registros APPCC</h2>
+        <div class="appcc-resp">
+          <label for="appcc-responsable">👤 Responsable</label>
+          <input id="appcc-responsable" class="inp" type="text" placeholder="Tu nombre" autocomplete="name">
+        </div>
+      </div>
+      <div class="sub-nav appcc-subnav" id="appcc-subnav" role="tablist" aria-label="Secciones de APPCC"></div>
+      <div id="appcc-vista" role="tabpanel"></div>
+    </main>
+
     <main id="modulo-menu" class="modulo-seccion" role="main" style="display:none">
       <div class="modulo-cabecera-inner">
         <h2 class="modulo-h2">Carta del Restaurante</h2>
@@ -833,6 +854,7 @@
     <!-- Barra de navegación inferior (solo móvil, reemplaza las pestañas del header) -->
     <nav class="nav-bottom" role="navigation" aria-label="Módulos">
       <button class="nav-bottom-tab" data-modulo="etiquetas"><span class="nb-icon">🏷</span>Etiquetas<span class="tab-badge" id="etq-badge-bottom" style="display:none">0</span></button>
+      <button class="nav-bottom-tab" data-modulo="appcc"><span class="nb-icon">✅</span>APPCC<span class="tab-badge" id="appcc-badge-bottom" style="display:none">0</span></button>
       <button class="nav-bottom-tab" data-modulo="menu"><span class="nb-icon">📋</span>Carta</button>
       <button class="nav-bottom-tab" data-modulo="bebidas"><span class="nb-icon">🥤</span>Bebidas</button>
       <button class="nav-bottom-tab" data-modulo="facturas"><span class="nb-icon">🧾</span>Facturas</button>
@@ -857,15 +879,16 @@
        ======================================================== -->
   <!-- jsPDF servido desde la propia app para que los PDF funcionen sin conexión -->
   <script src="lib/jspdf.umd.min.js" defer></script>
-  <script src="core/voz.js?v=53"></script>
-  <script src="core/supabase.js?v=53"></script>
-  <script src="modulos/etiquetas.js?v=53"></script>
-  <script src="modulos/menu.js?v=53"></script>
-  <script src="modulos/bebidas.js?v=53"></script>
-  <script src="modulos/facturas.js?v=53"></script>
-  <script src="modulos/auth.js?v=53"></script>
-  <script src="modulos/config.js?v=53"></script>
-  <script src="app.js?v=53"></script>
+  <script src="core/voz.js?v=54"></script>
+  <script src="core/supabase.js?v=54"></script>
+  <script src="modulos/etiquetas.js?v=54"></script>
+  <script src="modulos/menu.js?v=54"></script>
+  <script src="modulos/bebidas.js?v=54"></script>
+  <script src="modulos/facturas.js?v=54"></script>
+  <script src="modulos/auth.js?v=54"></script>
+  <script src="modulos/config.js?v=54"></script>
+  <script src="modulos/appcc.js?v=54"></script>
+  <script src="app.js?v=54"></script>
   <!-- Las actualizaciones de la app se avisan desde app.js (sin recargar a la fuerza) -->
 
 </body>

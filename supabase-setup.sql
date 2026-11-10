@@ -147,6 +147,45 @@ CREATE TABLE IF NOT EXISTS public.plantillas_etiqueta (
 CREATE UNIQUE INDEX IF NOT EXISTS plantillas_etiqueta_nombre_unico ON public.plantillas_etiqueta (user_id, lower(nombre));
 
 
+-- ------------------------------------------------------------
+-- APPCC: elementos a controlar (equipos de frío, freidoras, tareas de limpieza)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.appcc_elementos (
+  id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  tipo        text        NOT NULL CHECK (tipo IN ('temperatura','freidora','limpieza')),
+  nombre      text        NOT NULL,
+  zona        text        NOT NULL DEFAULT '',
+  min         numeric(6,1),                       -- temperatura mínima (°C)
+  max         numeric(6,1),                       -- temperatura máxima (°C) o % polares máximo
+  frecuencia  text        NOT NULL DEFAULT 'diaria' CHECK (frecuencia IN ('diaria','semanal','mensual')),
+  activo      boolean     NOT NULL DEFAULT true,
+  orden       integer     NOT NULL DEFAULT 0,
+  timestamp   bigint      NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint,
+  user_id     uuid        NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+-- ------------------------------------------------------------
+-- APPCC: registros (lecturas de temperatura, aceite, limpiezas, recepción)
+-- elemento_nombre guarda el nombre en ese momento: el registro sigue siendo
+-- legible aunque luego se renombre o elimine el equipo.
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.appcc_registros (
+  id                 uuid          DEFAULT gen_random_uuid() PRIMARY KEY,
+  tipo               text          NOT NULL CHECK (tipo IN ('temperatura','freidora','limpieza','recepcion')),
+  elemento_id        uuid          REFERENCES public.appcc_elementos(id) ON DELETE SET NULL,
+  elemento_nombre    text          NOT NULL DEFAULT '',
+  fecha              timestamptz   NOT NULL DEFAULT now(),
+  valor              numeric(7,1),                -- °C o % compuestos polares
+  correcto           boolean       NOT NULL DEFAULT true,
+  accion_correctora  text          NOT NULL DEFAULT '',
+  responsable        text          NOT NULL DEFAULT '',
+  datos              jsonb         NOT NULL DEFAULT '{}',   -- recepción: proveedor, producto, lote…; aceite: cambio
+  timestamp          bigint        NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint,
+  user_id            uuid          NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS appcc_registros_user_fecha ON public.appcc_registros (user_id, fecha DESC);
+
+
 -- productos.user_id: siempre el usuario que inserta (en versiones antiguas no tenía valor por defecto)
 ALTER TABLE public.productos ALTER COLUMN user_id SET DEFAULT auth.uid();
 DO $$
@@ -168,7 +207,7 @@ DO $$
 DECLARE t text;
 BEGIN
   -- Tablas con una política por operación
-  FOREACH t IN ARRAY ARRAY['productos','ingredientes','platos','bebidas','facturas','plantillas_etiqueta']
+  FOREACH t IN ARRAY ARRAY['productos','ingredientes','platos','bebidas','facturas','plantillas_etiqueta','appcc_elementos','appcc_registros']
   LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS "solo_propietario" ON public.%I', t);  -- versión anterior de este script

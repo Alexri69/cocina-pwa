@@ -963,3 +963,70 @@ select:focus-visible,
 .etq-hab-check input { width: 18px; height: 18px; }
 .etq-hab-check small { color: var(--texto2); }
 [data-tema="claro"] .chip-habitual.activo { background: #e8edff; }
+
+/* ============================================================
+   APPCC (registros sanitarios)
+   ============================================================ */
+.appcc-resp { display: flex; align-items: center; gap: 8px; }
+.appcc-resp label { font-size: .875rem; color: var(--texto); white-space: nowrap; }
+.appcc-resp .inp { width: 180px; min-height: 38px; }
+.appcc-subnav { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; margin: 0 0 14px; scrollbar-width: thin; }
+.appcc-subnav .sub-tab { white-space: nowrap; flex: 0 0 auto; min-height: 40px; }
+#appcc-vista .tarjeta + .tarjeta { margin-top: 16px; }
+
+.appcc-resumen { display: flex; flex-direction: column; gap: 10px; }
+.appcc-resumen-txt { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.appcc-resumen-txt strong { font-size: 1.1rem; color: var(--texto); }
+.appcc-resumen-txt span { color: var(--texto2); font-size: .875rem; text-transform: capitalize; }
+.appcc-barra { height: 8px; background: var(--borde); border-radius: 999px; overflow: hidden; }
+.appcc-barra > div { height: 100%; background: var(--ok); border-radius: 999px; transition: width .3s; }
+
+.appcc-item { padding: 12px 0; border-bottom: 1px solid var(--borde); }
+.appcc-item:last-child { border-bottom: none; padding-bottom: 0; }
+.appcc-item-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+.appcc-item-cab strong { color: var(--texto); font-size: 1rem; }
+.appcc-item-cab small { color: var(--texto2); }
+.appcc-rango { font-size: .8rem; color: var(--texto2); margin-top: 2px; }
+.appcc-item-form { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.appcc-item-form .appcc-valor { width: 120px; min-height: 44px; font-size: 1.05rem; }
+.appcc-item-form .btn { min-height: 44px; }
+.appcc-accion { margin-top: 10px; }
+.appcc-accion label { display: block; font-size: .85rem; color: var(--err); font-weight: 600; margin-bottom: 4px; }
+.appcc-limpieza.hecho strong { color: var(--texto2); }
+
+.appcc-estado { font-size: .85rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.appcc-estado.ok   { color: #4ade80; background: rgba(74,222,128,.12); }
+.appcc-estado.mal  { color: #f87171; background: rgba(248,113,113,.14); }
+.appcc-estado.pend { color: #fbbf24; background: rgba(251,191,36,.13); }
+[data-tema="claro"] .appcc-estado.ok   { color: #15803d; background: #dcfce7; }
+[data-tema="claro"] .appcc-estado.mal  { color: #b91c1c; background: #fee2e2; }
+[data-tema="claro"] .appcc-estado.pend { color: #92400e; background: #fef3c7; }
+
+.appcc-check { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; color: var(--texto); cursor: pointer; }
+.appcc-check input { width: 18px; height: 18px; }
+.appcc-checks { display: flex; flex-direction: column; gap: 8px; }
+.appcc-rechazar { color: var(--err) !important; border-color: var(--err) !important; }
+
+.appcc-reg { position: relative; padding: 10px 36px 10px 10px; border-left: 3px solid var(--ok); background: var(--surface); border-radius: 4px; margin-bottom: 8px; }
+.appcc-reg.mal { border-left-color: var(--err); }
+.appcc-reg-cab { display: flex; flex-direction: column; gap: 2px; }
+.appcc-reg-cab span { color: var(--texto); font-size: .92rem; }
+.appcc-reg-cab small { color: var(--texto2); font-size: .8rem; }
+.appcc-reg-accion { margin-top: 4px; font-size: .85rem; color: var(--err); }
+.appcc-reg .btn-borrar { position: absolute; top: 8px; right: 6px; }
+.appcc-incid { margin-left: 6px; color: var(--err); text-transform: none; letter-spacing: 0; }
+
+.appcc-ajustes-grupo h3 { font-size: .95rem; color: var(--texto); margin: 4px 0 8px; }
+.appcc-ajustes-grupo + .appcc-ajustes-grupo { margin-top: 16px; }
+.appcc-ajuste { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--borde); flex-wrap: wrap; }
+.appcc-ajuste small { display: block; color: var(--texto2); font-size: .8rem; }
+.appcc-ajuste span { color: var(--texto); }
+.appcc-ajuste.inactivo { opacity: .55; }
+
+.appcc-nota { font-size: .8rem; color: var(--texto2); margin-top: 12px; line-height: 1.45; }
+.appcc-vacio p { color: var(--texto); margin-bottom: 8px; line-height: 1.5; }
+
+@media (max-width: 640px) {
+  #modulo-appcc .modulo-cabecera-inner { flex-direction: column; align-items: stretch; gap: 10px; }
+  .appcc-resp .inp { flex: 1; width: auto; }
+}
