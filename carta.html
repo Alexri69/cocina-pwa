@@ -45,14 +45,18 @@
     .vacio, .error { text-align: center; color: var(--texto2); padding: 40px 12px; }
     footer { margin-top: 32px; font-size: .82rem; color: var(--texto2); text-align: center; }
     footer p { margin: 4px 0; }
+    .idiomas { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; padding-top: 4px; }
+    .idioma { min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--borde); background: var(--card); color: var(--texto); font-size: .9rem; cursor: pointer; }
+    .idioma[aria-pressed="true"] { background: var(--texto); color: var(--bg); border-color: var(--texto); font-weight: 700; }
+    .nota-idioma { font-size: .85rem; color: var(--texto2); margin: -6px 0 12px; }
   </style>
 </head>
 <body>
   <main id="carta" aria-live="polite">
     <p class="vacio">Cargando la carta…</p>
   </main>
-  <script src="core/voz.js?v=65"></script>
-  <script src="core/supabase.js?v=65"></script>
-  <script src="modulos/carta-publica.js?v=65"></script>
+  <script src="core/voz.js?v=68"></script>
+  <script src="core/supabase.js?v=68"></script>
+  <script src="modulos/carta-publica.js?v=68"></script>
 </body>
 </html>

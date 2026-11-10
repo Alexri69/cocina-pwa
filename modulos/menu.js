@@ -34,6 +34,48 @@ const ModuloMenu = (() => {
   let _busquedaSelectorIng = '';
   let _platoSeleccionados  = new Set();
   let _cantidades          = {};   // escandallo del formulario: id ingrediente → cantidad por ración
+  let _costes              = new Map();   // id ingrediente → { precio_compra, unidad, merma } (solo dirección)
+  let _costesBeb           = new Map();   // id bebida → { precio_compra, formato_ml, racion_ml }
+  let _todasBebidas        = [];
+
+  /** Ingredientes con su coste de compra (el coste está en una tabla privada de la dirección). */
+  async function _ingredientesConCoste() {
+    const [ings, costes] = await Promise.all([SB.obtenerIngredientes(), SB.obtenerCostes().catch(() => [])]);
+    _costes = new Map((costes || []).filter(c => c.tipo === 'ingrediente').map(c => [c.id, c]));
+    _costesBeb = new Map((costes || []).filter(c => c.tipo === 'bebida').map(c => [c.id, c]));
+    return (ings || []).map(_conCoste);
+  }
+  const _conCoste = i => {
+    const c = _costes.get(i.id);
+    return { ...i, precio_compra: c?.precio_compra ?? null, unidad: c?.unidad || 'kg', merma: Number(c?.merma) || 0 };
+  };
+
+  // Traducciones del plato (carta QR en inglés y alemán)
+  const _IDIOMAS = ['en', 'de'];
+  function _ponerTraducciones(t = {}) {
+    _IDIOMAS.forEach(l => {
+      const n = document.getElementById('plato-tr-' + l + '-nombre'), d = document.getElementById('plato-tr-' + l + '-desc');
+      if (n) n.value = t?.[l]?.nombre || '';
+      if (d) d.value = t?.[l]?.descripcion || '';
+    });
+    const det = document.getElementById('plato-traducciones');
+    if (det) det.open = _IDIOMAS.some(l => t?.[l]?.nombre);
+  }
+  const _leerTraducciones = () => Object.fromEntries(_IDIOMAS.map(l => [l, {
+    nombre: document.getElementById('plato-tr-' + l + '-nombre')?.value || '',
+    descripcion: document.getElementById('plato-tr-' + l + '-desc')?.value || '',
+  }]));
+
+  // Proveedores en el formulario de ingrediente
+  async function _rellenarProveedores(seleccionado) {
+    const sel = document.getElementById('ing-proveedor');
+    if (!sel) return;
+    let provs = [];
+    try { provs = await SB.obtenerProveedores(); } catch {}
+    sel.innerHTML = '<option value="">— Sin proveedor —</option>' +
+      provs.map(p => `<option value="${_esc(p.id)}">${_esc(p.nombre)}</option>`).join('');
+    sel.value = seleccionado || '';
+  }
 
   // ----------------------------------------------------------
   // ESCANDALLOS (coste por ración)
@@ -51,6 +93,17 @@ const ModuloMenu = (() => {
     const porUnidad   = (ing.unidad === 'ud') ? c : c / 1000;          // g → kg, ml → l
     const rendimiento = 1 - Math.min(95, Math.max(0, Number(ing.merma) || 0)) / 100;
     return porUnidad * Number(ing.precio_compra) / rendimiento;
+  }
+
+  /**
+   * Coste de un servicio de bebida: precio del envase × ml por servicio ÷ ml del envase
+   * (sin ml = se vende el envase entero: lata, botellín, botella de vino). null si no hay precio.
+   */
+  function costeBebida(c) {
+    const precio = Number(c?.precio_compra);
+    if (c?.precio_compra == null || c?.precio_compra === '' || !(precio >= 0)) return null;
+    const formato = Number(c.formato_ml), racion = Number(c.racion_ml);
+    return formato > 0 && racion > 0 ? precio * racion / formato : precio;
   }
 
   function _impuestoCarta() {
@@ -142,12 +195,13 @@ const ModuloMenu = (() => {
     if (inpObj && document.activeElement !== inpObj) inpObj.value = _objetivoCoste();
     cont.innerHTML = '<p class="texto-vacio">Cargando…</p>';
     try {
-      const [platos, ings] = await Promise.all([SB.obtenerPlatos(), SB.obtenerIngredientes()]);
+      const [platos, ings, bebidas] = await Promise.all([SB.obtenerPlatos(), _ingredientesConCoste(), SB.obtenerBebidas().catch(() => [])]);
       _todosPlatos = (platos || []).slice().sort(_ordAlfa);
       _todosIngredientes = (ings || []).slice().sort(_ordAlfa);
+      _todasBebidas = (bebidas || []).slice().sort(_ordAlfa);
     } catch (e) { cont.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${_esc(e.message)}</p>`; return; }
 
-    if (!_todosPlatos.length) { cont.innerHTML = '<p class="texto-vacio">Aún no hay platos en la carta.</p>'; return; }
+    if (!_todosPlatos.length && !_todasBebidas.length) { cont.innerHTML = '<p class="texto-vacio">Aún no hay platos ni bebidas en la carta.</p>'; return; }
     const objetivo = _objetivoCoste(), impuesto = _impuestoCarta();
     const filas = _todosPlatos.map(p => ({ p, e: escandallo(p.ingredientes, _todosIngredientes, Number(p.precio) || 0, { impuesto, objetivo }) }))
       // Primero los que más se comen el margen; al final los que no tienen datos
@@ -179,7 +233,30 @@ const ModuloMenu = (() => {
           </button>`;
         }).join('')}
       </div>
-      <p class="appcc-nota">% de coste = coste de la ración ÷ precio de carta sin ${impuesto === 10 ? 'IVA' : 'IGIC'} (${impuesto} %). Toca un plato para ajustar sus cantidades.</p>`;
+      ${_htmlBebidasEscandallo(objetivo, impuesto)}
+      <p class="appcc-nota">% de coste = coste de la ración ÷ precio de carta sin ${impuesto === 10 ? 'IVA' : 'IGIC'} (${impuesto} %). Toca un plato o una bebida para ajustarlo.</p>`;
+  }
+
+  function _htmlBebidasEscandallo(objetivo, impuesto) {
+    if (!_todasBebidas.length) return '';
+    const filas = _todasBebidas.map(b => {
+      const c = costeBebida(_costesBeb.get(b.id));
+      const pvp = Number(b.precio) || 0, sinImp = pvp / (1 + impuesto / 100);
+      const pct = c != null && sinImp > 0 ? c / sinImp * 100 : null;
+      return { b, c, pct, margen: c != null && sinImp > 0 ? r2(sinImp - c) : null };
+    }).sort((x, y) => (y.pct ?? -1) - (x.pct ?? -1));
+    return `<h3 class="esc-subtitulo">Bebidas</h3><div class="esc-lista">${filas.map(({ b, c, pct, margen }) => {
+      const nivel = _nivel(pct, objetivo);
+      const cb = _costesBeb.get(b.id);
+      const servicio = cb?.formato_ml && cb?.racion_ml ? `${cb.racion_ml} ml de ${cb.formato_ml} ml` : 'envase entero';
+      const detalle = c == null ? 'Sin precio de compra' : !(Number(b.precio) > 0) ? 'Sin precio de venta' : `Margen ${dinero(margen)} € · ${servicio}`;
+      return `<button type="button" class="esc-fila ${nivel}" data-esc-bebida="${b.id}">
+        <span class="esc-fila-nombre">${_esc(b.nombre)}<small>${detalle}</small></span>
+        <span class="esc-fila-num"><small>Coste</small>${c != null ? dinero(r2(c)) + ' €' : '—'}</span>
+        <span class="esc-fila-num"><small>PVP</small>${Number(b.precio) > 0 ? dinero(b.precio) + ' €' : '—'}</span>
+        <span class="esc-fila-pct ${nivel}">${_pct(pct)}</span>
+      </button>`;
+    }).join('')}</div>`;
   }
 
   function _imprimirEscandallos() {
@@ -270,7 +347,7 @@ ${fichas}
     if (!lista) return;
     lista.innerHTML = '<p class="texto-vacio">Cargando…</p>';
     try {
-      const items = await SB.obtenerIngredientes();
+      const items = await _ingredientesConCoste();
       _todosIngredientes = (items || []).slice().sort(_ordAlfa);
       _pintarIngredientes();
     } catch (e) { lista.innerHTML = `<p class="texto-vacio error-texto">Error al cargar: ${_esc(e.message)}</p>`; }
@@ -308,8 +385,10 @@ ${fichas}
   }
 
   async function editarIngrediente(id) {
-    const ing = await SB.obtenerIngrediente(id);
-    if (!ing) return;
+    const sinCoste = await SB.obtenerIngrediente(id);
+    if (!sinCoste) return;
+    const ing = _conCoste(sinCoste);
+    _rellenarProveedores(ing.proveedor_id);
     _idIngredienteEditando = id;
     document.getElementById('ing-nombre').value = ing.nombre;
     _ponerCosteIng(ing);
@@ -328,6 +407,7 @@ ${fichas}
     if (!confirm(`¿Eliminar el ingrediente "${nombre}"?\nSe eliminará también de los platos que lo usen.`)) return;
     try {
       await SB.eliminarIngrediente(id);
+      SB.eliminarCoste(id);
       const [platos, ings] = await Promise.all([SB.obtenerPlatos(), SB.obtenerIngredientes()]);
       const restantes = (ings || []).filter(i => i.id !== id);
       for (const plato of platos) {
@@ -357,9 +437,11 @@ ${fichas}
       });
       const coste = _leerCosteIng();
       if (coste.error) { alert(coste.error); return; }
+      const proveedorId = document.getElementById('ing-proveedor')?.value || null;
       if (_idIngredienteEditando !== null) {
         const idEd = _idIngredienteEditando;
-        await SB.actualizarIngrediente({ id: idEd, nombre, alergenos, ...coste });
+        await SB.actualizarIngrediente({ id: idEd, nombre, alergenos, proveedor_id: proveedorId });
+        await _guardarCosteIng(idEd, coste);
         const [platos, ings] = await Promise.all([SB.obtenerPlatos(), SB.obtenerIngredientes()]);
         // Asegurar que el cálculo usa los alérgenos recién guardados (aunque la caché vaya por detrás)
         const ingsAct = (ings || []).map(i => i.id === idEd ? { ...i, nombre, alergenos } : i);
@@ -371,7 +453,8 @@ ${fichas}
           }
         }
       } else {
-        await SB.guardarIngrediente({ nombre, alergenos, ...coste });
+        const nuevo = await SB.guardarIngrediente({ nombre, alergenos, proveedor_id: proveedorId });
+        await _guardarCosteIng(nuevo?.id, coste);
       }
       _resetFormIngrediente();
       await _renderIngredientes();
@@ -400,9 +483,19 @@ ${fichas}
     return { precio_compra: precio, unidad: document.getElementById('ing-unidad')?.value || 'kg', merma };
   }
 
+  async function _guardarCosteIng(id, coste) {
+    if (!id || !SB.puedeGestionar()) return;
+    const antes = _costes.get(id);
+    const vacio = coste.precio_compra == null && !coste.merma && coste.unidad === 'kg';
+    if (!antes && vacio) return;   // nada que guardar
+    const fila = await SB.guardarCoste('ingrediente', id, coste);
+    if (fila) _costes.set(id, fila);
+  }
+
   function _nuevoIngredienteForm() {
     _idIngredienteEditando = null;
     _ponerCosteIng(null);
+    _rellenarProveedores('');
     document.getElementById('ing-nombre').value = '';
     NOMBRES_ALERGENOS.forEach(a => { const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-')); if (cb) cb.checked = false; });
     document.getElementById('ing-form-titulo').textContent = 'Nuevo Ingrediente';
@@ -439,7 +532,7 @@ ${fichas}
   async function _renderSelectorIngredientes() {
     const cont = document.getElementById('plato-selector-ingredientes');
     if (!cont) return;
-    const todos = await SB.obtenerIngredientes();
+    const todos = await _ingredientesConCoste();
     _todosIngredientes = (todos || []).slice().sort(_ordAlfa);
     if (!_todosIngredientes.length) {
       cont.innerHTML = '<p class="texto-vacio">Primero añade ingredientes en la pestaña "Ingredientes".</p>';
@@ -653,6 +746,7 @@ ${platos.map(_platoToHtml).join('')}
     document.getElementById('plato-nombre').value = plato.nombre;
     document.getElementById('plato-desc').value   = plato.descripcion || '';
     document.getElementById('plato-precio').value = plato.precio > 0 ? plato.precio : '';
+    _ponerTraducciones(plato.traducciones || {});
     const idsPlato = plato.ingredientes?.map(i => i.id) || [];
     _cantidades = Object.fromEntries((plato.ingredientes || []).filter(i => Number(i.cantidad) > 0).map(i => [i.id, Number(i.cantidad)]));
     document.querySelectorAll('.plato-ing-check').forEach(cb => { cb.checked = idsPlato.includes(cb.value); });
@@ -679,6 +773,7 @@ ${platos.map(_platoToHtml).join('')}
   function _nuevoPlatoForm() {
     _idPlatoEditando = null;
     _cantidades = {};
+    _ponerTraducciones({});
     document.getElementById('plato-nombre').value  = '';
     document.getElementById('plato-desc').value    = '';
     document.getElementById('plato-precio').value  = '';
@@ -694,6 +789,7 @@ ${platos.map(_platoToHtml).join('')}
   function _resetFormPlato() {
     _idPlatoEditando = null;
     _cantidades = {};
+    _ponerTraducciones({});
     document.getElementById('plato-nombre').value  = '';
     document.getElementById('plato-desc').value    = '';
     document.getElementById('plato-precio').value  = '';
@@ -716,7 +812,7 @@ ${platos.map(_platoToHtml).join('')}
       // La cantidad por ración (escandallo) va junto a cada ingrediente
       const ingredientes = checks.map(cb => ({ id: cb.value, nombre: cb.dataset.nombre, ...(_cantidades[cb.value] > 0 ? { cantidad: _cantidades[cb.value] } : {}) }));
       const alergenos    = await _calcularAlergenos(ingredientes.map(i => i.id));
-      const datos        = { nombre, descripcion: desc, precio, ingredientes, alergenos };
+      const datos        = { nombre, descripcion: desc, precio, ingredientes, alergenos, traducciones: _leerTraducciones() };
       if (_idPlatoEditando !== null) {
         await SB.actualizarPlato({ id: _idPlatoEditando, ...datos });
       } else {
@@ -782,6 +878,8 @@ ${platos.map(_platoToHtml).join('')}
     document.getElementById('menu-escandallos')?.addEventListener('click', e => {
       const fila = e.target.closest('[data-esc-plato]');
       if (fila) { editarPlato(fila.dataset.escPlato); return; }
+      const beb = e.target.closest('[data-esc-bebida]');
+      if (beb) { navegarA('bebidas'); ModuloBebidas.editarBebida(beb.dataset.escBebida); return; }
       if (e.target.closest('[data-esc="ingredientes"]')) _activarSubtab('ingredientes');
     });
 
@@ -800,7 +898,7 @@ ${platos.map(_platoToHtml).join('')}
     editarIngrediente, borrarIngrediente,
     editarPlato, borrarPlato, imprimirPlato,
     nuevoPlatoForm: _nuevoPlatoForm,
-    costeLinea, escandallo,
+    costeLinea, escandallo, costeBebida, nivelCoste: _nivel, pctTexto: _pct, impuestoCarta: _impuestoCarta, objetivoCoste: _objetivoCoste,
     nuevoIngredienteForm: _nuevoIngredienteForm,
     cancelarPlatoForm: _resetFormPlato,
     cancelarIngredienteForm: _resetFormIngrediente

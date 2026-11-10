@@ -27,6 +27,9 @@ const ModuloFacturas = (() => {
       const el = document.getElementById(id);
       if (el) el.style.display = id === 'fac-vista-' + cual ? 'block' : 'none';
     });
+    // Los botones de la cabecera (Informe, Nueva factura…) solo tienen sentido en la lista
+    const acciones = document.getElementById('fac-btn-nueva')?.parentElement;
+    if (acciones) acciones.style.display = cual === 'lista' ? 'flex' : 'none';
     if (cual === 'lista') Navegacion.cerrada();
     else Navegacion.abrir(() => { _mostrarVista('lista'); _renderLista(); });
   }

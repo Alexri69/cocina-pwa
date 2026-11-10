@@ -1,27 +1,29 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v67: sin franjas laterales en escandallos y rectificativas (v66: escandallos, rectificativas, lote con cámara, copias)
+// v68: carta en idiomas, registro de jornada, coste de bebidas, proveedores y pedidos, costes privados
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v67';
+const NOMBRE_CACHE = 'cocina-etiquetas-v68';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=67',
+  './estilo.css?v=68',
   './manifest.json',
-  './core/voz.js?v=67',
-  './core/supabase.js?v=67',
-  './modulos/lector-lote.js?v=67',
-  './modulos/etiquetas.js?v=67',
-  './modulos/menu.js?v=67',
-  './modulos/bebidas.js?v=67',
-  './modulos/facturas.js?v=67',
-  './modulos/auth.js?v=67',
-  './modulos/config.js?v=67',
-  './modulos/appcc.js?v=67',
-  './modulos/cartaqr.js?v=67',
-  './modulos/equipo.js?v=67',
-  './app.js?v=67',
+  './core/voz.js?v=68',
+  './core/supabase.js?v=68',
+  './modulos/lector-lote.js?v=68',
+  './modulos/etiquetas.js?v=68',
+  './modulos/menu.js?v=68',
+  './modulos/bebidas.js?v=68',
+  './modulos/pedidos.js?v=68',
+  './modulos/jornada.js?v=68',
+  './modulos/facturas.js?v=68',
+  './modulos/auth.js?v=68',
+  './modulos/config.js?v=68',
+  './modulos/appcc.js?v=68',
+  './modulos/cartaqr.js?v=68',
+  './modulos/equipo.js?v=68',
+  './app.js?v=68',
   './lib/jspdf.umd.min.js',
   './lib/qrcode.min.js',
   './img/fondo-cocina.webp',

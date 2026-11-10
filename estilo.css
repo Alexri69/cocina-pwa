@@ -1398,3 +1398,87 @@ button .ic, a.btn .ic, .btn .ic, label .ic, .badge-estado .ic, .appcc-estado .ic
 .bkp-copia-info small { font-size: .78rem; color: var(--texto2); line-height: 1.4; }
 .bkp-copia-acciones { display: flex; gap: 6px; }
 .bkp-copia-acciones .btn-mini { min-height: 38px; }
+
+/* ============================================================
+   TRADUCCIONES (carta QR) Y COSTE DE BEBIDAS
+   ============================================================ */
+.traducciones { border: 1px solid var(--borde); border-radius: var(--radio); padding: 10px 12px; }
+.traducciones summary { cursor: pointer; font-weight: 600; font-size: .9rem; min-height: 32px; display: flex; align-items: center; flex-wrap: wrap; gap: 2px 6px; }
+.traducciones summary small { font-weight: 400; color: var(--texto2); }
+.traducciones-grid { display: grid; gap: 4px; margin-top: 8px; }
+.traducciones-grid label { font-size: .82rem; color: var(--texto2); margin-top: 6px; }
+.sub-label { display: block; font-size: .8rem; color: var(--texto2); margin-bottom: 4px; }
+.beb-coste-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.beb-coste-grid input[hidden], .beb-coste-grid [hidden] { display: none; }
+#beb-formato-otro { margin-top: 6px; }
+.beb-coste-resultado { font-size: .88rem; margin-top: 8px; line-height: 1.5; }
+.beb-coste-resultado:empty { display: none; }
+.beb-coste-resultado .warn { color: var(--warn); }
+.card-ing-precio .esc-fila-pct { font-size: inherit; }
+.esc-subtitulo { font-size: .95rem; margin: 20px 0 8px; color: var(--texto2); text-transform: uppercase; letter-spacing: .05em; }
+
+/* ============================================================
+   PEDIDOS Y PROVEEDORES
+   ============================================================ */
+#modulo-pedidos [hidden] { display: none !important; }
+.ped-estado { font-size: .78rem; font-weight: 600; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--borde); color: var(--texto2); white-space: nowrap; }
+.ped-estado.enviado  { color: var(--acento-texto); border-color: var(--acento); }
+.ped-estado.recibido { color: var(--ok); border-color: var(--ok); }
+.ped-resumen { font-size: .82rem; color: var(--texto2); margin: 4px 0 2px; overflow-wrap: anywhere; }
+.ped-lineas { display: flex; flex-direction: column; border: 1px solid var(--borde); border-radius: var(--radio); }
+.ped-linea { display: grid; grid-template-columns: minmax(0, 1fr) 90px 104px auto; gap: 8px; align-items: center; padding: 6px 8px; }
+.ped-linea + .ped-linea { border-top: 1px solid var(--borde); }
+.ped-linea.con .ped-linea-nombre { font-weight: 700; }
+.ped-linea .inp { min-height: 40px; padding: 6px 8px; }
+.ped-linea-cant { text-align: right; }
+.ped-linea-nombre { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .ped-linea { grid-template-columns: minmax(0, 1fr) 76px 86px auto; gap: 6px; }
+}
+.ped-recibir-lista { margin: 0 0 12px; padding-left: 20px; line-height: 1.6; }
+.ped-recibir-h { font-size: .92rem; margin: 10px 0 8px; } .ped-recibir-h small { font-weight: 400; color: var(--texto2); }
+.ped-precios { display: flex; flex-direction: column; gap: 8px; }
+.ped-precio { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ped-precio > span:first-child { display: flex; flex-direction: column; min-width: 0; }
+.ped-precio small { font-size: .78rem; color: var(--texto2); }
+.ped-precio .inp { width: 100px; }
+
+/* ============================================================
+   REGISTRO DE JORNADA
+   ============================================================ */
+.dash-fichaje:empty { display: none; }
+.dash-fichaje { margin-bottom: 16px; }
+.fichaje { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--borde); background: var(--card); }
+.fichaje.dentro { border-color: var(--ok); }
+.fichaje.largo  { border-color: var(--warn); }
+.fichaje-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 180px; }
+.fichaje-txt span { color: var(--texto2); font-size: .88rem; font-variant-numeric: tabular-nums; }
+.fichaje-txt small { color: var(--warn); font-size: .8rem; line-height: 1.4; }
+.fichaje.fuera .fichaje-txt small { color: var(--texto2); }
+.btn-fichar { min-height: 48px; padding: 10px 18px; font-size: 1rem; font-weight: 700; border-radius: 10px; border: 0; color: #fff; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.btn-fichar.entrada { background: #15803d; }
+.btn-fichar.salida  { background: var(--peligro-relleno); }
+.btn-fichar:disabled { opacity: .6; cursor: wait; }
+.jor-mes-sel { display: flex; align-items: center; gap: 8px; font-size: .875rem; color: var(--texto2); }
+.jor-mes-sel .inp { width: auto; min-height: 40px; }
+.jor-total-mes { margin: 0 0 8px; font-size: .9rem; color: var(--texto2); } .jor-total-mes strong { color: var(--texto); font-size: 1.05rem; }
+.jor-tabla { display: flex; flex-direction: column; }
+.jor-fila { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 7px 2px; border-top: 1px solid var(--borde); font-size: .9rem; font-variant-numeric: tabular-nums; }
+.jor-fila.abierta .jor-horas em { color: var(--ok); font-style: normal; font-weight: 600; }
+.jor-dia { color: var(--texto2); text-transform: capitalize; }
+.jor-total { font-weight: 600; text-align: right; }
+.jor-marcas { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.jor-corr { font-size: .72rem; color: var(--warn); border: 1px solid var(--warn); border-radius: 999px; padding: 1px 7px; }
+.jor-persona { border: 1px solid var(--borde); border-radius: var(--radio); padding: 0 12px; margin-bottom: 8px; }
+.jor-persona summary { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 48px; cursor: pointer; flex-wrap: wrap; }
+.jor-persona-nombre { font-weight: 600; }
+.jor-persona-datos { color: var(--texto2); font-size: .88rem; } .jor-persona-datos strong { color: var(--texto); }
+.jor-dentro { font-size: .72rem; color: var(--ok); border: 1px solid var(--ok); border-radius: 999px; padding: 1px 7px; margin-left: 6px; font-weight: 500; }
+.jor-historial { font-size: .8rem; color: var(--texto2); } .jor-historial:empty { display: none; }
+.jor-historial ul { margin: 4px 0 0; padding-left: 18px; }
+#jor-editor .form-grupo { margin: 0; }
+#jor-ed-persona-grupo[hidden] { display: none; }
+@media (max-width: 480px) {
+  .jor-fila { grid-template-columns: minmax(0, 1fr) auto; row-gap: 2px; }
+  .jor-horas { grid-column: 1; } .jor-total { grid-column: 2; grid-row: 1; } .jor-marcas { grid-column: 2; }
+}

@@ -560,22 +560,8 @@ GRANT EXECUTE ON FUNCTION public.publicar_carta(uuid, boolean), public.despublic
 GRANT EXECUTE ON FUNCTION public.carta_publica(text) TO anon, authenticated;
 
 
--- ============================================================
--- ESCANDALLOS: coste de cada ingrediente (los platos guardan la cantidad por ración en su jsonb)
--- ============================================================
-ALTER TABLE public.ingredientes
-  ADD COLUMN IF NOT EXISTS precio_compra numeric(10,2),                      -- € por unidad de compra (null = sin precio)
-  ADD COLUMN IF NOT EXISTS unidad        text         NOT NULL DEFAULT 'kg', -- kg | l | ud
-  ADD COLUMN IF NOT EXISTS merma         numeric(5,2) NOT NULL DEFAULT 0;    -- % que se pierde al limpiar o cocinar
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ingredientes_unidad_ok') THEN
-    ALTER TABLE public.ingredientes ADD CONSTRAINT ingredientes_unidad_ok CHECK (unidad IN ('kg','l','ud'));
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ingredientes_merma_ok') THEN
-    ALTER TABLE public.ingredientes ADD CONSTRAINT ingredientes_merma_ok CHECK (merma >= 0 AND merma < 100);
-  END IF;
-END $$;
+-- ESCANDALLOS: los costes de compra están en la tabla «costes» (ver más abajo, v68);
+-- los platos guardan la cantidad por ración de cada ingrediente en su jsonb.
 
 
 -- ============================================================
@@ -680,5 +666,245 @@ BEGIN
     PERFORM cron.schedule('copias-semanales', '0 3 * * 1', 'SELECT public.crear_copias_semanales()');
   END IF;
 END $$;
+
+
+-- ============================================================
+-- COSTES DE COMPRA (privados: solo propietario y encargado)
+--   Un registro por ingrediente o bebida; su id es el del ingrediente / bebida.
+--   ingrediente: precio_compra € por unidad (kg | l | ud) y merma %
+--   bebida:      precio_compra del envase, formato_ml (ml del envase) y racion_ml (ml por copa / servicio)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.costes (
+  id             uuid          PRIMARY KEY,
+  restaurante_id uuid          NOT NULL DEFAULT public.restaurante_por_defecto() REFERENCES public.restaurantes(id) ON DELETE CASCADE,
+  tipo           text          NOT NULL CHECK (tipo IN ('ingrediente','bebida')),
+  precio_compra  numeric(10,2),
+  unidad         text          NOT NULL DEFAULT 'kg' CHECK (unidad IN ('kg','l','ud')),
+  merma          numeric(5,2)  NOT NULL DEFAULT 0 CHECK (merma >= 0 AND merma < 100),
+  formato_ml     integer       CHECK (formato_ml IS NULL OR formato_ml > 0),
+  racion_ml      integer       CHECK (racion_ml IS NULL OR racion_ml > 0),
+  user_id        uuid          DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE SET NULL,
+  timestamp      bigint        NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint
+);
+CREATE INDEX IF NOT EXISTS costes_rest ON public.costes (restaurante_id);
+
+-- Los precios que hubiera en ingredientes (v66) pasan a costes y esas columnas se quitan:
+-- la cocina puede leer los ingredientes, pero no debe ver lo que cuestan.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'ingredientes' AND column_name = 'precio_compra') THEN
+    INSERT INTO public.costes (id, restaurante_id, tipo, precio_compra, unidad, merma, user_id)
+      SELECT id, restaurante_id, 'ingrediente', precio_compra, unidad, merma, user_id FROM public.ingredientes
+      WHERE restaurante_id IS NOT NULL AND (precio_compra IS NOT NULL OR merma <> 0 OR unidad <> 'kg')
+      ON CONFLICT (id) DO NOTHING;
+    ALTER TABLE public.ingredientes DROP COLUMN IF EXISTS precio_compra, DROP COLUMN IF EXISTS unidad, DROP COLUMN IF EXISTS merma;
+  END IF;
+END $$;
+
+ALTER TABLE public.costes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS costes_select ON public.costes;
+DROP POLICY IF EXISTS costes_insert ON public.costes;
+DROP POLICY IF EXISTS costes_update ON public.costes;
+DROP POLICY IF EXISTS costes_delete ON public.costes;
+CREATE POLICY costes_select ON public.costes FOR SELECT TO authenticated USING (public.puede_gestionar(restaurante_id));
+CREATE POLICY costes_insert ON public.costes FOR INSERT TO authenticated WITH CHECK (public.puede_gestionar(restaurante_id));
+CREATE POLICY costes_update ON public.costes FOR UPDATE TO authenticated USING (public.puede_gestionar(restaurante_id)) WITH CHECK (public.puede_gestionar(restaurante_id));
+CREATE POLICY costes_delete ON public.costes FOR DELETE TO authenticated USING (public.puede_gestionar(restaurante_id));
+
+
+-- ============================================================
+-- CARTA EN IDIOMAS: { "en": { "nombre": "…", "descripcion": "…" }, "de": { … } }
+-- ============================================================
+ALTER TABLE public.platos  ADD COLUMN IF NOT EXISTS traducciones jsonb NOT NULL DEFAULT '{}';
+ALTER TABLE public.bebidas ADD COLUMN IF NOT EXISTS traducciones jsonb NOT NULL DEFAULT '{}';
+
+CREATE OR REPLACE FUNCTION public.carta_publica(p_token text) RETURNS json
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
+$$
+  SELECT json_build_object(
+    'nombre',    coalesce(nullif(trim(c.empresa->>'razonSocial'), ''), r.nombre),
+    'direccion', concat_ws(', ', nullif(c.empresa->>'direccion', ''), nullif(c.empresa->>'ciudad', '')),
+    'telefono',  nullif(c.empresa->>'telefono', ''),
+    'logo',      c.logo,
+    'platos',  coalesce((SELECT json_agg(json_build_object('nombre', p.nombre, 'descripcion', p.descripcion, 'precio', p.precio, 'alergenos', p.alergenos, 'traducciones', p.traducciones) ORDER BY lower(p.nombre))
+                         FROM platos p WHERE p.restaurante_id = r.id), '[]'::json),
+    'bebidas', coalesce((SELECT json_agg(json_build_object('nombre', b.nombre, 'descripcion', b.descripcion, 'precio', b.precio, 'categoria', b.categoria, 'alergenos', b.alergenos, 'traducciones', b.traducciones) ORDER BY b.categoria, lower(b.nombre))
+                         FROM bebidas b WHERE b.restaurante_id = r.id), '[]'::json)
+  )
+  FROM restaurantes r LEFT JOIN config c ON c.restaurante_id = r.id
+  WHERE p_token IS NOT NULL AND length(p_token) >= 24 AND r.carta_token = p_token
+$$;
+GRANT EXECUTE ON FUNCTION public.carta_publica(text) TO anon, authenticated;
+
+
+-- ============================================================
+-- PROVEEDORES Y PEDIDOS
+--   Proveedores: todo el equipo los ve; propietario y encargado los gestionan.
+--   Pedidos: todo el equipo puede prepararlos y enviarlos.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.proveedores (
+  id             uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  restaurante_id uuid        NOT NULL DEFAULT public.restaurante_por_defecto() REFERENCES public.restaurantes(id) ON DELETE CASCADE,
+  nombre         text        NOT NULL,
+  contacto       text        NOT NULL DEFAULT '',
+  telefono       text        NOT NULL DEFAULT '',
+  email          text        NOT NULL DEFAULT '',
+  dias_reparto   text        NOT NULL DEFAULT '',
+  notas          text        NOT NULL DEFAULT '',
+  user_id        uuid        DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE SET NULL,
+  timestamp      bigint      NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint
+);
+CREATE INDEX IF NOT EXISTS proveedores_rest ON public.proveedores (restaurante_id);
+ALTER TABLE public.ingredientes ADD COLUMN IF NOT EXISTS proveedor_id uuid REFERENCES public.proveedores(id) ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS public.pedidos (
+  id               uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  restaurante_id   uuid        NOT NULL DEFAULT public.restaurante_por_defecto() REFERENCES public.restaurantes(id) ON DELETE CASCADE,
+  proveedor_id     uuid        REFERENCES public.proveedores(id) ON DELETE SET NULL,
+  proveedor_nombre text        NOT NULL DEFAULT '',
+  fecha            timestamptz NOT NULL DEFAULT now(),
+  entrega          date,
+  lineas           jsonb       NOT NULL DEFAULT '[]',   -- [{ ingrediente_id, nombre, cantidad, unidad }]
+  estado           text        NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador','enviado','recibido')),
+  notas            text        NOT NULL DEFAULT '',
+  autor            text        NOT NULL DEFAULT '',
+  user_id          uuid        DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE SET NULL,
+  timestamp        bigint      NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint
+);
+CREATE INDEX IF NOT EXISTS pedidos_rest_fecha ON public.pedidos (restaurante_id, fecha DESC);
+
+ALTER TABLE public.proveedores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pedidos     ENABLE ROW LEVEL SECURITY;
+DO $$
+DECLARE p record;
+BEGIN
+  FOR p IN SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('proveedores','pedidos') LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p.policyname, p.tablename);
+  END LOOP;
+END $$;
+CREATE POLICY proveedores_select ON public.proveedores FOR SELECT TO authenticated USING (public.es_miembro(restaurante_id));
+CREATE POLICY proveedores_insert ON public.proveedores FOR INSERT TO authenticated WITH CHECK (public.puede_gestionar(restaurante_id));
+CREATE POLICY proveedores_update ON public.proveedores FOR UPDATE TO authenticated USING (public.puede_gestionar(restaurante_id)) WITH CHECK (public.puede_gestionar(restaurante_id));
+CREATE POLICY proveedores_delete ON public.proveedores FOR DELETE TO authenticated USING (public.puede_gestionar(restaurante_id));
+CREATE POLICY pedidos_select ON public.pedidos FOR SELECT TO authenticated USING (public.es_miembro(restaurante_id));
+CREATE POLICY pedidos_insert ON public.pedidos FOR INSERT TO authenticated WITH CHECK (public.es_miembro(restaurante_id));
+CREATE POLICY pedidos_update ON public.pedidos FOR UPDATE TO authenticated USING (public.es_miembro(restaurante_id)) WITH CHECK (public.es_miembro(restaurante_id));
+CREATE POLICY pedidos_delete ON public.pedidos FOR DELETE TO authenticated USING (public.es_miembro(restaurante_id));
+
+
+-- ============================================================
+-- REGISTRO DE JORNADA (art. 34.9 del Estatuto de los Trabajadores: conservar 4 años)
+--   · La hora la pone el servidor (no el móvil).
+--   · Nadie escribe en la tabla directamente: solo con estas funciones.
+--   · Cada trabajador ve sus fichajes; propietario y encargado ven los de todos y pueden
+--     corregirlos indicando el motivo (queda el valor anterior en «correcciones»).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.fichajes (
+  id             uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  restaurante_id uuid        NOT NULL REFERENCES public.restaurantes(id) ON DELETE CASCADE,
+  user_id        uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  nombre         text        NOT NULL DEFAULT '',
+  entrada        timestamptz NOT NULL DEFAULT now(),
+  salida         timestamptz,
+  origen         text        NOT NULL DEFAULT 'app',     -- app | manual (añadido por la dirección)
+  correcciones   jsonb       NOT NULL DEFAULT '[]',
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  CHECK (salida IS NULL OR salida > entrada)
+);
+CREATE INDEX IF NOT EXISTS fichajes_rest_entrada ON public.fichajes (restaurante_id, entrada DESC);
+CREATE INDEX IF NOT EXISTS fichajes_user_abierto ON public.fichajes (user_id, restaurante_id) WHERE salida IS NULL;
+ALTER TABLE public.fichajes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS fichajes_select ON public.fichajes;
+CREATE POLICY fichajes_select ON public.fichajes FOR SELECT TO authenticated
+  USING (public.es_miembro(restaurante_id) AND (user_id = auth.uid() OR public.puede_gestionar(restaurante_id)));
+
+CREATE OR REPLACE FUNCTION public._nombre_miembro(p_restaurante uuid, p_user uuid) RETURNS text
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
+$$ SELECT coalesce(nullif(trim(m.nombre), ''), nullif(m.email, ''), 'Sin nombre') FROM miembros m WHERE m.restaurante_id = p_restaurante AND m.user_id = p_user $$;
+
+-- Fichar: si hay una entrada abierta la cierra (salida); si no, abre una nueva (entrada)
+CREATE OR REPLACE FUNCTION public.fichar(p_restaurante uuid) RETURNS public.fichajes
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS
+$$
+DECLARE v public.fichajes;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.es_miembro(p_restaurante) THEN RAISE EXCEPTION 'No perteneces a este restaurante'; END IF;
+  SELECT * INTO v FROM fichajes WHERE restaurante_id = p_restaurante AND user_id = auth.uid() AND salida IS NULL ORDER BY entrada DESC LIMIT 1 FOR UPDATE;
+  IF FOUND THEN
+    IF now() - v.entrada < interval '1 minute' THEN RAISE EXCEPTION 'Acabas de fichar la entrada. Espera un minuto para fichar la salida.'; END IF;
+    UPDATE fichajes SET salida = now() WHERE id = v.id RETURNING * INTO v;
+  ELSE
+    INSERT INTO fichajes (restaurante_id, user_id, nombre) VALUES (p_restaurante, auth.uid(), coalesce(public._nombre_miembro(p_restaurante, auth.uid()), ''))
+    RETURNING * INTO v;
+  END IF;
+  RETURN v;
+END $$;
+
+-- Corregir un fichaje (olvido, error): solo propietario o encargado, con motivo
+CREATE OR REPLACE FUNCTION public.corregir_fichaje(p_id uuid, p_entrada timestamptz, p_salida timestamptz, p_motivo text) RETURNS public.fichajes
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS
+$$
+DECLARE v public.fichajes;
+BEGIN
+  SELECT * INTO v FROM fichajes WHERE id = p_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Fichaje no encontrado'; END IF;
+  IF NOT public.puede_gestionar(v.restaurante_id) THEN RAISE EXCEPTION 'Solo el propietario o el encargado pueden corregir fichajes'; END IF;
+  IF coalesce(trim(p_motivo), '') = '' THEN RAISE EXCEPTION 'Indica el motivo de la corrección'; END IF;
+  IF p_salida IS NOT NULL AND p_salida <= p_entrada THEN RAISE EXCEPTION 'La salida tiene que ser posterior a la entrada'; END IF;
+  IF p_entrada > now() + interval '5 minutes' OR p_salida > now() + interval '5 minutes' THEN RAISE EXCEPTION 'No se pueden poner horas futuras'; END IF;
+  UPDATE fichajes SET entrada = p_entrada, salida = p_salida,
+    correcciones = correcciones || jsonb_build_array(jsonb_build_object(
+      'cuando', now(), 'quien', coalesce(public._nombre_miembro(v.restaurante_id, auth.uid()), ''),
+      'entrada_antes', v.entrada, 'salida_antes', v.salida, 'motivo', trim(p_motivo)))
+  WHERE id = p_id RETURNING * INTO v;
+  RETURN v;
+END $$;
+
+-- Añadir un fichaje olvidado de un trabajador: solo propietario o encargado, con motivo
+CREATE OR REPLACE FUNCTION public.crear_fichaje(p_restaurante uuid, p_user uuid, p_entrada timestamptz, p_salida timestamptz, p_motivo text) RETURNS public.fichajes
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS
+$$
+DECLARE v public.fichajes;
+BEGIN
+  IF NOT public.puede_gestionar(p_restaurante) THEN RAISE EXCEPTION 'Solo el propietario o el encargado pueden añadir fichajes'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM miembros WHERE restaurante_id = p_restaurante AND user_id = p_user) THEN RAISE EXCEPTION 'Esa persona no es del equipo'; END IF;
+  IF coalesce(trim(p_motivo), '') = '' THEN RAISE EXCEPTION 'Indica el motivo'; END IF;
+  IF p_salida IS NOT NULL AND p_salida <= p_entrada THEN RAISE EXCEPTION 'La salida tiene que ser posterior a la entrada'; END IF;
+  IF p_entrada > now() + interval '5 minutes' OR p_salida > now() + interval '5 minutes' THEN RAISE EXCEPTION 'No se pueden poner horas futuras'; END IF;
+  INSERT INTO fichajes (restaurante_id, user_id, nombre, entrada, salida, origen, correcciones)
+  VALUES (p_restaurante, p_user, coalesce(public._nombre_miembro(p_restaurante, p_user), ''), p_entrada, p_salida, 'manual',
+          jsonb_build_array(jsonb_build_object('cuando', now(), 'quien', coalesce(public._nombre_miembro(p_restaurante, auth.uid()), ''), 'motivo', trim(p_motivo))))
+  RETURNING * INTO v;
+  RETURN v;
+END $$;
+
+REVOKE ALL ON FUNCTION public._nombre_miembro(uuid, uuid) FROM anon, authenticated, public;
+REVOKE ALL ON FUNCTION public.fichar(uuid), public.corregir_fichaje(uuid, timestamptz, timestamptz, text), public.crear_fichaje(uuid, uuid, timestamptz, timestamptz, text) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.fichar(uuid), public.corregir_fichaje(uuid, timestamptz, timestamptz, text), public.crear_fichaje(uuid, uuid, timestamptz, timestamptz, text) TO authenticated;
+
+
+-- ============================================================
+-- COPIAS: incluir también costes, proveedores, pedidos y fichajes
+-- ============================================================
+CREATE OR REPLACE FUNCTION public._datos_restaurante(p_restaurante uuid) RETURNS jsonb
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
+$$
+  SELECT jsonb_build_object(
+    'productos',       coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM productos t           WHERE t.restaurante_id = p_restaurante), '[]'),
+    'plantillas',      coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM plantillas_etiqueta t WHERE t.restaurante_id = p_restaurante), '[]'),
+    'ingredientes',    coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM ingredientes t        WHERE t.restaurante_id = p_restaurante), '[]'),
+    'platos',          coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM platos t              WHERE t.restaurante_id = p_restaurante), '[]'),
+    'bebidas',         coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM bebidas t             WHERE t.restaurante_id = p_restaurante), '[]'),
+    'facturas',        coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM facturas t            WHERE t.restaurante_id = p_restaurante), '[]'),
+    'appcc_elementos', coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM appcc_elementos t     WHERE t.restaurante_id = p_restaurante), '[]'),
+    'appcc_registros', coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM appcc_registros t     WHERE t.restaurante_id = p_restaurante), '[]'),
+    'costes',          coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM costes t              WHERE t.restaurante_id = p_restaurante), '[]'),
+    'proveedores',     coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM proveedores t         WHERE t.restaurante_id = p_restaurante), '[]'),
+    'pedidos',         coalesce((SELECT jsonb_agg(to_jsonb(t) - 'user_id' - 'restaurante_id' ORDER BY t.id) FROM pedidos t             WHERE t.restaurante_id = p_restaurante), '[]'),
+    'fichajes',        coalesce((SELECT jsonb_agg(to_jsonb(t) - 'restaurante_id' ORDER BY t.entrada) FROM fichajes t                   WHERE t.restaurante_id = p_restaurante), '[]'),
+    'config',          (SELECT jsonb_build_object('empresa', c.empresa, 'impresora', c.impresora) FROM config c WHERE c.restaurante_id = p_restaurante)
+  )
+$$;
+REVOKE ALL ON FUNCTION public._datos_restaurante(uuid) FROM anon, authenticated, public;
 
 NOTIFY pgrst, 'reload schema';

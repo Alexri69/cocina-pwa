@@ -13,7 +13,7 @@ HTML5 · CSS3 · JS vainilla · Supabase (Auth + PostgREST + RLS) · Service Wor
 index.html / estilo.css / app.js / manifest.json / trabajador.js (Service Worker)
 core/voz.js        — utilidades globales (dinero, r2, esc, aviso, validarNif/Email/Iban) + VOZ.*
 core/supabase.js   — SB.*: auth, CRUD, caché offline, cola offline (outbox), numeración
-modulos/auth.js · equipo.js · etiquetas.js · appcc.js · menu.js · bebidas.js · facturas.js · config.js
+modulos/auth.js · equipo.js · etiquetas.js · appcc.js · menu.js · bebidas.js · facturas.js · config.js · pedidos.js · jornada.js · lector-lote.js
 lib/jspdf.umd.min.js — jsPDF 2.5.1 (local para que los PDF funcionen offline)
 supabase-setup.sql — esquema COMPLETO e idempotente (7 tablas + RLS)
 supabase/functions/recordatorio-caducidades — Edge Function de avisos push diarios
@@ -30,10 +30,15 @@ scripts/validate.js — validador (sintaxis + coherencia del precache del SW); l
 - Al entrar: `ModuloEquipo.iniciar()` (bienvenida si no hay restaurante; `?unirse=CODIGO` para invitaciones). UI por rol con `body[data-rol]` y `data-solo="gestion"`.
 
 ## Escandallos, rectificativas, lote con cámara y copias (v66)
-- **Escandallos:** `ingredientes.precio_compra` (€ por `unidad` kg|l|ud) y `merma` (%); cada `platos.ingredientes[i].cantidad` en g/ml/ud por ración. Cálculo puro en `ModuloMenu.costeLinea/escandallo`. Pestaña «Escandallos» (solo gestión); objetivo de coste en la ficha (`objetivoCoste`, 30 % por defecto); impuesto de carta: IGIC 7 % o IVA 10 %.
+- **Escandallos:** coste en la tabla privada `costes` (id = id del ingrediente o bebida; solo propietario/encargado): `precio_compra` € por `unidad` kg|l|ud y `merma` %; bebidas: `formato_ml` y `racion_ml` (`ModuloMenu.costeBebida`). La cocina no puede leer precios de compra; cada `platos.ingredientes[i].cantidad` en g/ml/ud por ración. Cálculo puro en `ModuloMenu.costeLinea/escandallo`. Pestaña «Escandallos» (solo gestión); objetivo de coste en la ficha (`objetivoCoste`, 30 % por defecto); impuesto de carta: IGIC 7 % o IVA 10 %.
 - **Rectificativas:** `tipo='factura'`, serie propia `R-AAAA-NNNN`, columnas `rectifica_id/numero/fecha` y `motivo_rectificacion` (solo se envían si es rectificativa). Botón «Rectificar» en el detalle; al intentar borrar una factura que no es la última se ofrece rectificarla.
 - **Lote con cámara:** `modulos/lector-lote.js` (`LectorLote`): BarcodeDetector para GS1 (campo 10) y Tesseract.js 5.1.1 desde jsDelivr para el texto (se descarga al primer uso). Siempre se confirma el valor. «Atrás» la cierra con `Navegacion.encima()`.
 - **Copias:** tabla `copias_seguridad` (solo lectura para gestión); `crear_copias_semanales()` por pg_cron los lunes 03:00 UTC (8 automáticas + 5 manuales, sin duplicar si nada cambió); RPC `crear_copia_ahora(r)`. El archivo de copia incluye ahora APPCC.
+
+## Idiomas, pedidos y jornada (v68)
+- **Carta en idiomas:** `platos.traducciones` / `bebidas.traducciones` = { en: { nombre, descripcion }, de: {…} }. La carta pública elige idioma (?l=en|de, el del móvil o el guardado) y traduce alérgenos y categorías.
+- **Proveedores y pedidos** (`modulos/pedidos.js`): tablas `proveedores` (escribe la dirección, lee todo el equipo) y `pedidos` (todo el equipo). `ingredientes.proveedor_id`. Envío por WhatsApp/email; al recibir, la dirección puede actualizar precios (→ escandallos).
+- **Registro de jornada** (`modulos/jornada.js`): tabla `fichajes` sin escritura directa; RPC `fichar(r)` (hora del servidor, alterna entrada/salida), `corregir_fichaje` y `crear_fichaje` (dirección, con motivo; guardan el historial en `correcciones`). Cada uno ve lo suyo; la dirección, todo. Las copias incluyen los fichajes pero no se restauran.
 
 ## Carta pública (QR)
 - `carta.html?c=<token>` + `modulos/carta-publica.js`: página sin login; lee con la RPC `carta_publica(token)` (anon). Solo nombre, descripción, precio y alérgenos.

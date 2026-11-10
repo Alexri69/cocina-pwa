@@ -208,7 +208,7 @@ const SB = (() => {
   // ----------------------------------------------------------
 
   // Tablas cuyos datos van por restaurante: se filtran y se insertan con restaurante_id
-  const _TABLAS_RESTAURANTE = new Set(['productos','plantillas_etiqueta','ingredientes','platos','bebidas','facturas','appcc_elementos','appcc_registros','config']);
+  const _TABLAS_RESTAURANTE = new Set(['productos','plantillas_etiqueta','ingredientes','platos','bebidas','facturas','appcc_elementos','appcc_registros','config','costes','proveedores','pedidos','fichajes']);
   const CLAVE_RESTAURANTE = 'cocina_restaurante';
   let _restaurante = null; // { id, nombre, rol }
 
@@ -322,6 +322,17 @@ const SB = (() => {
   const salirRestaurante  = (id)              => _rpcLegible('salir_restaurante', { p_restaurante: id || restauranteId() });
   const obtenerMiembros   = ()                => _req(`miembros?restaurante_id=eq.${restauranteId()}&select=user_id,rol,nombre,email,created_at&order=created_at.asc`, { headers: _cab({ 'Prefer': '' }) });
   const cambiarRolMiembro = (userId, nuevo)   => _req(`miembros?restaurante_id=eq.${restauranteId()}&user_id=eq.${userId}`, { method: 'PATCH', headers: _cab(), body: JSON.stringify({ rol: nuevo }) }).catch(e => { throw _esRed(e) ? e : new Error(_msgError(e)); });
+  /** Mi nombre en el equipo del restaurante activo (o mi email si no lo he puesto). Con caché para trabajar sin conexión. */
+  async function miNombre() {
+    const clave = 'cocina_minombre_' + (restauranteId() || '');
+    try {
+      const filas = await _req(`miembros?restaurante_id=eq.${restauranteId()}&user_id=eq.${_uid()}&select=nombre,email`, { headers: _cab({ 'Prefer': '' }) });
+      const m = _primero(filas);
+      const n = (m?.nombre || '').trim() || m?.email || '';
+      try { localStorage.setItem(clave, n); } catch {}
+      return n;
+    } catch { try { return localStorage.getItem(clave) || ''; } catch { return ''; } }
+  }
   const cambiarMiNombre   = (nombre)          => _req(`miembros?restaurante_id=eq.${restauranteId()}&user_id=eq.${_uid()}`, { method: 'PATCH', headers: _cab(), body: JSON.stringify({ nombre }) });
   const expulsarMiembro   = (userId)          => _req(`miembros?restaurante_id=eq.${restauranteId()}&user_id=eq.${userId}`, { method: 'DELETE', headers: _cab({ 'Prefer': '' }) }).catch(e => { throw _esRed(e) ? e : new Error(_msgError(e)); });
   const obtenerInvitaciones = ()              => _req(`invitaciones?restaurante_id=eq.${restauranteId()}&select=codigo,rol,expira_en,usos,usos_max&expira_en=gt.${encodeURIComponent(new Date().toISOString())}&order=created_at.desc`, { headers: _cab({ 'Prefer': '' }) });
@@ -431,8 +442,8 @@ const SB = (() => {
 
   // Columnas añadidas en migraciones recientes: si la BD aún no las tiene,
   // se reintenta sin ellas en vez de fallar el guardado entero.
-  // alergenos: en bebidas · precio_compra, unidad, merma: escandallos de ingredientes
-  const _COLUMNAS_NUEVAS = ['comensales', 'alergenos', 'precio_compra', 'unidad', 'merma'];
+  // alergenos: en bebidas · traducciones: platos y bebidas · proveedor_id: ingredientes
+  const _COLUMNAS_NUEVAS = ['comensales', 'alergenos', 'traducciones', 'proveedor_id'];
   async function _sinColumnasNuevas(datos, fn, intentos = 5) {
     try {
       return await fn(datos);
@@ -629,14 +640,55 @@ const SB = (() => {
       throw e;
     }
   }
-  // Coste para escandallos: € por kg / l / ud y % de merma (precio_compra null = sin precio)
-  const _costeIngrediente = (d) => ({
-    precio_compra: d.precio_compra === '' || d.precio_compra == null || !isFinite(Number(d.precio_compra)) ? null : r2(Number(d.precio_compra)),
-    unidad: ['kg', 'l', 'ud'].includes(d.unidad) ? d.unidad : 'kg',
-    merma: Math.min(95, Math.max(0, Number(d.merma) || 0)),
-  });
-  const guardarIngrediente    = (d)   => _sinColumnasNuevas({ nombre: d.nombre, alergenos: d.alergenos, ..._costeIngrediente(d), timestamp: Date.now(), user_id: _uid() }, x => _post('ingredientes', x)).then(_primero);
-  const actualizarIngrediente = (d)   => _sinColumnasNuevas({ nombre: d.nombre, alergenos: d.alergenos, ...('precio_compra' in d ? _costeIngrediente(d) : {}) }, x => _patch('ingredientes', d.id, x)).then(_primero);
+  // El proveedor solo se envía si viene (al renombrar desde un plato no se toca)
+  const _provIng = d => ('proveedor_id' in d ? { proveedor_id: d.proveedor_id || null } : {});
+  const guardarIngrediente    = (d)   => _sinColumnasNuevas({ nombre: d.nombre, alergenos: d.alergenos, ..._provIng(d), timestamp: Date.now(), user_id: _uid() }, x => _post('ingredientes', x)).then(_primero);
+  const actualizarIngrediente = (d)   => _sinColumnasNuevas({ nombre: d.nombre, alergenos: d.alergenos, ..._provIng(d) }, x => _patch('ingredientes', d.id, x)).then(_primero);
+
+  // ----------------------------------------------------------
+  // COSTES DE COMPRA (privados: solo propietario y encargado). id = id del ingrediente o bebida.
+  // ----------------------------------------------------------
+
+  const _numONull = v => (v === '' || v == null || !isFinite(Number(v))) ? null : Number(v);
+  /** Normaliza un coste: precio_compra € (null = sin precio), unidad kg|l|ud, merma %, formato_ml / racion_ml (bebidas). */
+  function normalizarCoste(d = {}) {
+    const precio = _numONull(d.precio_compra);
+    const ml = v => { const n = Math.round(Number(v)); return n > 0 ? n : null; };
+    return {
+      precio_compra: precio == null || precio < 0 ? null : r2(precio),
+      unidad: ['kg', 'l', 'ud'].includes(d.unidad) ? d.unidad : 'kg',
+      merma: Math.min(95, Math.max(0, Number(d.merma) || 0)),
+      formato_ml: ml(d.formato_ml),
+      racion_ml: ml(d.racion_ml),
+    };
+  }
+  async function obtenerCostes() {
+    if (!puedeGestionar()) return [];
+    try {
+      const datos = await _get('costes', '?select=id,tipo,precio_compra,unidad,merma,formato_ml,racion_ml');
+      _CACHE.guardar('costes', datos || []);
+      return datos || [];
+    } catch (e) {
+      const cache = _CACHE.leer('costes');
+      if (_esRed(e) && cache !== null) return cache;
+      if (/costes/.test(String(e?.message)) && /PGRST205|404|does not exist/.test(String(e?.message))) return [];  // BD aún sin migrar
+      throw e;
+    }
+  }
+  /** Guarda (crea o actualiza) el coste de un ingrediente o bebida. */
+  async function guardarCoste(tipo, id, d) {
+    if (!puedeGestionar() || !id) return null;
+    const fila = { id, tipo, ...normalizarCoste(d), restaurante_id: restauranteId(), user_id: _uid(), timestamp: Date.now() };
+    try {
+      await _req('costes?on_conflict=id', { method: 'POST', headers: _cab({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify(fila) });
+    } catch (e) {
+      if (!_esRed(e)) throw e;
+      _outboxAdd({ metodo: 'POST', tabla: 'costes', datos: fila });   // al sincronizar se hace upsert por id
+    }
+    _aplicarACache('costes', 'POST', id, fila);
+    return fila;
+  }
+  const eliminarCoste = (id) => puedeGestionar() ? _delete('costes', id).catch(() => null) : null;
   const eliminarIngrediente   = (id)  => _delete('ingredientes', id);
 
   // ----------------------------------------------------------
@@ -662,8 +714,21 @@ const SB = (() => {
       throw e;
     }
   }
-  const guardarPlato    = (d)   => _post('platos', { nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos, timestamp: Date.now(), user_id: _uid() }).then(_primero);
-  const actualizarPlato = (d)   => _patch('platos', d.id, { nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos }).then(_primero);
+  // traducciones solo se envía si viene (al recalcular alérgenos desde ingredientes no se toca)
+  const _trad = d => ('traducciones' in d ? { traducciones: limpiarTraducciones(d.traducciones) } : {});
+  const guardarPlato    = (d)   => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos, ..._trad(d), timestamp: Date.now(), user_id: _uid() }, x => _post('platos', x)).then(_primero);
+  const actualizarPlato = (d)   => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos, ..._trad(d) }, x => _patch('platos', d.id, x)).then(_primero);
+
+  /** Idiomas de la carta pública además del español. Quita los textos vacíos. */
+  const IDIOMAS_CARTA = ['en', 'de'];
+  function limpiarTraducciones(t) {
+    const out = {};
+    for (const l of IDIOMAS_CARTA) {
+      const nombre = String(t?.[l]?.nombre || '').trim().slice(0, 120), descripcion = String(t?.[l]?.descripcion || '').trim().slice(0, 500);
+      if (nombre || descripcion) out[l] = { ...(nombre ? { nombre } : {}), ...(descripcion ? { descripcion } : {}) };
+    }
+    return out;
+  }
   const eliminarPlato   = (id)  => _delete('platos', id);
 
   // ----------------------------------------------------------
@@ -794,7 +859,7 @@ const SB = (() => {
   // ----------------------------------------------------------
 
   async function exportarTodo() {
-    const [prods, ings, platos, bebidas, todasFac, plantillas, elementos, registros] = await Promise.all([
+    const [prods, ings, platos, bebidas, todasFac, plantillas, elementos, registros, costes, proveedores, pedidos, fichajes] = await Promise.all([
       _get('productos',    '?select=*&order=timestamp.desc'),
       _get('ingredientes', '?select=*&order=timestamp.desc'),
       _get('platos',       '?select=*&order=timestamp.desc'),
@@ -803,9 +868,13 @@ const SB = (() => {
       _get('plantillas_etiqueta', '?select=*').catch(() => []),
       _get('appcc_elementos', '?select=*').catch(() => []),
       _get('appcc_registros', '?select=*&order=fecha.desc').catch(() => []),
+      _get('costes', '?select=*').catch(() => []),
+      _get('proveedores', '?select=*').catch(() => []),
+      _get('pedidos', '?select=*').catch(() => []),
+      _get('fichajes', '?select=*&order=entrada.asc').catch(() => []),
     ]);
     return _formatoArchivo({ productos: prods, ingredientes: ings, platos, bebidas, facturas: todasFac, plantillas,
-                             appcc_elementos: elementos, appcc_registros: registros });
+                             appcc_elementos: elementos, appcc_registros: registros, costes, proveedores, pedidos, fichajes });
   }
 
   // Datos en formato BD → formato del archivo de copia (el mismo que usa restaurarDatos)
@@ -820,6 +889,10 @@ const SB = (() => {
       facturas:        strip(d.facturas).map(_facturaDeBD),
       appcc_elementos: strip(d.appcc_elementos),
       appcc_registros: strip(d.appcc_registros),
+      costes:          strip(d.costes),
+      proveedores:     strip(d.proveedores),
+      pedidos:         strip(d.pedidos),
+      fichajes:        strip(d.fichajes),   // solo de consulta: el registro de jornada no se restaura (no se puede reescribir)
     };
   }
 
@@ -836,7 +909,7 @@ const SB = (() => {
              datos: _formatoArchivo(d) };
   }
 
-  async function restaurarDatos({ productos = [], ingredientes = [], platos = [], bebidas = [], facturas = [], plantillas = [], appcc_elementos = [], appcc_registros = [] }) {
+  async function restaurarDatos({ productos = [], ingredientes = [], platos = [], bebidas = [], facturas = [], plantillas = [], appcc_elementos = [], appcc_registros = [], costes = [], proveedores = [], pedidos = [] }) {
     const uid = _uid();
     if (!uid) throw new Error('Sesión no válida. Vuelve a iniciar sesión.');
     const hdrs  = _cab({ 'Prefer': 'return=minimal,resolution=merge-duplicates' });
@@ -864,7 +937,12 @@ const SB = (() => {
     };
 
     await upsert('productos',    productos.map(p => conId(p, _productoParaBD(p))));
-    await upsert('ingredientes', ingredientes.map(i => conId(i, i)));
+    // Primero los proveedores: los ingredientes y pedidos apuntan a ellos
+    await upsert('proveedores',  proveedores.map(p => conId(p, p)));
+    // Copias anteriores a v68: el coste venía dentro del ingrediente
+    const costesViejos = ingredientes.filter(i => i.precio_compra != null).map(i => ({ id: i.id, tipo: 'ingrediente', precio_compra: i.precio_compra, unidad: i.unidad, merma: i.merma }));
+    await upsert('ingredientes', ingredientes.map(({ precio_compra, unidad, merma, ...i }) => conId(i, i)));
+    await upsert('costes',       [...costesViejos, ...costes].map(c => conId(c, c)));
     await upsert('platos',       platos.map(p => conId(p, p)));
     await upsert('bebidas',      bebidas.map(b => conId(b, b)));
     // Primero las originales: una rectificativa apunta a su factura
@@ -873,6 +951,7 @@ const SB = (() => {
     // APPCC: primero los equipos y tareas, después sus registros
     await upsert('appcc_elementos', appcc_elementos.map(e => conId(e, e)));
     await upsert('appcc_registros', appcc_registros.map(r => conId(r, r)), true);
+    await upsert('pedidos',      pedidos.map(p => conId(p, p)));
     // Habituales: si ya existe uno con el mismo nombre (otro id), se conserva el actual
     try { await upsert('plantillas_etiqueta', plantillas.map(p => conId(p, p))); }
     catch (e) { console.warn('[SB] Algunos productos habituales no se restauraron (nombre repetido):', e); }
@@ -901,8 +980,83 @@ const SB = (() => {
       throw e;
     }
   }
-  const guardarBebida    = (d)  => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', alergenos: d.alergenos || [], timestamp: Date.now(), user_id: _uid() }, x => _post('bebidas', x)).then(_primero);
-  const actualizarBebida = (d)  => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', alergenos: d.alergenos || [] }, x => _patch('bebidas', d.id, x)).then(_primero);
+  const guardarBebida    = (d)  => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', alergenos: d.alergenos || [], ..._trad(d), timestamp: Date.now(), user_id: _uid() }, x => _post('bebidas', x)).then(_primero);
+  const actualizarBebida = (d)  => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', alergenos: d.alergenos || [], ..._trad(d) }, x => _patch('bebidas', d.id, x)).then(_primero);
+
+  // ----------------------------------------------------------
+  // PROVEEDORES Y PEDIDOS (lectura con caché para trabajar sin conexión)
+  // ----------------------------------------------------------
+
+  async function _leerConCache(tabla, q) {
+    try {
+      const datos = await _get(tabla, q);
+      _CACHE.guardar(tabla, datos || []);
+      return datos || [];
+    } catch (e) {
+      const cache = _CACHE.leer(tabla);
+      if (_esRed(e) && cache !== null) return cache;
+      if (new RegExp(tabla).test(String(e?.message)) && /PGRST205|404|does not exist/.test(String(e?.message))) return [];  // BD aún sin migrar
+      throw e;
+    }
+  }
+  const _proveedor = d => ({
+    nombre: String(d.nombre || '').trim(), contacto: String(d.contacto || '').trim(), telefono: String(d.telefono || '').trim(),
+    email: String(d.email || '').trim(), dias_reparto: String(d.dias_reparto || '').trim(), notas: String(d.notas || '').trim(),
+  });
+  const obtenerProveedores   = ()  => _leerConCache('proveedores', '?select=*&order=nombre.asc');
+  const guardarProveedor     = (d) => _post('proveedores', { ..._proveedor(d), timestamp: Date.now(), user_id: _uid() }).then(_primero);
+  const actualizarProveedor  = (d) => _patch('proveedores', d.id, _proveedor(d)).then(_primero);
+  const eliminarProveedor    = (id) => _delete('proveedores', id);
+
+  const _pedido = d => ({
+    proveedor_id: d.proveedor_id || null, proveedor_nombre: String(d.proveedor_nombre || '').trim(),
+    entrega: d.entrega || null, estado: ['borrador', 'enviado', 'recibido'].includes(d.estado) ? d.estado : 'borrador',
+    notas: String(d.notas || '').trim(), autor: String(d.autor || '').trim(),
+    lineas: (d.lineas || []).filter(l => String(l.nombre || '').trim() && Number(l.cantidad) > 0)
+      .map(l => ({ ...(l.ingrediente_id ? { ingrediente_id: l.ingrediente_id } : {}), nombre: String(l.nombre).trim(), cantidad: Number(l.cantidad), unidad: String(l.unidad || 'ud') })),
+  });
+  const obtenerPedidos   = ()  => _leerConCache('pedidos', '?select=*&order=fecha.desc&limit=200');
+  const guardarPedido    = (d) => _post('pedidos', { ..._pedido(d), fecha: new Date().toISOString(), timestamp: Date.now(), user_id: _uid() }).then(_primero);
+  const actualizarPedido = (d) => _patch('pedidos', d.id, _pedido(d)).then(_primero);
+  const cambiarEstadoPedido = (id, estado) => _patch('pedidos', id, { estado }).then(_primero);
+  const eliminarPedido   = (id) => _delete('pedidos', id);
+
+  // ----------------------------------------------------------
+  // REGISTRO DE JORNADA (la hora la pone el servidor; hace falta conexión para fichar)
+  // ----------------------------------------------------------
+
+  /** Fichar entrada o salida (alterna). Devuelve el fichaje. */
+  async function fichar() {
+    if (!navigator.onLine) throw new Error('Para fichar hace falta conexión: la hora la pone el servidor para que sea válida.');
+    return _primero(await _rpcLegible('fichar', { p_restaurante: restauranteId() }));
+  }
+  /** Fichajes entre dos fechas (ISO). Los míos, o los de todo el equipo si soy propietario/encargado. */
+  async function obtenerFichajes(desde, hasta, { soloMios = false } = {}) {
+    const q = `?select=*&entrada=gte.${encodeURIComponent(desde)}&entrada=lt.${encodeURIComponent(hasta)}&order=entrada.asc${soloMios ? '&user_id=eq.' + _uid() : ''}`;
+    try {
+      const datos = await _get('fichajes', q);
+      if (soloMios) _CACHE.guardar('fichajes_mios', datos || []);
+      return datos || [];
+    } catch (e) {
+      const cache = _CACHE.leer('fichajes_mios');
+      if (_esRed(e) && soloMios && cache !== null) return cache;
+      throw e;
+    }
+  }
+  /** Mi fichaje abierto (sin salida), si lo hay. */
+  async function miFichajeAbierto() {
+    try {
+      const filas = await _get('fichajes', `?select=*&user_id=eq.${_uid()}&salida=is.null&order=entrada.desc&limit=1`);
+      const f = _primero(filas);
+      _CACHE.guardar('fichaje_abierto', f || null);
+      return f;
+    } catch (e) {
+      if (_esRed(e)) return _CACHE.leer('fichaje_abierto');
+      throw e;
+    }
+  }
+  const corregirFichaje = (id, entrada, salida, motivo) => _rpcLegible('corregir_fichaje', { p_id: id, p_entrada: entrada, p_salida: salida || null, p_motivo: motivo }).then(_primero);
+  const crearFichaje    = (userId, entrada, salida, motivo) => _rpcLegible('crear_fichaje', { p_restaurante: restauranteId(), p_user: userId, p_entrada: entrada, p_salida: salida || null, p_motivo: motivo }).then(_primero);
   const eliminarBebida   = (id) => _delete('bebidas', id);
 
   // ----------------------------------------------------------
@@ -969,7 +1123,7 @@ const SB = (() => {
     // Restaurante activo y equipo
     restauranteActivo, restauranteId, rol, puedeGestionar, esPropietario, seleccionarRestaurante,
     misRestaurantes, crearRestaurante, unirseConCodigo, crearInvitacion, salirRestaurante,
-    obtenerMiembros, cambiarRolMiembro, cambiarMiNombre, expulsarMiembro, obtenerInvitaciones, borrarInvitacion,
+    obtenerMiembros, cambiarRolMiembro, cambiarMiNombre, miNombre, expulsarMiembro, obtenerInvitaciones, borrarInvitacion,
     renombrarRestaurante, eliminarRestaurante, userId: () => _uid(),
     estadoCarta, publicarCarta, despublicarCarta, cartaPublica,
     // Productos (etiquetas)
@@ -988,6 +1142,13 @@ const SB = (() => {
     // Bebidas
     obtenerBebidas, obtenerBebida,
     guardarBebida, actualizarBebida, eliminarBebida,
+    // Costes de compra (privados), traducciones de la carta
+    obtenerCostes, guardarCoste, eliminarCoste, normalizarCoste, IDIOMAS_CARTA, limpiarTraducciones,
+    // Proveedores y pedidos
+    obtenerProveedores, guardarProveedor, actualizarProveedor, eliminarProveedor,
+    obtenerPedidos, guardarPedido, actualizarPedido, cambiarEstadoPedido, eliminarPedido,
+    // Registro de jornada
+    fichar, obtenerFichajes, miFichajeAbierto, corregirFichaje, crearFichaje,
     // Backup
     exportarTodo, restaurarDatos,
     // Configuración sincronizada

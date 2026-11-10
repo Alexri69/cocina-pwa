@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Inicializar módulos en paralelo (son independientes). Si uno falla, el resto arranca igual.
-  const modulos = { ModuloConfig, ModuloEquipo, ModuloEtiquetas, ModuloAppcc, ModuloMenu, ModuloBebidas, ModuloCartaQR };
+  const modulos = { ModuloConfig, ModuloEquipo, ModuloEtiquetas, ModuloAppcc, ModuloMenu, ModuloBebidas, ModuloCartaQR, ModuloPedidos, ModuloJornada };
   // Facturas solo para propietario y encargado
   if (SB.puedeGestionar()) modulos.ModuloFacturas = ModuloFacturas;
   const res = await Promise.allSettled(Object.values(modulos).map(m => m.init()));
