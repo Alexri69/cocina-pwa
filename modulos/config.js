@@ -240,6 +240,7 @@ const ModuloConfig = (() => {
 
       const resumen = [
         `${backup.datos.productos?.length ?? 0} etiquetas`,
+        `${backup.datos.plantillas?.length ?? 0} productos habituales`,
         `${backup.datos.ingredientes?.length ?? 0} ingredientes`,
         `${backup.datos.platos?.length ?? 0} platos`,
         `${backup.datos.bebidas?.length ?? 0} bebidas`,

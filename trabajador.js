@@ -1,23 +1,23 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v52: interruptor de avisos (activar/desactivar por dispositivo)
+// v53: productos habituales (etiquetar en un toque)
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v52';
+const NOMBRE_CACHE = 'cocina-etiquetas-v53';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=52',
+  './estilo.css?v=53',
   './manifest.json',
-  './core/voz.js?v=52',
-  './core/supabase.js?v=52',
-  './modulos/etiquetas.js?v=52',
-  './modulos/menu.js?v=52',
-  './modulos/bebidas.js?v=52',
-  './modulos/facturas.js?v=52',
-  './modulos/auth.js?v=52',
-  './modulos/config.js?v=52',
-  './app.js?v=52',
+  './core/voz.js?v=53',
+  './core/supabase.js?v=53',
+  './modulos/etiquetas.js?v=53',
+  './modulos/menu.js?v=53',
+  './modulos/bebidas.js?v=53',
+  './modulos/facturas.js?v=53',
+  './modulos/auth.js?v=53',
+  './modulos/config.js?v=53',
+  './app.js?v=53',
   './lib/jspdf.umd.min.js',
   './iconos/icono-192.png',
   './iconos/icono-512.png'

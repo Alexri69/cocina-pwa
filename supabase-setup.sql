@@ -131,6 +131,22 @@ CREATE TABLE IF NOT EXISTS public.push_subscriptions (
 CREATE INDEX IF NOT EXISTS push_subs_user_idx ON public.push_subscriptions (user_id);
 
 
+-- ------------------------------------------------------------
+-- PLANTILLAS_ETIQUETA (productos habituales: etiquetar en un toque)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.plantillas_etiqueta (
+  id              uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
+  nombre          text        NOT NULL,
+  dias_caducidad  integer     NOT NULL DEFAULT 1 CHECK (dias_caducidad > 0),
+  alergenos       text[]      NOT NULL DEFAULT '{}',
+  usos            integer     NOT NULL DEFAULT 0,
+  timestamp       bigint      NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint,
+  user_id         uuid        NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE
+);
+-- Un mismo nombre (sin distinguir mayúsculas) solo una vez por usuario
+CREATE UNIQUE INDEX IF NOT EXISTS plantillas_etiqueta_nombre_unico ON public.plantillas_etiqueta (user_id, lower(nombre));
+
+
 -- productos.user_id: siempre el usuario que inserta (en versiones antiguas no tenía valor por defecto)
 ALTER TABLE public.productos ALTER COLUMN user_id SET DEFAULT auth.uid();
 DO $$
@@ -152,7 +168,7 @@ DO $$
 DECLARE t text;
 BEGIN
   -- Tablas con una política por operación
-  FOREACH t IN ARRAY ARRAY['productos','ingredientes','platos','bebidas','facturas']
+  FOREACH t IN ARRAY ARRAY['productos','ingredientes','platos','bebidas','facturas','plantillas_etiqueta']
   LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS "solo_propietario" ON public.%I', t);  -- versión anterior de este script

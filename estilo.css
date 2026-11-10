@@ -932,3 +932,34 @@ select:focus-visible,
 .btn-notif-off:hover { background: rgba(248,113,113,.2); }
 [data-tema="claro"] .btn-notif-on  { color: #15803d; background: #dcfce7; border-color: #86efac; }
 [data-tema="claro"] .btn-notif-off { color: #b91c1c; background: #fee2e2; border-color: #fca5a5; }
+
+/* --- Productos habituales (Etiquetas) --- */
+.etq-habituales { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-habitual {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 8px 14px;
+  background: var(--surface); color: var(--texto);
+  border: 1px solid var(--borde); border-radius: 999px;
+  font-size: .95rem; font-weight: 500; cursor: pointer;
+  transition: background .12s, border-color .12s, transform .06s;
+}
+.chip-habitual:hover  { border-color: var(--acento); }
+.chip-habitual:active { transform: scale(.97); }
+.chip-habitual.activo { border-color: var(--acento); background: rgba(91,124,246,.15); }
+.chip-habitual .chip-dias { font-size: .8rem; color: var(--texto2); font-weight: 400; }
+.chip-habitual .chip-al   { font-size: .85rem; }
+.chip-habitual .chip-borrar {
+  display: none; margin-left: 2px; width: 24px; height: 24px; border-radius: 50%;
+  align-items: center; justify-content: center; line-height: 1;
+  background: rgba(248,113,113,.18); color: var(--err); font-weight: 700;
+}
+.etq-habituales.gestionando .chip-habitual { border-style: dashed; }
+.etq-habituales.gestionando .chip-borrar  { display: inline-flex; }
+.etq-hab-vacio { color: var(--texto2); font-size: .9rem; line-height: 1.45; }
+.etq-hab-check {
+  display: flex; align-items: center; gap: 8px; margin: 12px 0 4px;
+  font-size: .9rem; color: var(--texto); cursor: pointer;
+}
+.etq-hab-check input { width: 18px; height: 18px; }
+.etq-hab-check small { color: var(--texto2); }
+[data-tema="claro"] .chip-habitual.activo { background: #e8edff; }

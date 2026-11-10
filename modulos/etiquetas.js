@@ -65,6 +65,128 @@ const ModuloEtiquetas = (() => {
     el.value = `${ahora.getFullYear()}-${pad(ahora.getMonth()+1)}-${pad(ahora.getDate())}T${pad(ahora.getHours())}:${pad(ahora.getMinutes())}`;
   }
 
+  // ----------------------------------------------------------
+  // PRODUCTOS HABITUALES (plantillas: nombre + días + alérgenos)
+  // ----------------------------------------------------------
+
+  let _plantillas      = [];
+  let _plantillaEnUso  = null;  // la elegida para la etiqueta en curso (para contar usos)
+  let _gestionandoHab  = false;
+  let _busquedaHab     = '';
+
+  // Comparación tolerante: sin mayúsculas, tildes ni espacios sobrantes
+  const _norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+  const _buscarPlantilla = nombre => _plantillas.find(p => _norm(p.nombre) === _norm(nombre)) || null;
+
+  async function _cargarPlantillas() {
+    try { _plantillas = await SB.obtenerPlantillas(); }
+    catch (e) { console.warn('[Etiquetas] No se pudieron cargar los habituales:', e); _plantillas = _plantillas || []; }
+    _renderPlantillas();
+  }
+
+  function _emojisAlergenos(lista) {
+    const E = { 'gluten':'🌾','crustáceos':'🦞','huevo':'🥚','pescado':'🐟','cacahuetes':'🥜','soja':'🌱','leche':'🥛',
+                'frutos de cáscara':'🌰','apio':'🌿','mostaza':'🌼','granos de sésamo':'🫘','altramuces':'🌸','moluscos':'🐚','sulfitos':'🍷' };
+    return (lista || []).map(a => E[a] || '').join('');
+  }
+
+  function _renderPlantillas() {
+    const cont    = document.getElementById('etq-habituales');
+    const btnGest = document.getElementById('etq-hab-gestionar');
+    const buscar  = document.getElementById('etq-hab-buscar');
+    if (!cont) return;
+    if (btnGest) {
+      btnGest.style.display = _plantillas.length ? '' : 'none';
+      btnGest.textContent   = _gestionandoHab ? '✔ Hecho' : '✏ Gestionar';
+      btnGest.setAttribute('aria-pressed', String(_gestionandoHab));
+    }
+    if (buscar) buscar.style.display = _plantillas.length > 10 ? '' : 'none';
+    if (!_plantillas.length) { _gestionandoHab = false; }
+    cont.classList.toggle('gestionando', _gestionandoHab);
+
+    if (!_plantillas.length) {
+      cont.innerHTML = `<p class="etq-hab-vacio">Guarda aquí los productos que abres a menudo y etiquétalos en un toque.<br>
+        Al crear una etiqueta en modo <strong>Manual</strong> marca <strong>⭐ Guardar como producto habitual</strong>, o pulsa ⭐ en el historial.</p>`;
+      return;
+    }
+    const q = _norm(_busquedaHab);
+    const lista = _plantillas.filter(p => !q || _norm(p.nombre).includes(q));
+    if (!lista.length) { cont.innerHTML = `<p class="etq-hab-vacio">Ningún habitual coincide con "${esc(_busquedaHab)}".</p>`; return; }
+    cont.innerHTML = lista.map(p => {
+      const al = _emojisAlergenos(p.alergenos);
+      const desc = `${p.nombre}, ${p.diasCaducidad} día${p.diasCaducidad === 1 ? '' : 's'}${p.alergenos?.length ? ', contiene ' + p.alergenos.join(', ') : ', sin alérgenos'}`;
+      return `<button type="button" class="chip-habitual${_plantillaEnUso?.id === p.id ? ' activo' : ''}" role="listitem"
+                data-id="${esc(p.id)}" title="${esc(desc)}" aria-label="${esc(_gestionandoHab ? 'Eliminar ' + p.nombre : 'Etiquetar ' + desc)}">
+        <span>${esc(p.nombre)}</span>
+        <span class="chip-dias">${p.diasCaducidad} d</span>
+        ${al ? `<span class="chip-al" aria-hidden="true">${al}</span>` : ''}
+        <span class="chip-borrar" aria-hidden="true">✕</span>
+      </button>`;
+    }).join('');
+  }
+
+  // Tocar un habitual: rellena el formulario manual y deja el cursor en el lote
+  function _usarPlantilla(id) {
+    const p = _plantillas.find(x => x.id === id);
+    if (!p) return;
+    _plantillaEnUso = p;
+    _activarModo('manual');
+    _ocultarEtiqueta();
+    document.getElementById('etq-m-nombre').value = p.nombre;
+    document.getElementById('etq-m-dias').value   = p.diasCaducidad;
+    document.getElementById('etq-m-lote').value   = '';
+    ALERGENOS.forEach((a, i) => { const ck = document.getElementById(`etq-m-al-${i}`); if (ck) ck.checked = (p.alergenos || []).includes(a); });
+    const hab = document.getElementById('etq-m-habitual'); if (hab) hab.checked = false;
+    _setFechaAhora();
+    _renderPlantillas();
+    const msgEl = document.getElementById('etq-mensaje');
+    if (msgEl) { msgEl.textContent = `⭐ ${p.nombre}: escribe el lote y guarda.`; msgEl.style.color = ''; }
+    const lote = document.getElementById('etq-m-lote');
+    lote?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    lote?.focus();
+  }
+
+  async function _borrarPlantilla(id) {
+    const p = _plantillas.find(x => x.id === id);
+    if (!p || !confirm(`¿Quitar "${p.nombre}" de los productos habituales?\n\nLas etiquetas ya creadas no se borran.`)) return;
+    try {
+      await SB.eliminarPlantilla(id);
+      _plantillas = _plantillas.filter(x => x.id !== id);
+      if (_plantillaEnUso?.id === id) _plantillaEnUso = null;
+      _renderPlantillas();
+    } catch (e) { aviso('No se pudo quitar: ' + e.message, { tipo: 'error' }); }
+  }
+
+  // Crea el habitual o, si ya hay uno con ese nombre, actualiza sus días y alérgenos
+  async function _guardarComoHabitual({ nombre, diasCaducidad, alergenos }, silencioso = false) {
+    if (!nombre || !(diasCaducidad > 0)) return;
+    const existente = _buscarPlantilla(nombre);
+    try {
+      if (existente) {
+        const nueva = { ...existente, nombre: existente.nombre, diasCaducidad, alergenos: [...(alergenos || [])] };
+        await SB.actualizarPlantilla(nueva);
+        Object.assign(existente, nueva);
+        if (!silencioso) aviso(`⭐ "${existente.nombre}" actualizado en habituales.`, { tipo: 'ok', ms: 2500 });
+      } else {
+        const creada = await SB.guardarPlantilla({ nombre: VOZ.capitalizarNombre(nombre.trim()), diasCaducidad, alergenos: [...(alergenos || [])], usos: 1 });
+        if (creada) _plantillas.push(creada);
+        if (!silencioso) aviso(`⭐ "${creada?.nombre || nombre}" guardado en habituales.`, { tipo: 'ok', ms: 2500 });
+      }
+      _plantillas.sort((a, b) => (b.usos || 0) - (a.usos || 0) || a.nombre.localeCompare(b.nombre, 'es'));
+      _renderPlantillas();
+    } catch (e) {
+      aviso('No se pudo guardar como habitual: ' + e.message, { tipo: 'error' });
+    }
+  }
+
+  // Suma un uso (los más usados salen primero). Silencioso: no es crítico.
+  function _contarUso(nombre) {
+    const p = _buscarPlantilla(nombre);
+    if (!p) return;
+    p.usos = (p.usos || 0) + 1;
+    SB.actualizarPlantilla({ id: p.id, nombre: p.nombre, diasCaducidad: p.diasCaducidad, alergenos: p.alergenos, usos: p.usos }).catch(() => {});
+  }
+
   async function _generarManual() {
     const nombre = document.getElementById('etq-m-nombre').value.trim();
     const lote   = document.getElementById('etq-m-lote').value.trim();
@@ -79,8 +201,10 @@ const ModuloEtiquetas = (() => {
     const fechaCaducidad = new Date(fechaApertura.getTime() + dias * 86400000);
     const alergenos      = ALERGENOS.filter((_, i) => document.getElementById(`etq-m-al-${i}`)?.checked);
 
+    // Si viene de un habitual, se respeta su nombre tal cual está guardado
+    const hab = _buscarPlantilla(nombre);
     const producto = {
-      nombre:         VOZ.capitalizarNombre(nombre),
+      nombre:         hab ? hab.nombre : VOZ.capitalizarNombre(nombre),
       lote:           lote.toUpperCase().replace(/\s+/g, ''),
       diasCaducidad:  dias,
       fechaApertura:  fechaApertura.toISOString(),
@@ -107,6 +231,15 @@ const ModuloEtiquetas = (() => {
     }
 
     _mostrarEtiqueta(producto);
+    // Habituales: guardar/actualizar si se marcó la casilla; si no, contar el uso
+    if (document.getElementById('etq-m-habitual')?.checked) {
+      await _guardarComoHabitual(producto);
+      document.getElementById('etq-m-habitual').checked = false;
+    } else {
+      _contarUso(producto.nombre);
+    }
+    _plantillaEnUso = null;
+    _renderPlantillas();
     _paginaActual = 0;
     await _actualizarHistorial();
     _revisarYAvisar();
@@ -114,6 +247,9 @@ const ModuloEtiquetas = (() => {
 
   function _cerrarPreview() {
     _ocultarEtiqueta();
+    _plantillaEnUso = null;
+    _renderPlantillas();
+    const hab = document.getElementById('etq-m-habitual'); if (hab) hab.checked = false;
     // Limpiar formulario manual para que esté listo para la siguiente etiqueta
     document.getElementById('etq-m-nombre').value = '';
     document.getElementById('etq-m-lote').value   = '';
@@ -177,7 +313,18 @@ const ModuloEtiquetas = (() => {
     try { r = await _escuchar(); }
     catch (e) { if (e === CANCELADO) throw e; await _hablar('No te he escuchado. ¿Cuál es el nombre del producto?'); return _pasoNombre(); }
     if (!r || r.length < 2) { await _hablar('No he entendido el nombre. ¿Puedes repetirlo?'); return _pasoNombre(); }
-    estado.producto.nombre = VOZ.capitalizarNombre(r);
+    // ¿Es un producto habitual? Entonces ya sabemos días y alérgenos: solo falta el lote
+    const hab = _buscarPlantilla(r);
+    if (hab) {
+      estado.producto.nombre        = hab.nombre;
+      estado.producto.diasCaducidad = hab.diasCaducidad;
+      estado.producto.alergenos     = [...(hab.alergenos || [])];
+      estado.desdePlantilla = true;
+      _setRespuesta(`⭐ ${hab.nombre} (habitual)`);
+      await _hablar(`${hab.nombre}, producto habitual.`);
+    } else {
+      estado.producto.nombre = VOZ.capitalizarNombre(r);
+    }
     estado.paso = PASOS.LOTE;
     await _despachar();
   }
@@ -189,7 +336,7 @@ const ModuloEtiquetas = (() => {
     catch (e) { if (e === CANCELADO) throw e; await _hablar('No he captado el lote. Por favor repite.'); return _pasoLote(); }
     if (!r) { await _hablar('No he escuchado el lote. Por favor repítelo.'); return _pasoLote(); }
     estado.producto.lote = VOZ.limpiarLote(r);
-    estado.paso = PASOS.DIAS;
+    estado.paso = estado.desdePlantilla ? PASOS.CONFIRMAR : PASOS.DIAS;
     await _despachar();
   }
 
@@ -319,6 +466,8 @@ const ModuloEtiquetas = (() => {
     _mostrarEtiqueta(estado.producto);
 
     if (guardado) {
+      _contarUso(estado.producto.nombre);
+      _renderPlantillas();
       await _actualizarHistorial();
       _revisarYAvisar();
       await VOZ.hablar('Producto guardado. Puedes imprimir cuando quieras.');
@@ -494,6 +643,9 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
         <div class="card-acciones" style="margin-top:6px">
           <button class="btn-mini btn-ver"    onclick="ModuloEtiquetas._verEtiqueta(${idxGlobal})">👁 Ver</button>
           <button class="btn-mini btn-pagar"  onclick="ModuloEtiquetas._imprimirEtiqueta(${idxGlobal})">🖨 Imprimir</button>
+          ${_buscarPlantilla(p.nombre)
+            ? `<span class="btn-mini" title="Ya es un producto habitual" aria-label="Ya es un producto habitual" style="cursor:default;color:var(--warn)">⭐</span>`
+            : `<button class="btn-mini" title="Guardar como producto habitual" aria-label="Guardar ${esc(p.nombre)} como producto habitual" onclick="ModuloEtiquetas._habitualDesdeHistorial(${idxGlobal})">☆ Habitual</button>`}
           <button class="btn-mini btn-borrar" title="Eliminar" aria-label="Eliminar" onclick="ModuloEtiquetas._borrarProducto(${idxGlobal})">🗑</button>
         </div>
       </div>`;
@@ -762,10 +914,38 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
   // INICIALIZACIÓN
   // ----------------------------------------------------------
 
+  async function _habitualDesdeHistorial(idx) {
+    const p = _historial[idx];
+    if (!p) return;
+    await _guardarComoHabitual({ nombre: p.nombre, diasCaducidad: p.diasCaducidad, alergenos: p.alergenos });
+    await _actualizarHistorial();
+  }
+
   async function init() {
     // Generar checkboxes de alérgenos para el modo manual
     _renderAlergenos();
     _setFechaAhora();
+
+    // Productos habituales (antes del historial: el historial marca cuáles ya lo son)
+    document.getElementById('etq-habituales')?.addEventListener('click', e => {
+      const chip = e.target.closest('.chip-habitual');
+      if (!chip) return;
+      if (_gestionandoHab) _borrarPlantilla(chip.dataset.id);
+      else                 _usarPlantilla(chip.dataset.id);
+    });
+    document.getElementById('etq-hab-gestionar')?.addEventListener('click', () => {
+      _gestionandoHab = !_gestionandoHab;
+      _renderPlantillas();
+    });
+    document.getElementById('etq-hab-buscar')?.addEventListener('input', e => {
+      _busquedaHab = e.target.value;
+      _renderPlantillas();
+    });
+    // Enter en el lote = guardar (con un habitual elegido es lo único que falta)
+    document.getElementById('etq-m-lote')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); _generarManual(); }
+    });
+    await _cargarPlantillas();
 
     // Historial
     await _actualizarHistorial();
@@ -836,6 +1016,6 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     };
   }
 
-  return { init, verificarCaducidades, revisarYAvisar: _revisarYAvisar, avisosActivos, retirarCaducados, _verEtiqueta, _imprimirEtiqueta, _borrarProducto };
+  return { init, verificarCaducidades, revisarYAvisar: _revisarYAvisar, avisosActivos, retirarCaducados, _verEtiqueta, _imprimirEtiqueta, _borrarProducto, _habitualDesdeHistorial };
 
 })();

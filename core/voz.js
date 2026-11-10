@@ -242,9 +242,13 @@ const VOZ = (() => {
     return null;
   }
 
-  /** "salsa bearnesa" → "Salsa Bearnesa" */
+  /** "salsa bearnesa" → "Salsa Bearnesa" · "caldo de pollo" → "Caldo de Pollo" (artículos y preposiciones en minúscula) */
+  const _MINUSCULAS = new Set(['de','del','la','las','el','los','y','e','o','u','a','al','en','con','sin','para','por','al']);
   function capitalizarNombre(texto) {
-    return texto.replace(/\b\w/g, l => l.toUpperCase());
+    return String(texto || '').trim().split(/\s+/).map((p, i) => {
+      if (i > 0 && _MINUSCULAS.has(p.toLowerCase())) return p.toLowerCase();
+      return p.charAt(0).toLocaleUpperCase('es') + p.slice(1);
+    }).join(' ');
   }
 
   // ----------------------------------------------------------

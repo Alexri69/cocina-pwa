@@ -259,7 +259,8 @@ const SB = (() => {
   // ----------------------------------------------------------
 
   const _OUTBOX_KEY = 'cocina_outbox';
-  const _CACHE_MAP  = { productos: _productoDeBD, facturas: _facturaDeBD };
+  // Convierte filas en formato BD al formato de la caché (camelCase) al aplicarlas offline
+  const _CACHE_MAP  = { productos: _productoDeBD, facturas: _facturaDeBD, plantillas_etiqueta: (p) => _plantillaDeBD(p) };
 
   function _esRed(e) {
     return !navigator.onLine || /sin conexión|conexion|\bred\b|failed to fetch|networkerror/i.test(e?.message || '');
@@ -416,6 +417,34 @@ const SB = (() => {
   }
   const actualizarProducto = (p)  => _patch('productos', p.id, _productoParaBD(p)).then(r => _productoDeBD(_primero(r)));
   const eliminarProducto   = (id) => _delete('productos', id);
+
+  // ----------------------------------------------------------
+  // PLANTILLAS DE ETIQUETA (productos habituales)
+  // ----------------------------------------------------------
+
+  function _plantillaDeBD(p) {
+    if (!p) return null;
+    // Solo se convierten las claves presentes: al aplicar un PATCH parcial a la caché
+    // (p. ej. solo "usos") no hay que pisar el resto de campos.
+    const { dias_caducidad, ...resto } = p;
+    return 'dias_caducidad' in p ? { ...resto, diasCaducidad: dias_caducidad } : resto;
+  }
+
+  async function obtenerPlantillas() {
+    try {
+      const datos = await _get('plantillas_etiqueta', '?select=*&order=usos.desc,nombre.asc').then(arr => (arr || []).map(_plantillaDeBD));
+      _CACHE.guardar('plantillas_etiqueta', datos);
+      return datos;
+    } catch (e) {
+      const cache = _CACHE.leer('plantillas_etiqueta');
+      if (_esRed(e) && cache !== null) return cache;
+      throw e;
+    }
+  }
+  const _plantillaParaBD = (p) => ({ nombre: p.nombre, dias_caducidad: p.diasCaducidad, alergenos: p.alergenos || [], ...(p.usos != null ? { usos: p.usos } : {}) });
+  const guardarPlantilla    = (p)  => _post('plantillas_etiqueta', { ..._plantillaParaBD(p), usos: p.usos ?? 0, timestamp: Date.now(), user_id: _uid() }).then(r => _plantillaDeBD(_primero(r)));
+  const actualizarPlantilla = (p)  => _patch('plantillas_etiqueta', p.id, _plantillaParaBD(p)).then(r => _plantillaDeBD(_primero(r)));
+  const eliminarPlantilla   = (id) => _delete('plantillas_etiqueta', id);
 
   // ----------------------------------------------------------
   // INGREDIENTES
@@ -590,15 +619,17 @@ const SB = (() => {
   // ----------------------------------------------------------
 
   async function exportarTodo() {
-    const [prods, ings, platos, bebidas, todasFac] = await Promise.all([
+    const [prods, ings, platos, bebidas, todasFac, plantillas] = await Promise.all([
       _get('productos',    '?select=*&order=timestamp.desc'),
       _get('ingredientes', '?select=*&order=timestamp.desc'),
       _get('platos',       '?select=*&order=timestamp.desc'),
       _get('bebidas',      '?select=*&order=timestamp.desc'),
       _get('facturas',     '?select=*&order=timestamp.desc'),
+      _get('plantillas_etiqueta', '?select=*').catch(() => []),
     ]);
     const strip = arr => (arr || []).map(({ user_id, ...r }) => r);
     return {
+      plantillas:   strip(plantillas),   // formato BD (snake_case)
       productos:    strip(prods).map(_productoDeBD),
       ingredientes: strip(ings),
       platos:       strip(platos),
@@ -607,7 +638,7 @@ const SB = (() => {
     };
   }
 
-  async function restaurarDatos({ productos = [], ingredientes = [], platos = [], bebidas = [], facturas = [] }) {
+  async function restaurarDatos({ productos = [], ingredientes = [], platos = [], bebidas = [], facturas = [], plantillas = [] }) {
     const uid = _uid();
     if (!uid) throw new Error('Sesión no válida. Vuelve a iniciar sesión.');
     const hdrs  = _cab({ 'Prefer': 'return=minimal,resolution=merge-duplicates' });
@@ -635,6 +666,9 @@ const SB = (() => {
     await upsert('platos',       platos.map(p => conId(p, p)));
     await upsert('bebidas',      bebidas.map(b => conId(b, b)));
     await upsert('facturas',     facturas.map(f => conId(f, _facturaParaBD(f))));
+    // Habituales: si ya existe uno con el mismo nombre (otro id), se conserva el actual
+    try { await upsert('plantillas_etiqueta', plantillas.map(p => conId(p, p))); }
+    catch (e) { console.warn('[SB] Algunos productos habituales no se restauraron (nombre repetido):', e); }
   }
 
   // ----------------------------------------------------------
@@ -727,6 +761,8 @@ const SB = (() => {
     isLoggedIn, tieneSesion, login, signup, logout, refrescarSesion, limpiarDatosLocales,
     // Productos (etiquetas)
     obtenerProductos, guardarProducto, actualizarProducto, eliminarProducto,
+    // Productos habituales (plantillas de etiqueta)
+    obtenerPlantillas, guardarPlantilla, actualizarPlantilla, eliminarPlantilla,
     // Ingredientes
     obtenerIngredientes, obtenerIngrediente,
     guardarIngrediente, actualizarIngrediente, eliminarIngrediente,

@@ -22,7 +22,8 @@ scripts/validate.js — validador (sintaxis + coherencia del precache del SW); l
 **Orden de carga:** `lib/jspdf` → `core/voz.js` → `core/supabase.js` → `modulos/*.js` → `app.js`
 
 ## Tablas Supabase (todas con RLS "solo_propietario" por `user_id`)
-`productos`, `ingredientes`, `platos`, `bebidas`, `facturas` (facturas y presupuestos, columna `tipo`), `config` (1 fila por usuario), `push_subscriptions`.
+`productos`, `plantillas_etiqueta` (productos habituales, nombre único por usuario), `ingredientes`, `platos`, `bebidas`, `facturas` (facturas y presupuestos, columna `tipo`), `config` (1 fila por usuario), `push_subscriptions`.
+Cambios de esquema: editar `supabase-setup.sql` y aplicarlo con la Management API (token en `.env`, nunca versionado).
 El JS usa camelCase y la BD snake_case: conversión en `_productoDeBD/_productoParaBD` y `_facturaDeBD/_facturaParaBD`.
 Si se añade una columna nueva: añadirla a `supabase-setup.sql` (ADD COLUMN IF NOT EXISTS) y, si se envía desde el cliente antes de migrar, a `_COLUMNAS_NUEVAS` en `core/supabase.js`.
 

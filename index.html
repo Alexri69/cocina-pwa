@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="iconos/icono-192.png">
   <link rel="apple-touch-icon" href="iconos/icono-192.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="estilo.css?v=52">
+  <link rel="stylesheet" href="estilo.css?v=53">
   <script>
     // Aplicar tema antes de pintar para evitar parpadeo
     document.documentElement.setAttribute('data-tema',
@@ -172,6 +172,16 @@
       <!-- Columna izquierda: controles de voz -->
       <section aria-label="Control de voz">
 
+        <!-- Productos habituales: etiquetar en un toque -->
+        <div class="tarjeta" id="etq-habituales-tarjeta" style="margin-bottom:16px">
+          <div class="tarjeta-titulo" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+            <span>⭐ Productos habituales</span>
+            <button id="etq-hab-gestionar" class="btn-mini" type="button" aria-pressed="false" style="display:none">✏ Gestionar</button>
+          </div>
+          <input id="etq-hab-buscar" type="search" class="inp" placeholder="Buscar habitual…" aria-label="Buscar producto habitual" style="display:none;margin-bottom:10px">
+          <div id="etq-habituales" class="etq-habituales" role="list"></div>
+        </div>
+
         <div class="tarjeta">
           <!-- Tabs voz / manual -->
           <div class="etq-modo-bar">
@@ -215,6 +225,10 @@
                 <div class="grid-alergenos-check" id="etq-m-alergenos"></div>
               </div>
             </div>
+            <label class="etq-hab-check">
+              <input type="checkbox" id="etq-m-habitual">
+              ⭐ Guardar como producto habitual <small>(nombre, días y alérgenos)</small>
+            </label>
             <div class="form-acciones">
               <button id="etq-m-btn-generar" class="btn btn-primario-sm">💾 Guardar etiqueta</button>
             </div>
@@ -843,15 +857,15 @@
        ======================================================== -->
   <!-- jsPDF servido desde la propia app para que los PDF funcionen sin conexión -->
   <script src="lib/jspdf.umd.min.js" defer></script>
-  <script src="core/voz.js?v=52"></script>
-  <script src="core/supabase.js?v=52"></script>
-  <script src="modulos/etiquetas.js?v=52"></script>
-  <script src="modulos/menu.js?v=52"></script>
-  <script src="modulos/bebidas.js?v=52"></script>
-  <script src="modulos/facturas.js?v=52"></script>
-  <script src="modulos/auth.js?v=52"></script>
-  <script src="modulos/config.js?v=52"></script>
-  <script src="app.js?v=52"></script>
+  <script src="core/voz.js?v=53"></script>
+  <script src="core/supabase.js?v=53"></script>
+  <script src="modulos/etiquetas.js?v=53"></script>
+  <script src="modulos/menu.js?v=53"></script>
+  <script src="modulos/bebidas.js?v=53"></script>
+  <script src="modulos/facturas.js?v=53"></script>
+  <script src="modulos/auth.js?v=53"></script>
+  <script src="modulos/config.js?v=53"></script>
+  <script src="app.js?v=53"></script>
   <!-- Las actualizaciones de la app se avisan desde app.js (sin recargar a la fuerza) -->
 
 </body>
