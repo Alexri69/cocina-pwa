@@ -34,7 +34,7 @@ Si se añade una columna nueva: añadirla a `supabase-setup.sql` (ADD COLUMN IF 
 - Numeración de facturas offline: se calcula con la caché local.
 
 ## Reglas de negocio
-- APPCC: lectura fuera de rango o recepción rechazada ⇒ acción correctora obligatoria. Responsable obligatorio (se recuerda por dispositivo). Los registros solo se pueden borrar durante 24 h. Informe mensual imprimible (A4 apaisado) con días sin registro desde el alta de cada equipo.
+- APPCC: cada restaurante elige modo (`appccModo` en la ficha de empresa: `completo` | `incidencias`) y frecuencia por equipo/tarea (`dos_al_dia` | `diaria` | `semanal` | `mensual`). Lectura fuera de rango o recepción rechazada ⇒ acción correctora obligatoria. Responsable obligatorio (se recuerda por dispositivo). Los registros solo se pueden borrar durante 24 h. Informe mensual imprimible (A4 apaisado) con días sin registro desde el alta de cada equipo.
 - Importes de factura redondeados a céntimos con `r2()` (base = Σ líneas; cuotas sobre la base; total = base + IGIC − IRPF).
 - Facturas: numeración correlativa por año de la fecha (`AAAA-NNNN`, presupuestos `PRES-AAAA-NNNN`). Solo se puede borrar la última; editar una emitida pide confirmación (lo correcto es rectificativa).
 - Régimen IGIC (Canarias, por defecto) o IVA, configurable en Configuración.

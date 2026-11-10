@@ -157,12 +157,17 @@ CREATE TABLE IF NOT EXISTS public.appcc_elementos (
   zona        text        NOT NULL DEFAULT '',
   min         numeric(6,1),                       -- temperatura mínima (°C)
   max         numeric(6,1),                       -- temperatura máxima (°C) o % polares máximo
-  frecuencia  text        NOT NULL DEFAULT 'diaria' CHECK (frecuencia IN ('diaria','semanal','mensual')),
+  frecuencia  text        NOT NULL DEFAULT 'diaria',  -- dos_al_dia | diaria | semanal | mensual (ver CHECK abajo)
   activo      boolean     NOT NULL DEFAULT true,
   orden       integer     NOT NULL DEFAULT 0,
   timestamp   bigint      NOT NULL DEFAULT (extract(epoch from now()) * 1000)::bigint,
   user_id     uuid        NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE
 );
+
+-- Frecuencias admitidas (se redefine para añadir "dos_al_dia" sin recrear la tabla)
+ALTER TABLE public.appcc_elementos DROP CONSTRAINT IF EXISTS appcc_elementos_frecuencia_check;
+ALTER TABLE public.appcc_elementos ADD CONSTRAINT appcc_elementos_frecuencia_check
+  CHECK (frecuencia IN ('dos_al_dia','diaria','semanal','mensual'));
 
 -- ------------------------------------------------------------
 -- APPCC: registros (lecturas de temperatura, aceite, limpiezas, recepción)

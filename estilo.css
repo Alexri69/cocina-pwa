@@ -1030,3 +1030,14 @@ select:focus-visible,
   #modulo-appcc .modulo-cabecera-inner { flex-direction: column; align-items: stretch; gap: 10px; }
   .appcc-resp .inp { flex: 1; width: auto; }
 }
+
+/* APPCC: modo de registro (completo / solo incidencias) */
+.appcc-modos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 4px; }
+@media (max-width: 560px) { .appcc-modos { grid-template-columns: 1fr; } }
+.appcc-modo { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--borde); border-radius: var(--radio); cursor: pointer; background: var(--surface); }
+.appcc-modo input { width: 18px; height: 18px; margin-top: 2px; flex: 0 0 auto; }
+.appcc-modo strong { display: block; color: var(--texto); margin-bottom: 2px; }
+.appcc-modo small { display: block; color: var(--texto2); font-size: .82rem; line-height: 1.4; }
+.appcc-modo.activo { border-color: var(--acento); background: rgba(91,124,246,.12); }
+[data-tema="claro"] .appcc-modo.activo { background: #e8edff; }
+.appcc-estado.libre { color: var(--texto2); background: transparent; border: 1px dashed var(--borde); font-weight: 500; }

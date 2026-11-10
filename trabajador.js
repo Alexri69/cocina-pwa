@@ -1,24 +1,24 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v55: barra inferior con texto ≥ 11 px
+// v56: APPCC con frecuencias configurables y modo por incidencias
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v55';
+const NOMBRE_CACHE = 'cocina-etiquetas-v56';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
-  './estilo.css?v=55',
+  './estilo.css?v=56',
   './manifest.json',
-  './core/voz.js?v=55',
-  './core/supabase.js?v=55',
-  './modulos/etiquetas.js?v=55',
-  './modulos/menu.js?v=55',
-  './modulos/bebidas.js?v=55',
-  './modulos/facturas.js?v=55',
-  './modulos/auth.js?v=55',
-  './modulos/config.js?v=55',
-  './modulos/appcc.js?v=55',
-  './app.js?v=55',
+  './core/voz.js?v=56',
+  './core/supabase.js?v=56',
+  './modulos/etiquetas.js?v=56',
+  './modulos/menu.js?v=56',
+  './modulos/bebidas.js?v=56',
+  './modulos/facturas.js?v=56',
+  './modulos/auth.js?v=56',
+  './modulos/config.js?v=56',
+  './modulos/appcc.js?v=56',
+  './app.js?v=56',
   './lib/jspdf.umd.min.js',
   './iconos/icono-192.png',
   './iconos/icono-512.png'

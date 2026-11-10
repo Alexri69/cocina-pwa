@@ -137,7 +137,8 @@ const ModuloConfig = (() => {
     if (!validarIban(datos.iban))   probl.push('IBAN');
     if (probl.length && !confirm(`Estos datos no parecen válidos: ${probl.join(', ')}.\n\n¿Guardar de todas formas?`)) return;
 
-    localStorage.setItem(CLAVE_EMP, JSON.stringify(datos));
+    // Se conservan otros ajustes guardados en la misma ficha (p. ej. el modo APPCC)
+    localStorage.setItem(CLAVE_EMP, JSON.stringify({ ...obtenerConfig(), ...datos }));
     _pushRemota();
     _mostrarMsg('cfg-msg', '✔ Guardado');
     _actualizarCabecera();
@@ -347,6 +348,14 @@ const ModuloConfig = (() => {
     _hidratarRemota();
   }
 
-  return { init, obtenerConfig, obtenerConfigImpresora };
+  /** Guarda un ajuste suelto en la ficha de empresa (se sincroniza con Supabase). */
+  function guardarAjuste(clave, valor) {
+    const cfg = obtenerConfig();
+    cfg[clave] = valor;
+    try { localStorage.setItem(CLAVE_EMP, JSON.stringify(cfg)); } catch {}
+    _pushRemota();
+  }
+
+  return { init, obtenerConfig, obtenerConfigImpresora, guardarAjuste };
 
 })();

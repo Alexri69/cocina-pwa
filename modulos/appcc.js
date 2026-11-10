@@ -84,24 +84,44 @@ const ModuloAppcc = (() => {
     return (mn == null || v >= mn) && (mx == null || v <= mx);
   }
 
-  // ¿Está hecha la tarea de limpieza en su periodo? (diaria: hoy · semanal: 7 días · mensual: 30 días)
-  function _periodoLimpieza(el) {
-    const desde = el.frecuencia === 'semanal' ? Date.now() - 7 * DIA
-                : el.frecuencia === 'mensual' ? Date.now() - 30 * DIA
-                : inicioDia().getTime();
-    return _registros.find(r => r.tipo === 'limpieza' && r.elemento_id === el.id && new Date(r.fecha).getTime() >= desde) || null;
+  // ---- Frecuencias y modo de registro (cada restaurante según su plan APPCC) ----
+
+  const FRECUENCIAS = {
+    dos_al_dia: { label: '2 veces al día', veces: 2, dias: 0 },
+    diaria:     { label: 'Diaria',         veces: 1, dias: 0 },
+    semanal:    { label: 'Semanal',        veces: 1, dias: 7 },
+    mensual:    { label: 'Mensual',        veces: 1, dias: 30 },
+  };
+  const _frec = el => FRECUENCIAS[el.frecuencia] || FRECUENCIAS.diaria;
+
+  // 'completo' = se anota cada control · 'incidencias' = APPCC simplificado: solo lo que sale mal
+  function modo() {
+    try { return (typeof ModuloConfig !== 'undefined' && ModuloConfig.obtenerConfig().appccModo) || 'completo'; }
+    catch { return 'completo'; }
   }
+  const _porIncidencias = () => modo() === 'incidencias';
 
-  const _hoy = () => _registros.filter(r => new Date(r.fecha) >= inicioDia());
-  const _ultimoHoy = (el) => _hoy().find(r => r.elemento_id === el.id) || null;
+  // Registros del elemento dentro de su periodo actual (hoy, últimos 7 o 30 días)
+  function _regsPeriodo(el) {
+    const f = _frec(el);
+    const desde = f.dias ? Date.now() - f.dias * DIA : inicioDia().getTime();
+    return _registros.filter(r => r.elemento_id === el.id && new Date(r.fecha).getTime() >= desde);
+  }
+  /** Estado del control: { hechos, necesarios, cumplido, ultimo } */
+  function _cumplimiento(el) {
+    const regs = _regsPeriodo(el);
+    const necesarios = _frec(el).veces;
+    return { hechos: regs.length, necesarios, cumplido: regs.length >= necesarios, ultimo: regs[0] || null };
+  }
+  const _periodoLimpieza = el => _cumplimiento(el).cumplido ? _cumplimiento(el).ultimo : null;
+
   const _activos = tipo => _elementos.filter(e => e.tipo === tipo && e.activo !== false);
+  const _periodicos = () => [..._activos('temperatura'), ..._activos('freidora'), ..._activos('limpieza')];
 
-  /** Nº de controles pendientes hoy (para el badge de la navegación). */
+  /** Nº de controles pendientes (para el badge). En modo por incidencias no hay pendientes. */
   function pendientes() {
-    const temp = _activos('temperatura').filter(e => !_ultimoHoy(e)).length;
-    const frei = _activos('freidora').filter(e => !_ultimoHoy(e)).length;
-    const limp = _activos('limpieza').filter(e => !_periodoLimpieza(e)).length;
-    return temp + frei + limp;
+    if (_porIncidencias()) return 0;
+    return _periodicos().reduce((n, el) => { const c = _cumplimiento(el); return n + Math.max(0, c.necesarios - c.hechos); }, 0);
   }
 
   function _actualizarBadge() {
@@ -169,36 +189,44 @@ const ModuloAppcc = (() => {
       return `<div class="tarjeta appcc-vacio">
         <p><strong>Aún no hay equipos ni tareas de limpieza.</strong></p>
         <p>Añade tus cámaras, neveras, congeladores, freidoras y tareas de limpieza para llevar los registros que pide Sanidad.</p>
+        <p><strong>¿Cómo lleva el restaurante el APPCC?</strong> (míralo en vuestro plan o pregúntalo al gestor)</p>
+        ${_htmlSelectorModo()}
         <div class="form-acciones">
           <button class="btn btn-primario-sm" type="button" data-accion="ejemplos">✨ Empezar con ejemplos</button>
           <button class="btn btn-secundario-sm" type="button" data-accion="ir-ajustes">⚙ Configurar a mano</button>
         </div>
       </div>`;
     }
-    const total = _activos('temperatura').length + _activos('freidora').length + _activos('limpieza').length;
+    const incid = _porIncidencias();
+    const total = _periodicos().reduce((n, el) => n + _frec(el).veces, 0);
     const pend  = pendientes();
     const hechos = total - pend;
     const pct = total ? Math.round(hechos / total * 100) : 100;
+    const cuando = iso => fecha(iso) === fecha(new Date()) ? hora(iso) : `${fecha(iso)} ${hora(iso)}`;
 
     const bloqueEquipo = (el) => {
-      const ult = _ultimoHoy(el);
+      const c = _cumplimiento(el);
+      const ult = c.ultimo;
       const u = unidad(el.tipo);
-      const estado = ult
-        ? `<span class="appcc-estado ${ult.correcto ? 'ok' : 'mal'}">${ult.correcto ? '✔' : '⚠'} ${fmt1(ult.valor)} ${u} · ${hora(ult.fecha)}${ult.responsable ? ' · ' + esc(ult.responsable) : ''}</span>`
-        : `<span class="appcc-estado pend">Pendiente</span>`;
+      const veces = c.necesarios > 1 ? ` (${Math.min(c.hechos, c.necesarios)}/${c.necesarios})` : '';
+      const estado = ult && c.cumplido
+        ? `<span class="appcc-estado ${ult.correcto ? 'ok' : 'mal'}">${ult.correcto ? '✔' : '⚠'} ${fmt1(ult.valor)} ${u} · ${cuando(ult.fecha)}${ult.responsable ? ' · ' + esc(ult.responsable) : ''}${veces}</span>`
+        : incid
+          ? (ult ? `<span class="appcc-estado ${ult.correcto ? 'ok' : 'mal'}">${ult.correcto ? '✔' : '⚠'} ${fmt1(ult.valor)} ${u} · ${cuando(ult.fecha)}</span>` : `<span class="appcc-estado libre">Solo si hay incidencia</span>`)
+          : `<span class="appcc-estado pend">Pendiente${veces}</span>`;
       const extraFreidora = el.tipo === 'freidora'
         ? `<label class="appcc-check"><input type="checkbox" data-cambio="${esc(el.id)}"> Aceite cambiado</label>` : '';
       return `<div class="appcc-item" data-id="${esc(el.id)}">
         <div class="appcc-item-cab">
           <div><strong>${esc(el.nombre)}</strong>${el.zona ? ` <small>· ${esc(el.zona)}</small>` : ''}
-            <div class="appcc-rango">Rango: ${_rangoTexto(el)}</div></div>
+            <div class="appcc-rango">Rango: ${_rangoTexto(el)} · ${_frec(el).label}</div></div>
           ${estado}
         </div>
         <div class="appcc-item-form">
           <input class="inp appcc-valor" type="number" inputmode="decimal" step="0.1" placeholder="${el.tipo === 'freidora' ? '% polares' : '°C'}"
                  aria-label="${el.tipo === 'freidora' ? '% de compuestos polares' : 'Temperatura'} de ${esc(el.nombre)}" data-valor="${esc(el.id)}">
           ${extraFreidora}
-          <button class="btn btn-primario-sm" type="button" data-accion="registrar" data-id="${esc(el.id)}">${ult ? '＋ Otra lectura' : '✔ Registrar'}</button>
+          <button class="btn btn-primario-sm" type="button" data-accion="registrar" data-id="${esc(el.id)}">${incid ? '⚠ Anotar' : c.cumplido ? '＋ Otra lectura' : '✔ Registrar'}</button>
         </div>
         <div class="appcc-accion" data-accion-box="${esc(el.id)}" hidden>
           <label for="acc-${esc(el.id)}">⚠ Fuera de rango: indica la acción correctora *</label>
@@ -208,15 +236,16 @@ const ModuloAppcc = (() => {
     };
 
     const bloqueLimpieza = (el) => {
-      const hecho = _periodoLimpieza(el);
-      const frec = { diaria: 'Diaria', semanal: 'Semanal', mensual: 'Mensual' }[el.frecuencia] || el.frecuencia;
+      const c = _cumplimiento(el);
+      const hecho = c.cumplido ? c.ultimo : null;
+      const veces = c.necesarios > 1 && !hecho ? ` (${c.hechos}/${c.necesarios})` : '';
       return `<div class="appcc-item appcc-limpieza ${hecho ? 'hecho' : ''}" data-id="${esc(el.id)}">
         <div class="appcc-item-cab">
           <div><strong>${esc(el.nombre)}</strong>${el.zona ? ` <small>· ${esc(el.zona)}</small>` : ''}
-            <div class="appcc-rango">${frec}</div></div>
+            <div class="appcc-rango">${_frec(el).label}</div></div>
           ${hecho
             ? `<span class="appcc-estado ok">✔ ${fecha(hecho.fecha) === fecha(new Date()) ? 'Hoy' : fecha(hecho.fecha)} ${hora(hecho.fecha)}${hecho.responsable ? ' · ' + esc(hecho.responsable) : ''}</span>`
-            : `<button class="btn btn-primario-sm" type="button" data-accion="limpieza" data-id="${esc(el.id)}">✔ Hecho</button>`}
+            : `<button class="btn btn-primario-sm" type="button" data-accion="limpieza" data-id="${esc(el.id)}">✔ Hecho${veces}</button>`}
         </div>
       </div>`;
     };
@@ -224,16 +253,26 @@ const ModuloAppcc = (() => {
     const seccion = (titulo, lista, fn) => lista.length
       ? `<div class="tarjeta appcc-seccion"><div class="tarjeta-titulo">${titulo}</div>${lista.map(fn).join('')}</div>` : '';
 
+    const resumen = incid
+      ? `<div class="tarjeta appcc-resumen">
+          <div class="appcc-resumen-txt">
+            <strong>📝 Registro por incidencias</strong>
+            <span>${new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+          </div>
+          <p class="appcc-nota" style="margin:0">Solo hace falta anotar lo que salga mal (una temperatura fuera de rango, aceite pasado…), con su acción correctora. Puedes cambiar el modo en ⚙ Equipos.</p>
+        </div>`
+      : `<div class="tarjeta appcc-resumen">
+          <div class="appcc-resumen-txt">
+            <strong>${pend ? `${pend} control${pend > 1 ? 'es' : ''} pendiente${pend > 1 ? 's' : ''}` : '✔ Todo registrado'}</strong>
+            <span>${new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+          </div>
+          <div class="appcc-barra" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${hechos}" aria-label="Controles hechos">
+            <div style="width:${pct}%"></div>
+          </div>
+        </div>`;
+
     return `
-      <div class="tarjeta appcc-resumen">
-        <div class="appcc-resumen-txt">
-          <strong>${pend ? `${pend} control${pend > 1 ? 'es' : ''} pendiente${pend > 1 ? 's' : ''}` : '✔ Todo registrado'}</strong>
-          <span>${new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-        </div>
-        <div class="appcc-barra" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${hechos}" aria-label="Controles hechos hoy">
-          <div style="width:${pct}%"></div>
-        </div>
-      </div>
+      ${resumen}
       ${seccion('🌡 Temperaturas de equipos', _activos('temperatura'), bloqueEquipo)}
       ${seccion('🍟 Aceite de fritura', _activos('freidora'), bloqueEquipo)}
       ${seccion('🧽 Limpieza', _activos('limpieza'), bloqueLimpieza)}
@@ -460,7 +499,7 @@ const ModuloAppcc = (() => {
     const del = t => regs.filter(r => r.tipo === t);
     const secciones = [];
     if (tipo === 'todos' || tipo === 'temperatura') {
-      const h = huecos('temperatura');
+      const h = _porIncidencias() ? '' : huecos('temperatura');
       secciones.push(tabla('Control de temperaturas de equipos', ['Fecha', 'Hora', 'Equipo', 'Temperatura', 'Límite', 'Estado', 'Acción correctora', 'Responsable'],
         del('temperatura').map(r => { const el = _elementos.find(e => e.id === r.elemento_id); return `<tr class="${r.correcto ? '' : 'fila-mal'}"><td>${fecha(r.fecha)}</td><td>${hora(r.fecha)}</td><td>${E(r.elemento_nombre)}</td><td class="n">${fmt1(r.valor)} °C</td><td>${el ? _rangoTexto(el) : '—'}</td><td>${estado(r)}</td><td>${E(r.accion_correctora)}</td><td>${E(r.responsable)}</td></tr>`; }),
         h ? `<div class="huecos"><strong>Días sin registro:</strong><ul>${h}</ul></div>` : ''));
@@ -502,10 +541,12 @@ td.n { text-align: right; white-space: nowrap; }
 .firma { margin-top: 28px; display: flex; gap: 40px; font-size: 9.5pt; }
 .firma div { flex: 1; border-top: 1px solid #111; padding-top: 4px; }
 .pie { margin-top: 10px; font-size: 8pt; color: #555; }
+.modo { margin-top: 4px; font-size: 9pt; color: #333; }
 @media screen { body { padding: 16px; } }
 </style></head><body>
 <header>
-  <div><h1>Registros de autocontrol (APPCC)</h1><div>${E(nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1))}${tipo !== 'todos' ? ' · ' + E($('inf-tipo')?.selectedOptions[0]?.textContent) : ''}</div></div>
+  <div><h1>Registros de autocontrol (APPCC)</h1><div>${E(nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1))}${tipo !== 'todos' ? ' · ' + E($('inf-tipo')?.selectedOptions[0]?.textContent) : ''}</div>
+    <div class="modo">${_porIncidencias() ? 'Sistema de registro <strong>por incidencias</strong> (APPCC simplificado): solo se anotan las desviaciones y sus acciones correctoras.' : 'Sistema de registro completo: se anota cada control según la frecuencia establecida.'}</div></div>
   <div class="emp"><strong>${E(cfg.razonSocial || 'Establecimiento')}</strong>${cfg.nif ? '<br>NIF/CIF: ' + E(cfg.nif) : ''}${dir ? '<br>' + E(dir) : ''}</div>
 </header>
 <div class="resumen">${regs.filter(r => tipo === 'todos' || r.tipo === tipo).length} registros · ${incid ? `<span class="mal">${incid} incidencia${incid > 1 ? 's' : ''} con acción correctora</span>` : 'sin incidencias'} · Generado el ${new Date().toLocaleString('es-ES')}</div>
@@ -527,7 +568,7 @@ ${secciones.join('')}
       return `<div class="appcc-ajustes-grupo"><h3>${titulo}</h3>
         ${lista.length ? lista.map(e => `<div class="appcc-ajuste ${e.activo === false ? 'inactivo' : ''}">
           <span><strong>${esc(e.nombre)}</strong>${e.zona ? ' · ' + esc(e.zona) : ''}
-            <small>${tipo === 'limpieza' ? esc(e.frecuencia) : _rangoTexto(e)}${e.activo === false ? ' · desactivado' : ''}</small></span>
+            <small>${tipo === 'limpieza' ? '' : _rangoTexto(e) + ' · '}${_frec(e).label}${e.activo === false ? ' · desactivado' : ''}</small></span>
           <span class="card-acciones">
             <button class="btn-mini btn-editar" type="button" data-accion="editar-elemento" data-id="${esc(e.id)}">✏ Editar</button>
             <button class="btn-mini btn-borrar" type="button" data-accion="borrar-elemento" data-id="${esc(e.id)}" aria-label="Eliminar ${esc(e.nombre)}">🗑</button>
@@ -535,6 +576,10 @@ ${secciones.join('')}
       </div>`;
     };
     return `<div class="tarjeta">
+      <div class="tarjeta-titulo">📋 Modo de registro</div>
+      ${_htmlSelectorModo()}
+    </div>
+    <div class="tarjeta" style="margin-top:16px">
       <div class="tarjeta-titulo" id="appcc-el-titulo">${_editando ? '✏ Editar' : '＋ Añadir equipo o tarea'}</div>
       <div class="form-grid">
         <div class="form-grupo"><label for="el-tipo">Tipo</label>
@@ -548,7 +593,7 @@ ${secciones.join('')}
         <div class="form-grupo el-rango"><label for="el-min">Mínimo <span class="el-u">°C</span></label><input id="el-min" class="inp" type="number" step="0.1" placeholder="Opcional"></div>
         <div class="form-grupo el-rango"><label for="el-max">Máximo <span class="el-u">°C</span></label><input id="el-max" class="inp" type="number" step="0.1" placeholder="Ej.: 4"></div>
         <div class="form-grupo el-frec"><label for="el-frecuencia">Frecuencia</label>
-          <select id="el-frecuencia" class="inp"><option value="diaria">Diaria</option><option value="semanal">Semanal</option><option value="mensual">Mensual</option></select></div>
+          <select id="el-frecuencia" class="inp">${Object.entries(FRECUENCIAS).map(([k, f]) => `<option value="${k}">${f.label}</option>`).join('')}</select></div>
         <div class="form-grupo"><label class="appcc-check" style="margin-top:26px"><input type="checkbox" id="el-activo" checked> Activo</label></div>
       </div>
       <div class="form-acciones">
@@ -565,6 +610,23 @@ ${secciones.join('')}
     </div>`;
   }
 
+  function _htmlSelectorModo() {
+    const m = modo();
+    return `<div class="appcc-modos" role="radiogroup" aria-label="Modo de registro APPCC">
+      <label class="appcc-modo ${m === 'completo' ? 'activo' : ''}"><input type="radio" name="appcc-modo" value="completo" ${m === 'completo' ? 'checked' : ''}>
+        <span><strong>Registro completo</strong><small>Se anota cada control (temperaturas, aceite, limpieza) con su frecuencia. La app avisa de lo pendiente.</small></span></label>
+      <label class="appcc-modo ${m === 'incidencias' ? 'activo' : ''}"><input type="radio" name="appcc-modo" value="incidencias" ${m === 'incidencias' ? 'checked' : ''}>
+        <span><strong>Solo incidencias</strong><small>APPCC simplificado: solo se anota lo que sale mal y su acción correctora. Sin avisos de pendientes.</small></span></label>
+    </div>`;
+  }
+
+  function _cambiarModo(valor) {
+    if (valor !== 'completo' && valor !== 'incidencias') return;
+    if (typeof ModuloConfig !== 'undefined' && ModuloConfig.guardarAjuste) ModuloConfig.guardarAjuste('appccModo', valor);
+    aviso(valor === 'incidencias' ? '📝 Modo por incidencias activado.' : '✔ Modo de registro completo activado.', { tipo: 'ok', ms: 2500 });
+    _render();
+  }
+
   function _prepararFormElemento() {
     const e = _editando;
     if (e) {
@@ -579,9 +641,9 @@ ${secciones.join('')}
   function _ajustarCamposTipo() {
     const t = $('el-tipo')?.value;
     document.querySelectorAll('.el-rango').forEach(x => x.style.display = t === 'limpieza' ? 'none' : '');
-    document.querySelectorAll('.el-frec').forEach(x => x.style.display = t === 'limpieza' ? '' : 'none');
     document.querySelectorAll('.el-u').forEach(x => x.textContent = t === 'freidora' ? '% polares' : '°C');
     if (t === 'freidora' && !$('el-max').value && !_editando) $('el-max').value = 25;
+    if (!_editando && $('el-frecuencia')) $('el-frecuencia').value = 'diaria';
   }
 
   async function _guardarElemento(boton) {
@@ -683,6 +745,9 @@ ${secciones.join('')}
         case 'borrar-elemento':   _borrarElemento(id); break;
         case 'borrar-registro':   _borrarRegistro(id); break;
       }
+    });
+    $('appcc-vista')?.addEventListener('change', e => {
+      if (e.target.name === 'appcc-modo') _cambiarModo(e.target.value);
     });
     // Enter en el campo de valor = registrar
     $('appcc-vista')?.addEventListener('keydown', e => {
