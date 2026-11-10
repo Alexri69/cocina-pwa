@@ -1,23 +1,23 @@
 // ============================================================
 // trabajador.js — Service Worker (cache-first, offline total)
-// v49: botón de avisos con notificación de prueba y registro push inmediato
+// v50: botón de avisos verde (activos) / rojo (desactivados)
 // ============================================================
 
-const NOMBRE_CACHE = 'cocina-etiquetas-v49';
+const NOMBRE_CACHE = 'cocina-etiquetas-v50';
 
 const ARCHIVOS_A_CACHEAR = [
   './index.html',
   './estilo.css',
   './manifest.json',
-  './core/voz.js?v=49',
-  './core/supabase.js?v=49',
-  './modulos/etiquetas.js?v=49',
-  './modulos/menu.js?v=49',
-  './modulos/bebidas.js?v=49',
-  './modulos/facturas.js?v=49',
-  './modulos/auth.js?v=49',
-  './modulos/config.js?v=49',
-  './app.js?v=49',
+  './core/voz.js?v=50',
+  './core/supabase.js?v=50',
+  './modulos/etiquetas.js?v=50',
+  './modulos/menu.js?v=50',
+  './modulos/bebidas.js?v=50',
+  './modulos/facturas.js?v=50',
+  './modulos/auth.js?v=50',
+  './modulos/config.js?v=50',
+  './app.js?v=50',
   './lib/jspdf.umd.min.js',
   './iconos/icono-192.png',
   './iconos/icono-512.png'

@@ -553,9 +553,17 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     const btn = document.getElementById('etq-btn-notificaciones');
     if (!btn) return;
     if (!('Notification' in window))               { btn.style.display = 'none'; return; }
-    if (Notification.permission === 'granted')      btn.textContent = '🔔 Avisos activos';
-    else if (Notification.permission === 'denied')  btn.textContent = '🔕 Avisos bloqueados';
-    else                                            btn.textContent = '🔔 Activar avisos';
+    const p = Notification.permission;
+    // Verde = activos · rojo = desactivados o bloqueados
+    btn.classList.toggle('btn-notif-on',  p === 'granted');
+    btn.classList.toggle('btn-notif-off', p !== 'granted');
+    btn.textContent = p === 'granted' ? '🔔 Avisos activos'
+                    : p === 'denied'  ? '🔕 Avisos bloqueados'
+                    :                   '🔕 Avisos desactivados · Activar';
+    btn.title = p === 'granted' ? 'Pulsa para enviar una notificación de prueba'
+              : p === 'denied'  ? 'Bloqueados en el navegador: pulsa para ver cómo activarlos'
+              :                   'Pulsa para activar los avisos de caducidad';
+    btn.setAttribute('aria-label', btn.textContent + '. ' + btn.title);
   }
 
   // Muestra una notificación (a través del Service Worker si se puede: es lo que
@@ -588,12 +596,13 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     const ok = await _mostrarNotificacion('🔔 Cocina · Avisos activos', {
       body: 'Así te llegarán los avisos de productos caducados o a punto de caducar.',
       icon: 'iconos/icono-192.png',
-      tag:  'cocina-prueba'
+      tag:  'cocina-prueba-' + Date.now(), // etiqueta única: si no, Windows la sustituye en silencio
+      requireInteraction: true             // se queda en pantalla hasta cerrarla
     });
     aviso(
       (ok ? '✔ Avisos activos: te hemos enviado una notificación de prueba. ' : '⚠ El navegador no ha podido mostrar la notificación. ')
       + (registrado ? 'Este dispositivo recibirá el aviso diario aunque la app esté cerrada. ' : '')
-      + 'Si no ves la notificación, revisa que Windows permita las notificaciones de tu navegador (Configuración → Sistema → Notificaciones) y que no esté activado "No molestar".',
+      + 'Si no la ves: mira el centro de notificaciones (Windows + N) y revisa que tu navegador tenga activado "Mostrar banners" en Configuración → Sistema → Notificaciones.',
       { tipo: ok ? 'ok' : 'error', ms: 12000 }
     );
     _revisarYAvisar();
@@ -770,6 +779,10 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     // Notificaciones
     document.getElementById('etq-btn-notificaciones')?.addEventListener('click', _activarNotificaciones);
     _actualizarBtnNotif();
+    // Si se cambia el permiso desde el candado del navegador, el botón cambia de color al momento
+    try {
+      navigator.permissions?.query({ name: 'notifications' }).then(st => { st.onchange = _actualizarBtnNotif; }).catch(() => {});
+    } catch {}
     if ('Notification' in window && Notification.permission === 'granted') {
       _revisarYAvisar();
       _iniciarRevisionPeriodica();
