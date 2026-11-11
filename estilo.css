@@ -1011,6 +1011,7 @@ select:focus-visible,
 .appcc-item-form { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
 .appcc-item-form .appcc-valor { width: 120px; min-height: 44px; font-size: 1.05rem; }
 .appcc-item-form .btn { min-height: 44px; }
+.appcc-item-form .inp-con-signo { flex: 0 0 auto; }
 .appcc-accion { margin-top: 10px; }
 .appcc-accion label { display: block; font-size: .85rem; color: var(--err); font-weight: 600; margin-bottom: 4px; }
 .appcc-limpieza.hecho strong { color: var(--texto2); }
@@ -1288,6 +1289,14 @@ button .ic, a.btn .ic, .btn .ic, label .ic, .badge-estado .ic, .appcc-estado .ic
 #modulo-menu .sub-nav { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; max-width: 100%; }
 #modulo-menu .sub-tab { white-space: nowrap; flex: 0 0 auto; min-height: 40px; }
 .ayuda-campo { display: block; font-size: .78rem; color: var(--texto2); margin-top: 4px; line-height: 1.4; }
+.inp-con-signo { display: flex; gap: 6px; align-items: stretch; flex: 1 1 auto; min-width: 0; }
+.inp-con-signo .inp { min-width: 0; flex: 1 1 auto; }
+.btn-signo {
+  flex: 0 0 auto; min-width: 44px; padding: 0 10px; border-radius: var(--radio); cursor: pointer;
+  border: 1px solid var(--borde); background: var(--surface); color: var(--texto);
+  font-size: 1.15rem; font-weight: 700; line-height: 1;
+}
+.btn-signo:active { transform: scale(.96); }
 .inp-con-unidad { display: flex; gap: 6px; align-items: center; }
 .inp-con-unidad .inp { min-width: 0; }
 .inp-con-unidad select.inp { flex: 0 0 auto; width: auto; }

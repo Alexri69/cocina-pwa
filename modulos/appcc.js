@@ -231,8 +231,8 @@ const ModuloAppcc = (() => {
           ${estado}
         </div>
         <div class="appcc-item-form">
-          <input class="inp appcc-valor" type="number" inputmode="decimal" step="0.1" placeholder="${el.tipo === 'freidora' ? '% polares' : '°C'}"
-                 aria-label="${el.tipo === 'freidora' ? '% de compuestos polares' : 'Temperatura'} de ${esc(el.nombre)}" data-valor="${esc(el.id)}">
+          ${el.tipo === 'freidora' ? '' : '<span class="inp-con-signo">'}<input class="inp appcc-valor" type="number" inputmode="decimal" step="0.1" placeholder="${el.tipo === 'freidora' ? '% polares' : '°C'}"
+                 aria-label="${el.tipo === 'freidora' ? '% de compuestos polares' : 'Temperatura'} de ${esc(el.nombre)}" data-valor="${esc(el.id)}">${el.tipo === 'freidora' ? '' : BOTON_SIGNO + '</span>'}
           ${extraFreidora}
           <button class="btn btn-primario-sm" type="button" data-accion="registrar" data-id="${esc(el.id)}">${incid ? '<svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"/></svg> Anotar' : c.cumplido ? '<svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg> Otra lectura' : '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Registrar'}</button>
         </div>
@@ -384,7 +384,7 @@ const ModuloAppcc = (() => {
         <div class="form-grupo"><label for="rec-producto">Producto *</label><input id="rec-producto" class="inp" placeholder="Ej.: Pechuga de pollo"></div>
         <div class="form-grupo"><label for="rec-lote">Lote</label><input id="rec-lote" class="inp" placeholder="Ej.: L2405"></div>
         <div class="form-grupo"><label for="rec-categoria">Tipo de producto</label><select id="rec-categoria" class="inp">${opts}</select></div>
-        <div class="form-grupo"><label for="rec-temp">Temperatura medida (°C)</label><input id="rec-temp" class="inp" type="number" inputmode="decimal" step="0.1" placeholder="Ej.: 3,5"></div>
+        <div class="form-grupo"><label for="rec-temp">Temperatura medida (°C)</label><span class="inp-con-signo"><input id="rec-temp" class="inp" type="number" inputmode="decimal" step="0.1" placeholder="Ej.: 3,5">${BOTON_SIGNO}</span></div>
         <div class="form-grupo form-grupo-full appcc-checks">
           <label class="appcc-check"><input type="checkbox" id="rec-envase" checked> Envase íntegro y limpio</label>
           <label class="appcc-check"><input type="checkbox" id="rec-etiquetado" checked> Etiquetado correcto (caducidad, lote, alérgenos)</label>
@@ -598,8 +598,8 @@ ${secciones.join('')}
           </select></div>
         <div class="form-grupo"><label for="el-nombre">Nombre *</label><input id="el-nombre" class="inp" placeholder="Ej.: Cámara de pescado"></div>
         <div class="form-grupo"><label for="el-zona">Zona</label><input id="el-zona" class="inp" placeholder="Ej.: Cocina, Almacén, Barra"></div>
-        <div class="form-grupo el-rango"><label for="el-min">Mínimo <span class="el-u">°C</span></label><input id="el-min" class="inp" type="number" step="0.1" placeholder="Opcional"></div>
-        <div class="form-grupo el-rango"><label for="el-max">Máximo <span class="el-u">°C</span></label><input id="el-max" class="inp" type="number" step="0.1" placeholder="Ej.: 4"></div>
+        <div class="form-grupo el-rango"><label for="el-min">Mínimo <span class="el-u">°C</span></label><span class="inp-con-signo"><input id="el-min" class="inp" type="number" inputmode="decimal" step="0.1" placeholder="Opcional">${BOTON_SIGNO}</span></div>
+        <div class="form-grupo el-rango"><label for="el-max">Máximo <span class="el-u">°C</span></label><span class="inp-con-signo"><input id="el-max" class="inp" type="number" inputmode="decimal" step="0.1" placeholder="Ej.: 4">${BOTON_SIGNO}</span></div>
         <div class="form-grupo el-frec"><label for="el-frecuencia">Frecuencia</label>
           <select id="el-frecuencia" class="inp">${Object.entries(FRECUENCIAS).map(([k, f]) => `<option value="${k}">${f.label}</option>`).join('')}</select></div>
         <div class="form-grupo"><label class="appcc-check" style="margin-top:26px"><input type="checkbox" id="el-activo" checked> Activo</label></div>

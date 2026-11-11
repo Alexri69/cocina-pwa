@@ -108,6 +108,21 @@ function aviso(texto, opciones = {}) {
 function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 // ── Validadores (devuelven true si está vacío → campos opcionales) ──────────
+// Botón ± junto a los campos de temperatura: muchos teclados numéricos de Android no traen «−».
+// Uso: <span class="inp-con-signo"><input type="number" …><button type="button" class="btn-signo" …>±</button></span>
+const BOTON_SIGNO = '<button type="button" class="btn-signo" aria-label="Cambiar a negativo o positivo" title="Cambiar el signo (bajo cero)">±</button>';
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest?.('.btn-signo');
+  if (!btn) return;
+  const inp = btn.parentElement?.querySelector('input');
+  if (!inp) return;
+  const v = String(inp.value || '').trim();
+  if (!v) { inp.focus(); aviso('Escribe primero la temperatura y luego pulsa ± para ponerla bajo cero.', { ms: 3500 }); return; }
+  inp.value = v.startsWith('-') ? v.slice(1) : '-' + v;
+  inp.dispatchEvent(new Event('input', { bubbles: true }));
+  inp.dispatchEvent(new Event('change', { bubbles: true }));
+});
+
 function validarEmail(v){
   if(!v) return true;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim());
