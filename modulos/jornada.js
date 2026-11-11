@@ -47,6 +47,45 @@ const ModuloJornada = (() => {
   }
   const _diaLocal = iso => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
+  /**
+   * Semanas (lunes a domingo) que tocan el mes 'AAAA-MM', recortadas al mes:
+   * [{ desde: Date, hasta: Date (inclusive), etiqueta: '3–9 nov' }]
+   */
+  function semanasDelMes(mes) {
+    const [a, m] = mes.split('-').map(Number);
+    const fin = new Date(a, m, 0);                 // último día del mes
+    const semanas = [];
+    let d = new Date(a, m - 1, 1);
+    while (d <= fin) {
+      const hasta = new Date(d);
+      hasta.setDate(d.getDate() + ((7 - d.getDay()) % 7));   // hasta el domingo
+      if (hasta > fin) hasta.setTime(fin.getTime());
+      const mesCorto = hasta.toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+      semanas.push({ desde: new Date(d), hasta, etiqueta: d.getDate() === hasta.getDate() ? `${d.getDate()} ${mesCorto}` : `${d.getDate()}–${hasta.getDate()} ${mesCorto}` });
+      d = new Date(hasta); d.setDate(d.getDate() + 1);
+    }
+    return semanas;
+  }
+
+  /**
+   * Informe de horas del mes: por persona, horas de cada semana (según el día de entrada),
+   * total, días trabajados y media por día. Sirve para ver horas extra.
+   * → { semanas, personas: [{ nombre, porSemana: [ms…], ms, dias, media, abiertos }], totalMs }
+   */
+  function informeHoras(fichajes, mes, ahora = Date.now()) {
+    const semanas = semanasDelMes(mes);
+    const idxSemana = iso => {
+      const d = new Date(iso); d.setHours(0, 0, 0, 0);
+      return semanas.findIndex(s => d >= s.desde && d <= s.hasta);
+    };
+    const personas = resumenPorPersona(fichajes, ahora).map(r => {
+      const porSemana = semanas.map(() => 0);
+      for (const f of r.fichajes) { const i = idxSemana(f.entrada); if (i >= 0) porSemana[i] += duracion(f, ahora); }
+      return { nombre: r.nombre, porSemana, ms: r.ms, dias: r.dias, media: r.dias ? r.ms / r.dias : 0, abiertos: r.abiertos };
+    });
+    return { semanas, personas, totalMs: personas.reduce((s, p) => s + p.ms, 0) };
+  }
+
   /** Primer instante del mes y del siguiente (ISO), para 'AAAA-MM'. */
   function rangoMes(mes) {
     const [a, m] = mes.split('-').map(Number);
@@ -242,6 +281,51 @@ th { background: #f0f0f0; font-size: 9pt; } .n { text-align: right; white-space:
     win.document.close();
   }
 
+  // Informe de horas: una sola hoja con todo el equipo (horas por semana y del mes)
+  const LIMITE_SEMANA_MS = 40 * 3600000;   // jornada máxima ordinaria (art. 34.1 ET), de promedio
+  function _informe() {
+    const inf = informeHoras(_equipo, _mes);
+    if (!inf.personas.length) { alert('No hay fichajes en este mes.'); return; }
+    const win = window.open('', '_blank', 'width=1000,height=800');
+    if (!win) { alert('El navegador bloqueó la ventana emergente.\nPermite ventanas emergentes para esta página.'); return; }
+    const cfg = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfig() : {};
+    const empresa = cfg.razonSocial || SB.restauranteActivo()?.nombre || '';
+    const h = ms => ms ? horasDecimal(ms) : '—';
+    const hayAbiertos = inf.personas.some(p => p.abiertos);
+    const totalesSemana = inf.semanas.map((_, i) => inf.personas.reduce((s, p) => s + p.porSemana[i], 0));
+    const filas = inf.personas.map(p => `<tr>
+      <td>${esc(p.nombre)}${p.abiertos ? ' *' : ''}</td>
+      ${p.porSemana.map(ms => `<td class="n${ms > LIMITE_SEMANA_MS ? ' extra' : ''}">${h(ms)}</td>`).join('')}
+      <td class="n"><b>${horasDecimal(p.ms)}</b></td><td class="n">${p.dias}</td><td class="n">${horasDecimal(p.media)}</td></tr>`).join('');
+    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Informe de horas ${esc(_mes)}</title>
+<style>
+@page { size: A4 landscape; margin: 12mm; }
+body { font-family: Arial, Helvetica, sans-serif; color: #222; font-size: 10pt; margin: 0; }
+h1 { font-size: 15pt; margin: 0 0 2mm; } .datos { color: #555; margin-bottom: 5mm; }
+table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #bbb; padding: 1.6mm 2mm; text-align: left; }
+th { background: #f0f0f0; font-size: 9pt; } th small { display: block; font-weight: normal; color: #666; }
+.n { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; } tfoot td { background: #f7f7f7; font-weight: bold; }
+.extra { background: #fde8e8; color: #a40000; font-weight: bold; }
+.notas { font-size: 8.5pt; color: #555; margin-top: 5mm; line-height: 1.5; }
+.botones { margin: 0 0 5mm; } .botones button { font-size: 11pt; padding: 6px 14px; cursor: pointer; }
+@media print { .botones { display: none; } }
+</style></head><body>
+<div class="botones"><button onclick="window.print()">Imprimir / Guardar PDF</button></div>
+<h1>Informe de horas trabajadas · ${esc(_nombreMes(_mes))}</h1>
+<div class="datos">${esc(empresa)}${cfg.nif ? ' · NIF ' + esc(cfg.nif) : ''} · ${inf.personas.length} persona${inf.personas.length === 1 ? '' : 's'} · Total del equipo: <b>${horasDecimal(inf.totalMs)} h</b></div>
+<table><thead><tr><th>Trabajador/a</th>${inf.semanas.map((s, i) => `<th class="n">Semana ${i + 1}<small>${esc(s.etiqueta)}</small></th>`).join('')}
+<th class="n">Total mes</th><th class="n">Días</th><th class="n">Media/día</th></tr></thead>
+<tbody>${filas}</tbody>
+<tfoot><tr><td>Total equipo</td>${totalesSemana.map(ms => `<td class="n">${h(ms)}</td>`).join('')}<td class="n">${horasDecimal(inf.totalMs)}</td><td></td><td></td></tr></tfoot></table>
+<div class="notas">
+  Horas en formato decimal (7,50 = 7 h 30 min). Cada turno cuenta en la semana del día en que empezó.<br>
+  <span class="extra" style="padding:0 4px">En rojo</span>: semanas de más de 40 horas (posibles horas extra; el límite legal es de 40 h semanales de promedio en cómputo anual).
+  ${hayAbiertos ? '<br>* Tiene un turno sin fichar la salida: se cuenta hasta ahora. Corrígelo antes de cerrar el mes.' : ''}
+</div>
+</body></html>`);
+    win.document.close();
+  }
+
   function _csv() {
     if (!_equipo.length) { alert('No hay fichajes en este mes.'); return; }
     const filas = [['Trabajador', 'Fecha', 'Entrada', 'Salida', 'Horas', 'Origen', 'Correcciones']];
@@ -268,6 +352,7 @@ th { background: #f0f0f0; font-size: 9pt; } .n { text-align: right; white-space:
     document.addEventListener('click', e => { const b = e.target.closest('[data-fichar]'); if (b) _fichar(b); });
     inpMes?.addEventListener('change', () => { if (/^\d{4}-\d{2}$/.test(inpMes.value)) { _mes = inpMes.value; _cargarMes(); } });
     $('jor-imprimir')?.addEventListener('click', _imprimir);
+    $('jor-informe')?.addEventListener('click', _informe);
     $('jor-csv')?.addEventListener('click', _csv);
     $('jor-anadir')?.addEventListener('click', () => _abrirEditor(null));
     $('jor-equipo')?.addEventListener('click', e => {
@@ -290,6 +375,6 @@ th { background: #f0f0f0; font-size: 9pt; } .n { text-align: right; white-space:
     await _cargarMes();
   }
 
-  return { init, duracion, horasTexto, horasDecimal, resumenPorPersona, rangoMes };
+  return { init, duracion, horasTexto, horasDecimal, resumenPorPersona, rangoMes, semanasDelMes, informeHoras };
 
 })();
