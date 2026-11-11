@@ -104,6 +104,62 @@ const SB = (() => {
     _guardarSesion(await res.json());
   }
 
+  /**
+   * Envía el email para restablecer la contraseña. El enlace vuelve a la app
+   * con #access_token=…&type=recovery (lo recoge sesionDesdeEnlace).
+   */
+  async function recuperarPassword(email) {
+    const vuelta = location.origin + location.pathname;
+    const res = await fetch(`${BASE}/auth/v1/recover?redirect_to=${encodeURIComponent(vuelta)}`, {
+      method:  'POST',
+      headers: { 'apikey': ANON, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ email })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (res.status === 429) throw new Error('Se han enviado demasiados emails. Espera un rato y vuelve a intentarlo.');
+      throw new Error(err.error_description || err.msg || err.message || 'No se pudo enviar el email.');
+    }
+  }
+
+  /**
+   * Lee la sesión que traen los enlaces de los emails de Supabase (recuperar contraseña,
+   * confirmar cuenta) en el fragmento de la URL y la limpia de la barra de direcciones.
+   * Devuelve { tipo } si había sesión, { error } si el enlace no vale, o null si no había nada.
+   */
+  function sesionDesdeEnlace() {
+    const h = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+    if (!h.has('access_token') && !h.has('error') && !h.has('error_code')) return null;
+    history.replaceState(null, '', location.pathname + location.search);
+    if (!h.get('access_token')) {
+      const codigo = h.get('error_code');
+      return { error: codigo === 'otp_expired'
+        ? 'El enlace ha caducado o ya se usó. Pide uno nuevo.'
+        : (h.get('error_description') || 'El enlace no es válido.').replace(/\+/g, ' ') };
+    }
+    _guardarSesion({
+      access_token:  h.get('access_token'),
+      refresh_token: h.get('refresh_token'),
+      expires_in:    Number(h.get('expires_in')) || 3600,
+    });
+    return { tipo: h.get('type') || '' };
+  }
+
+  /** Cambia la contraseña del usuario con la sesión abierta. */
+  async function cambiarPassword(nueva) {
+    _cargarSesion();
+    const res = await fetch(`${BASE}/auth/v1/user`, {
+      method:  'PUT',
+      headers: { 'apikey': ANON, 'Authorization': `Bearer ${_sesion?.access_token}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ password: nueva })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      if (err.error_code === 'same_password') throw new Error('La nueva contraseña debe ser distinta de la anterior.');
+      throw new Error(err.error_description || err.msg || err.message || 'No se pudo cambiar la contraseña.');
+    }
+  }
+
   /** true si hay una sesión guardada (aunque el token haya caducado). Permite entrar sin conexión. */
   function tieneSesion() {
     _cargarSesion();
@@ -1120,6 +1176,7 @@ const SB = (() => {
   return {
     // Auth
     isLoggedIn, tieneSesion, login, signup, logout, refrescarSesion, limpiarDatosLocales,
+    recuperarPassword, sesionDesdeEnlace, cambiarPassword,
     // Restaurante activo y equipo
     restauranteActivo, restauranteId, rol, puedeGestionar, esPropietario, seleccionarRestaurante,
     misRestaurantes, crearRestaurante, unirseConCodigo, crearInvitacion, salirRestaurante,

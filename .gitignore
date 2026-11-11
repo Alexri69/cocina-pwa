@@ -19,3 +19,5 @@ desktop.ini
 
 # Copias de seguridad locales de la base de datos (contienen datos reales)
 backups/
+
+.claude/settings.local.json
