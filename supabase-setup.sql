@@ -216,7 +216,7 @@ CREATE TABLE IF NOT EXISTS public.restaurantes (
 CREATE TABLE IF NOT EXISTS public.miembros (
   restaurante_id uuid        NOT NULL REFERENCES public.restaurantes(id) ON DELETE CASCADE,
   user_id        uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  rol            text        NOT NULL DEFAULT 'cocina' CHECK (rol IN ('propietario','encargado','cocina')),
+  rol            text        NOT NULL DEFAULT 'cocina' CHECK (rol IN ('propietario','encargado','cocina','camarero')),
   nombre         text        NOT NULL DEFAULT '',
   email          text        NOT NULL DEFAULT '',
   created_at     timestamptz NOT NULL DEFAULT now(),
@@ -227,7 +227,7 @@ CREATE INDEX IF NOT EXISTS miembros_user ON public.miembros (user_id);
 CREATE TABLE IF NOT EXISTS public.invitaciones (
   codigo          text        PRIMARY KEY,
   restaurante_id  uuid        NOT NULL REFERENCES public.restaurantes(id) ON DELETE CASCADE,
-  rol             text        NOT NULL CHECK (rol IN ('encargado','cocina')),
+  rol             text        NOT NULL CHECK (rol IN ('encargado','cocina','camarero')),
   creada_por      uuid        DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE SET NULL,
   expira_en       timestamptz NOT NULL DEFAULT now() + interval '7 days',
   usos_max        integer     NOT NULL DEFAULT 1 CHECK (usos_max BETWEEN 1 AND 50),
@@ -247,6 +247,20 @@ $$ SELECT rol FROM miembros WHERE restaurante_id = r AND user_id = auth.uid() $$
 CREATE OR REPLACE FUNCTION public.puede_gestionar(r uuid) RETURNS boolean
   LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
 $$ SELECT coalesce(public.rol_en(r) IN ('propietario','encargado'), false) $$;
+
+-- Todo el equipo menos el camarero (etiquetas, habituales, pedidos y proveedores)
+CREATE OR REPLACE FUNCTION public.es_cocina(r uuid) RETURNS boolean
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
+$$ SELECT coalesce(public.rol_en(r) IN ('propietario','encargado','cocina'), false) $$;
+
+-- Rol «camarero» (v76): APPCC (registrar), fichar y ver la carta. En bases ya creadas
+-- hay que ampliar los CHECK de rol.
+DO $$ BEGIN
+  ALTER TABLE public.miembros DROP CONSTRAINT IF EXISTS miembros_rol_check;
+  ALTER TABLE public.miembros ADD CONSTRAINT miembros_rol_check CHECK (rol IN ('propietario','encargado','cocina','camarero'));
+  ALTER TABLE public.invitaciones DROP CONSTRAINT IF EXISTS invitaciones_rol_check;
+  ALTER TABLE public.invitaciones ADD CONSTRAINT invitaciones_rol_check CHECK (rol IN ('encargado','cocina','camarero'));
+END $$;
 
 -- Restaurante por defecto del usuario (para versiones antiguas de la app que no envían restaurante_id)
 CREATE OR REPLACE FUNCTION public.restaurante_por_defecto() RETURNS uuid
@@ -276,9 +290,9 @@ CREATE OR REPLACE FUNCTION public.crear_invitacion(p_restaurante uuid, p_rol tex
 $$
 DECLARE v_codigo text; v_rol text := public.rol_en(p_restaurante);
 BEGIN
-  IF v_rol IS NULL OR v_rol = 'cocina' THEN RAISE EXCEPTION 'No tienes permiso para invitar'; END IF;
-  IF p_rol NOT IN ('encargado','cocina') THEN RAISE EXCEPTION 'Rol no válido'; END IF;
-  IF v_rol = 'encargado' AND p_rol <> 'cocina' THEN RAISE EXCEPTION 'Un encargado solo puede invitar a personal de cocina'; END IF;
+  IF v_rol IS NULL OR v_rol NOT IN ('propietario','encargado') THEN RAISE EXCEPTION 'No tienes permiso para invitar'; END IF;
+  IF p_rol NOT IN ('encargado','cocina','camarero') THEN RAISE EXCEPTION 'Rol no válido'; END IF;
+  IF v_rol = 'encargado' AND p_rol NOT IN ('cocina','camarero') THEN RAISE EXCEPTION 'Un encargado solo puede invitar a cocina o camareros'; END IF;
   -- Código de 8 caracteres sin letras ni números confusos (0/O, 1/I/L)
   LOOP
     v_codigo := (SELECT string_agg(substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', 1 + floor(random() * 31)::int, 1), '') FROM generate_series(1, 8));
@@ -436,13 +450,13 @@ BEGIN
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
   END LOOP;
 
-  -- Todo el equipo lee y escribe
+  -- Etiquetas y habituales: todo el equipo menos el camarero
   FOREACH t IN ARRAY ARRAY['productos','plantillas_etiqueta']
   LOOP
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.es_miembro(restaurante_id))', t || '_select', t);
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.es_miembro(restaurante_id) AND user_id = auth.uid())', t || '_insert', t);
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.es_miembro(restaurante_id)) WITH CHECK (public.es_miembro(restaurante_id))', t || '_update', t);
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.es_miembro(restaurante_id))', t || '_delete', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.es_cocina(restaurante_id))', t || '_select', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.es_cocina(restaurante_id) AND user_id = auth.uid())', t || '_insert', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.es_cocina(restaurante_id)) WITH CHECK (public.es_cocina(restaurante_id))', t || '_update', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.es_cocina(restaurante_id))', t || '_delete', t);
   END LOOP;
 
   -- Todo el equipo lee; propietario y encargado escriben
@@ -782,14 +796,14 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', p.policyname, p.tablename);
   END LOOP;
 END $$;
-CREATE POLICY proveedores_select ON public.proveedores FOR SELECT TO authenticated USING (public.es_miembro(restaurante_id));
+CREATE POLICY proveedores_select ON public.proveedores FOR SELECT TO authenticated USING (public.es_cocina(restaurante_id));
 CREATE POLICY proveedores_insert ON public.proveedores FOR INSERT TO authenticated WITH CHECK (public.puede_gestionar(restaurante_id));
 CREATE POLICY proveedores_update ON public.proveedores FOR UPDATE TO authenticated USING (public.puede_gestionar(restaurante_id)) WITH CHECK (public.puede_gestionar(restaurante_id));
 CREATE POLICY proveedores_delete ON public.proveedores FOR DELETE TO authenticated USING (public.puede_gestionar(restaurante_id));
-CREATE POLICY pedidos_select ON public.pedidos FOR SELECT TO authenticated USING (public.es_miembro(restaurante_id));
-CREATE POLICY pedidos_insert ON public.pedidos FOR INSERT TO authenticated WITH CHECK (public.es_miembro(restaurante_id));
-CREATE POLICY pedidos_update ON public.pedidos FOR UPDATE TO authenticated USING (public.es_miembro(restaurante_id)) WITH CHECK (public.es_miembro(restaurante_id));
-CREATE POLICY pedidos_delete ON public.pedidos FOR DELETE TO authenticated USING (public.es_miembro(restaurante_id));
+CREATE POLICY pedidos_select ON public.pedidos FOR SELECT TO authenticated USING (public.es_cocina(restaurante_id));
+CREATE POLICY pedidos_insert ON public.pedidos FOR INSERT TO authenticated WITH CHECK (public.es_cocina(restaurante_id));
+CREATE POLICY pedidos_update ON public.pedidos FOR UPDATE TO authenticated USING (public.es_cocina(restaurante_id)) WITH CHECK (public.es_cocina(restaurante_id));
+CREATE POLICY pedidos_delete ON public.pedidos FOR DELETE TO authenticated USING (public.es_cocina(restaurante_id));
 
 
 -- ============================================================

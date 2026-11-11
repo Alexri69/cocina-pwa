@@ -24,9 +24,9 @@ scripts/validate.js — validador (sintaxis + coherencia del precache del SW); l
 
 ## Restaurantes y equipo
 - Los datos pertenecen a un **restaurante** (`restaurante_id`); `user_id` = quién creó la fila.
-- `restaurantes`, `miembros` (rol `propietario` | `encargado` | `cocina`), `invitaciones` (código de 8 caracteres, 7 días, 1 uso).
+- `restaurantes`, `miembros` (rol `propietario` | `encargado` | `cocina` | `camarero`), `invitaciones` (código de 8 caracteres, 7 días, 1 uso).
 - RPC: `crear_restaurante`, `crear_invitacion`, `unirse_con_codigo`, `salir_restaurante`. Trigger: siempre queda un propietario.
-- RLS con `es_miembro(r)`, `rol_en(r)`, `puede_gestionar(r)`. Cocina: etiquetas, habituales, registros APPCC; lee carta/equipos/config; sin facturas.
+- RLS con `es_miembro(r)`, `rol_en(r)`, `puede_gestionar(r)`. Cocina: etiquetas, habituales, registros APPCC; lee carta/equipos/config; sin facturas. Camarero (v76): registros APPCC, fichar y leer carta; sin etiquetas, pedidos ni proveedores (`es_cocina(r)` en RLS; `data-no-camarero` en la UI; no recibe avisos de caducidad).
 - Cliente: `SB.restauranteActivo()`; `_get` añade `restaurante_id=eq.<activo>` y `_post` lo inserta en las tablas de `_TABLAS_RESTAURANTE`. Caché `cocina_c_<rid>_<tabla>`; ficha/logo/impresora `cocina_*_<rid>`.
 - Al entrar: `ModuloEquipo.iniciar()` (bienvenida si no hay restaurante; `?unirse=CODIGO` para invitaciones). UI por rol con `body[data-rol]` y `data-solo="gestion"`.
 

@@ -1069,14 +1069,22 @@ select:focus-visible,
    RESTAURANTES Y EQUIPO
    ============================================================ */
 /* Lo marcado como data-solo="gestion" no se muestra al personal de cocina */
-body[data-rol="cocina"] [data-solo="gestion"] { display: none !important; }
+body[data-rol="cocina"] [data-solo="gestion"],
+body[data-rol="camarero"] [data-solo="gestion"],
+body[data-rol="camarero"] [data-no-camarero] { display: none !important; }
 /* Cocina: la carta y las bebidas son de solo lectura */
 body[data-rol="cocina"] #modulo-menu .btn-editar,
+body[data-rol="camarero"] #modulo-menu .btn-editar,
 body[data-rol="cocina"] #modulo-menu .btn-borrar,
+body[data-rol="camarero"] #modulo-menu .btn-borrar,
 body[data-rol="cocina"] #modulo-menu .vista-list-bar .btn-primario-sm,
+body[data-rol="camarero"] #modulo-menu .vista-list-bar .btn-primario-sm,
 body[data-rol="cocina"] #modulo-bebidas .btn-editar,
+body[data-rol="camarero"] #modulo-bebidas .btn-editar,
 body[data-rol="cocina"] #modulo-bebidas .btn-borrar,
-body[data-rol="cocina"] #modulo-bebidas .vista-list-bar .btn-primario-sm { display: none !important; }
+body[data-rol="camarero"] #modulo-bebidas .btn-borrar,
+body[data-rol="cocina"] #modulo-bebidas .vista-list-bar .btn-primario-sm,
+body[data-rol="camarero"] #modulo-bebidas .vista-list-bar .btn-primario-sm { display: none !important; }
 
 .cabecera-cambiar-rest { margin-left: 4px; font-size: 1rem; min-width: 36px; min-height: 36px; }
 
@@ -1097,9 +1105,11 @@ body[data-rol="cocina"] #modulo-bebidas .vista-list-bar .btn-primario-sm { displ
 .rol-propietario { color: #c4b5fd; background: rgba(167,139,250,.15); }
 .rol-encargado   { color: #93c5fd; background: rgba(96,165,250,.15); }
 .rol-cocina      { color: #fcd34d; background: rgba(251,191,36,.14); }
+.rol-camarero    { color: #86efac; background: rgba(74,222,128,.14); }
 [data-tema="claro"] .rol-propietario { color: #6d28d9; background: #ede9fe; }
 [data-tema="claro"] .rol-encargado   { color: #1d4ed8; background: #dbeafe; }
 [data-tema="claro"] .rol-cocina      { color: #92400e; background: #fef3c7; }
+[data-tema="claro"] .rol-camarero    { color: #166534; background: #dcfce7; }
 
 .equipo-bloque { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--borde); }
 .equipo-bloque h3 { font-size: .95rem; color: var(--texto); margin-bottom: 10px; }

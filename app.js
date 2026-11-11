@@ -40,7 +40,11 @@ function _toggleTema() {
 
 let _moduloActivo = null;
 
+// Módulos que no ve el camarero (además de facturas, que es solo de gestión)
+const _SIN_CAMARERO = ['etiquetas', 'pedidos', 'facturas'];
+
 function navegarA(id, { historial = true } = {}) {
+  if (typeof SB !== 'undefined' && SB.rol() === 'camarero' && _SIN_CAMARERO.includes(id)) id = 'dashboard';
   if (historial && _moduloActivo && id !== _moduloActivo) {
     Navegacion.olvidar();
     try { history.pushState({ m: id }, ''); } catch {}
@@ -88,6 +92,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Inicializar módulos en paralelo (son independientes). Si uno falla, el resto arranca igual.
   const modulos = { ModuloConfig, ModuloEquipo, ModuloEtiquetas, ModuloAppcc, ModuloMenu, ModuloBebidas, ModuloCartaQR, ModuloPedidos, ModuloJornada };
+  // El camarero no usa etiquetas ni pedidos
+  if (SB.rol() === 'camarero') { delete modulos.ModuloEtiquetas; delete modulos.ModuloPedidos; }
   // Facturas solo para propietario y encargado
   if (SB.puedeGestionar()) modulos.ModuloFacturas = ModuloFacturas;
   const res = await Promise.allSettled(Object.values(modulos).map(m => m.init()));

@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="iconos/icono-192.png">
   <link rel="apple-touch-icon" href="iconos/icono-192.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="estilo.css?v=75">
+  <link rel="stylesheet" href="estilo.css?v=76">
   <script>
     // Aplicar tema antes de pintar para evitar parpadeo
     document.documentElement.setAttribute('data-tema',
@@ -211,7 +211,7 @@
 
       <!-- Tres pestañas de navegación -->
       <nav class="nav-tabs" role="navigation" aria-label="Módulos">
-        <button class="nav-tab" data-modulo="etiquetas"><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg><span>Etiquetas</span><span class="tab-badge" id="etq-badge-nav" style="display:none">0</span></button>
+        <button class="nav-tab" data-modulo="etiquetas" data-no-camarero><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg><span>Etiquetas</span><span class="tab-badge" id="etq-badge-nav" style="display:none">0</span></button>
         <button class="nav-tab" data-modulo="appcc"><svg class="ic" aria-hidden="true"><use href="#i-clipboard-check"/></svg><span>APPCC</span><span class="tab-badge" id="appcc-badge-nav" style="display:none">0</span></button>
         <button class="nav-tab" data-modulo="menu"><svg class="ic" aria-hidden="true"><use href="#i-book-open"/></svg><span>Carta</span></button>
         <button class="nav-tab" data-modulo="bebidas"><svg class="ic" aria-hidden="true"><use href="#i-cup-soda"/></svg><span>Bebidas</span></button>
@@ -252,7 +252,7 @@
           </div>
 
           <div class="dash-grid">
-            <button class="dash-card" onclick="navegarA('etiquetas')">
+            <button class="dash-card" onclick="navegarA('etiquetas')" data-no-camarero>
               <div class="dash-card-icon"><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></div>
               <div class="dash-card-nombre">Etiquetas</div>
               <div class="dash-card-desc">Trazabilidad · Alérgenos</div>
@@ -272,7 +272,7 @@
               <div class="dash-card-nombre">Bebidas</div>
               <div class="dash-card-desc">Carta de bebidas</div>
             </button>
-            <button class="dash-card" onclick="navegarA('pedidos')">
+            <button class="dash-card" onclick="navegarA('pedidos')" data-no-camarero>
               <div class="dash-card-icon"><svg class="ic" aria-hidden="true"><use href="#i-truck"/></svg></div>
               <div class="dash-card-nombre">Pedidos</div>
               <div class="dash-card-desc">Proveedores · WhatsApp</div>
@@ -1150,7 +1150,7 @@
       </div>
 
 
-      <div class="tarjeta" style="margin-top:16px">
+      <div class="tarjeta" data-no-camarero style="margin-top:16px">
         <div class="tarjeta-titulo">Impresora de Etiquetas</div>
         <p style="font-size:.8rem;color:var(--texto2);margin-bottom:14px">
           Configuración de la impresora térmica para etiquetas de trazabilidad (recipientes abiertos).
@@ -1256,7 +1256,7 @@
 
     <!-- Barra de navegación inferior (solo móvil, reemplaza las pestañas del header) -->
     <nav class="nav-bottom" role="navigation" aria-label="Módulos">
-      <button class="nav-bottom-tab" data-modulo="etiquetas"><span class="nb-icon"><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></span>Etiquetas<span class="tab-badge" id="etq-badge-bottom" style="display:none">0</span></button>
+      <button class="nav-bottom-tab" data-modulo="etiquetas" data-no-camarero><span class="nb-icon"><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg></span>Etiquetas<span class="tab-badge" id="etq-badge-bottom" style="display:none">0</span></button>
       <button class="nav-bottom-tab" data-modulo="appcc"><span class="nb-icon"><svg class="ic" aria-hidden="true"><use href="#i-clipboard-check"/></svg></span>APPCC<span class="tab-badge" id="appcc-badge-bottom" style="display:none">0</span></button>
       <button class="nav-bottom-tab" data-modulo="menu"><span class="nb-icon"><svg class="ic" aria-hidden="true"><use href="#i-book-open"/></svg></span>Carta</button>
       <button class="nav-bottom-tab" data-modulo="bebidas"><span class="nb-icon"><svg class="ic" aria-hidden="true"><use href="#i-cup-soda"/></svg></span>Bebidas</button>
@@ -1282,22 +1282,22 @@
        ======================================================== -->
   <!-- jsPDF servido desde la propia app para que los PDF funcionen sin conexión -->
   <script src="lib/jspdf.umd.min.js" defer></script>
-  <script src="core/voz.js?v=75"></script>
-  <script src="core/supabase.js?v=75"></script>
-  <script src="modulos/lector-lote.js?v=75"></script>
-  <script src="modulos/etiquetas.js?v=75"></script>
-  <script src="modulos/menu.js?v=75"></script>
-  <script src="modulos/bebidas.js?v=75"></script>
-  <script src="modulos/pedidos.js?v=75"></script>
-  <script src="modulos/jornada.js?v=75"></script>
-  <script src="modulos/facturas.js?v=75"></script>
-  <script src="modulos/auth.js?v=75"></script>
-  <script src="modulos/config.js?v=75"></script>
-  <script src="modulos/appcc.js?v=75"></script>
+  <script src="core/voz.js?v=76"></script>
+  <script src="core/supabase.js?v=76"></script>
+  <script src="modulos/lector-lote.js?v=76"></script>
+  <script src="modulos/etiquetas.js?v=76"></script>
+  <script src="modulos/menu.js?v=76"></script>
+  <script src="modulos/bebidas.js?v=76"></script>
+  <script src="modulos/pedidos.js?v=76"></script>
+  <script src="modulos/jornada.js?v=76"></script>
+  <script src="modulos/facturas.js?v=76"></script>
+  <script src="modulos/auth.js?v=76"></script>
+  <script src="modulos/config.js?v=76"></script>
+  <script src="modulos/appcc.js?v=76"></script>
   <script src="lib/qrcode.min.js"></script>
-  <script src="modulos/cartaqr.js?v=75"></script>
-  <script src="modulos/equipo.js?v=75"></script>
-  <script src="app.js?v=75"></script>
+  <script src="modulos/cartaqr.js?v=76"></script>
+  <script src="modulos/equipo.js?v=76"></script>
+  <script src="app.js?v=76"></script>
   <!-- Las actualizaciones de la app se avisan desde app.js (sin recargar a la fuerza) -->
 
 </body>

@@ -11,7 +11,8 @@ const ModuloEquipo = (() => {
   const ROLES = {
     propietario: { label: 'Propietario', desc: 'Todo, y gestiona el equipo y el restaurante' },
     encargado:   { label: 'Encargado',   desc: 'Todo excepto gestionar el equipo' },
-    cocina:      { label: 'Cocina',      desc: 'Etiquetas, habituales y registros APPCC; consulta la carta' },
+    cocina:      { label: 'Cocina',      desc: 'Etiquetas, habituales, pedidos y registros APPCC; consulta la carta' },
+    camarero:    { label: 'Camarero',    desc: 'Registros APPCC (neveras de barra y mostrador), fichar y consultar la carta con alérgenos' },
   };
   const APP_URL = 'https://alexri69.github.io/cocina-pwa/';
 
@@ -228,6 +229,7 @@ const ModuloEquipo = (() => {
           <div class="equipo-invitar">
             <select id="eq-rol-inv" class="inp" aria-label="Rol de la persona invitada">
               <option value="cocina">Cocina — ${ROLES.cocina.desc}</option>
+              <option value="camarero">Camarero — ${ROLES.camarero.desc}</option>
               ${prop ? `<option value="encargado">Encargado — ${ROLES.encargado.desc}</option>` : ''}
             </select>
             <button class="btn btn-primario-sm" type="button" data-eq="invitar"><svg class="ic" aria-hidden="true"><use href="#i-user-plus"/></svg> Generar código</button>

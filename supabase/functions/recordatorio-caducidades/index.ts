@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     // Nombre del restaurante y miembros del equipo
     const restR = await fetch(`${SUPABASE_URL}/rest/v1/restaurantes?id=eq.${rid}&select=nombre`, { headers: H });
     const nombre = ((await restR.json().catch(() => []))[0] || {}).nombre || "Cocina";
-    const miemR = await fetch(`${SUPABASE_URL}/rest/v1/miembros?restaurante_id=eq.${rid}&select=user_id`, { headers: H });
+    const miemR = await fetch(`${SUPABASE_URL}/rest/v1/miembros?restaurante_id=eq.${rid}&rol=neq.camarero&select=user_id`, { headers: H });
     const uids = ((await miemR.json().catch(() => [])) as { user_id: string }[]).map(m => m.user_id);
     if (!uids.length) continue;
 
