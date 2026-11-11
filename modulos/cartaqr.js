@@ -107,8 +107,8 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 0; }
     b.disabled = true;
     let hechos = 0;
     try {
-      for (let i = 0; i < pendientes.length; i += 40) {
-        const lote = pendientes.slice(i, i + 40);
+      for (let i = 0; i < pendientes.length; i += 5) {
+        const lote = pendientes.slice(i, i + 5);
         b.textContent = `Traduciendo… ${i}/${pendientes.length}`;
         const r = await SB.traducir(lote.flatMap(p => [p.nombre, p.desc]));
         for (const [k, p] of lote.entries()) {

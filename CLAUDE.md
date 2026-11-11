@@ -17,7 +17,7 @@ modulos/auth.js · equipo.js · etiquetas.js · appcc.js · menu.js · bebidas.j
 lib/jspdf.umd.min.js — jsPDF 2.5.1 (local para que los PDF funcionen offline)
 supabase-setup.sql — esquema COMPLETO e idempotente (7 tablas + RLS)
 supabase/functions/recordatorio-caducidades — Edge Function de avisos push diarios
-supabase/functions/traducir — Edge Function: traduce la carta ES→EN/DE con DeepL (secreto DEEPL_API_KEY; solo propietario/encargado)
+supabase/functions/traducir — Edge Function: traduce la carta ES→EN/DE con DeepL (secreto DEEPL_API_KEY; solo propietario/encargado). Sin clave devuelve codigo "sin_deepl" y el cliente usa MyMemory desde el navegador (~5.000 caracteres/día)
 scripts/validate.js — validador (sintaxis + coherencia del precache del SW); lo ejecuta CI
 ```
 **Orden de carga:** `lib/jspdf` → `core/voz.js` → `core/supabase.js` → `modulos/*.js` → `app.js`

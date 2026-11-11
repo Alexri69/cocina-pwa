@@ -28,7 +28,8 @@ const json = (o: unknown, status = 200) =>
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Método no permitido" }, 405);
-  if (!DEEPL_KEY) return json({ error: "Falta configurar la clave de DeepL en Supabase." }, 503);
+  // Sin clave: la app traduce con MyMemory desde el navegador (codigo "sin_deepl")
+  if (!DEEPL_KEY) return json({ error: "Falta configurar la clave de DeepL en Supabase.", codigo: "sin_deepl" }, 503);
 
   // ¿Es propietario o encargado de algún restaurante? (con su propio token: lo filtra RLS)
   const auth = req.headers.get("Authorization") || "";

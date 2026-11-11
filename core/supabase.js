@@ -802,8 +802,51 @@ const SB = (() => {
       if (res.status === 401 && await refrescarSesion()) res = await llamar();
     } catch { throw new Error('Sin conexión: la traducción automática necesita internet.'); }
     const d = await res.json().catch(() => ({}));
+    if (d.codigo === 'sin_deepl') return _traducirMyMemory(textos, idiomas);   // sin clave de DeepL
     if (!res.ok) throw new Error(d.error || `No se pudo traducir (error ${res.status}).`);
     return d;
+  }
+
+  // MyMemory (gratis, sin registro): se llama desde el navegador para que el límite
+  // diario (~5.000 caracteres) sea por dispositivo y no compartido. Un texto por petición, ≤ 500 bytes.
+  async function _traducirMyMemory(textos, idiomas) {
+    const trozos = t => {               // parte los textos largos por frases
+      if (new TextEncoder().encode(t).length <= 450) return [t];
+      const out = []; let actual = '';
+      for (const f of t.split(/(?<=[.;!?])\s+/)) {
+        if (actual && new TextEncoder().encode(actual + ' ' + f).length > 450) { out.push(actual); actual = f; }
+        else actual = actual ? actual + ' ' + f : f;
+      }
+      if (actual) out.push(actual);
+      return out.map(x => x.slice(0, 450));
+    };
+    const uno = async (t, l) => {
+      const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(t)}&langpair=es|${l}&mt=1`);
+      const d = await r.json().catch(() => ({}));
+      const txt = d?.responseData?.translatedText || '';
+      if (r.status === 429 || d.quotaFinished || /MYMEMORY WARNING/i.test(txt)) {
+        throw new Error('Se ha llegado al límite diario de traducciones gratis. Prueba mañana (o configura DeepL).');
+      }
+      if (!r.ok || String(d.responseStatus) !== '200') throw new Error('El traductor no responde ahora. Prueba en un rato.');
+      // MyMemory devuelve a veces entidades HTML (&#39;)
+      const el = document.createElement('textarea'); el.innerHTML = txt; return el.value;
+    };
+    const resultado = {};
+    try {
+      for (const l of idiomas) {
+        resultado[l] = [];
+        for (const t of textos) {
+          if (!String(t || '').trim()) { resultado[l].push(''); continue; }
+          const partes = [];
+          for (const p of trozos(String(t))) partes.push(await uno(p, l));
+          resultado[l].push(partes.join(' '));
+        }
+      }
+    } catch (e) {
+      if (e instanceof TypeError) throw new Error('Sin conexión: la traducción automática necesita internet.');
+      throw e;
+    }
+    return resultado;
   }
   const eliminarPlato   = (id)  => _delete('platos', id);
 
