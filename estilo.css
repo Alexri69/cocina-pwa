@@ -1143,6 +1143,9 @@ body[data-rol="cocina"] #modulo-bebidas .vista-list-bar .btn-primario-sm { displ
 .carta-qr-estado.off { color: var(--texto2); border: 1px dashed var(--borde); }
 [data-tema="claro"] .carta-qr-estado.on { color: #15803d; background: #dcfce7; }
 .carta-qr-cuerpo { display: flex; gap: 16px; padding: 0 16px 16px; flex-wrap: wrap; }
+.carta-qr-idiomas { display: flex; gap: 10px 16px; align-items: center; flex-wrap: wrap; justify-content: space-between; margin: 0 16px 16px; padding-top: 14px; border-top: 1px solid var(--borde); }
+.carta-qr-idiomas p { margin: 0; flex: 1 1 260px; font-size: .88rem; color: var(--texto2); }
+.carta-qr-idiomas strong { color: var(--texto); }
 .carta-qr-vacia { flex-direction: column; gap: 6px; }
 .carta-qr-vacia p { color: var(--texto); font-size: .92rem; line-height: 1.5; }
 .carta-qr-img { background: #fff; padding: 8px; border-radius: 8px; width: 168px; height: 168px; flex: 0 0 auto; }
@@ -1416,6 +1419,7 @@ button .ic, a.btn .ic, .btn .ic, label .ic, .badge-estado .ic, .appcc-estado .ic
 .traducciones summary small { font-weight: 400; color: var(--texto2); }
 .traducciones-grid { display: grid; gap: 4px; margin-top: 8px; }
 .traducciones-grid label { font-size: .82rem; color: var(--texto2); margin-top: 6px; }
+.traducciones .traducir-auto { margin-top: 4px; }
 .sub-label { display: block; font-size: .8rem; color: var(--texto2); margin-bottom: 4px; }
 .beb-coste-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
 .beb-coste-grid input[hidden], .beb-coste-grid [hidden] { display: none; }

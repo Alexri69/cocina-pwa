@@ -58,6 +58,10 @@ const ModuloCartaQR = (() => {
           <p class="appcc-nota">Solo se muestra nombre, descripción, precio y alérgenos. Revisa antes que todos los platos tengan sus ingredientes y las bebidas sus alérgenos.</p>
           <div class="form-acciones"><button class="btn btn-primario-sm" type="button" data-cq="publicar"><svg class="ic" aria-hidden="true"><use href="#i-qr-code"/></svg> Publicar carta</button></div>
         </div>`) : ''}
+      ${_abierto ? `<div class="carta-qr-idiomas">
+        <p><strong>Inglés y alemán:</strong> los clientes eligen el idioma en la carta. Traduce de una vez todo lo que falte; lo que ya hayas traducido a mano no se toca.</p>
+        <button class="btn btn-secundario-sm" type="button" data-cq="traducir"><svg class="ic" aria-hidden="true"><use href="#i-languages"/></svg> Traducir toda la carta</button>
+      </div>` : ''}
     </div>`;
   }
 
@@ -83,10 +87,51 @@ body { font-family: Arial, Helvetica, sans-serif; margin: 0; }
     win.document.close();
   }
 
+  // Traduce al inglés y al alemán todo lo que falte de la carta (platos y bebidas) y lo guarda.
+  // No toca lo que ya esté traducido a mano.
+  async function _traducirCarta(b) {
+    const [platos, bebidas] = await Promise.all([SB.obtenerPlatos(), SB.obtenerBebidas()]);
+    const idiomas = SB.IDIOMAS_CARTA;
+    const pendientes = [];
+    for (const [tabla, lista] of [['platos', platos], ['bebidas', bebidas]]) {
+      for (const x of lista || []) {
+        const nombre = (x.nombre || '').trim(), desc = (x.descripcion || '').trim(), t = x.traducciones || {};
+        if (!nombre) continue;
+        const falta = idiomas.some(l => !t[l]?.nombre || (desc && !t[l]?.descripcion));
+        if (falta) pendientes.push({ tabla, id: x.id, nombre, desc, t });
+      }
+    }
+    if (!pendientes.length) { aviso('✔ Toda la carta ya está traducida.', { tipo: 'ok', ms: 3000 }); return; }
+    if (!confirm(`Se van a traducir ${pendientes.length} plato${pendientes.length === 1 ? '' : 's'} y bebida${pendientes.length === 1 ? '' : 's'} al inglés y al alemán.\n\nLo que ya está traducido no se toca. Después puedes revisarlo en cada plato.`)) return;
+    const texto = b.innerHTML;
+    b.disabled = true;
+    let hechos = 0;
+    try {
+      for (let i = 0; i < pendientes.length; i += 40) {
+        const lote = pendientes.slice(i, i + 40);
+        b.textContent = `Traduciendo… ${i}/${pendientes.length}`;
+        const r = await SB.traducir(lote.flatMap(p => [p.nombre, p.desc]));
+        for (const [k, p] of lote.entries()) {
+          const t = { ...p.t };
+          for (const l of idiomas) {
+            const prev = t[l] || {};
+            t[l] = { nombre: prev.nombre || r[l]?.[2 * k] || '', descripcion: prev.descripcion || r[l]?.[2 * k + 1] || '' };
+          }
+          await SB.guardarTraducciones(p.tabla, p.id, t);
+          hechos++;
+        }
+      }
+      aviso(`✔ ${hechos} traducido${hechos === 1 ? '' : 's'}. Revisa los nombres de platos típicos en cada ficha.`, { tipo: 'ok', ms: 5000 });
+    } catch (e) {
+      aviso((hechos ? `Se tradujeron ${hechos}, pero luego falló: ` : '') + (e.message || e), { tipo: 'error', ms: 7000 });
+    } finally { b.disabled = false; b.innerHTML = texto; }
+  }
+
   async function _accion(b) {
     const a = b.dataset.cq;
     try {
       if (a === 'abrir') { _abierto = !_abierto; _render(); return; }
+      if (a === 'traducir') { await _traducirCarta(b); return; }
       if (a === 'publicar') { b.disabled = true; _token = await SB.publicarCarta(false); aviso('✔ Carta publicada.', { tipo: 'ok', ms: 2500 }); }
       if (a === 'renovar') {
         if (!confirm('¿Cambiar el enlace de la carta?\n\nEl enlace actual y los QR ya impresos dejarán de funcionar. Tendrás que imprimir los nuevos.')) return;

@@ -123,6 +123,33 @@ document.addEventListener('click', (e) => {
   inp.dispatchEvent(new Event('change', { bubbles: true }));
 });
 
+// Botón «Traducir automáticamente» en el formulario de plato o bebida (data-traducir="plato"|"beb").
+// Rellena solo los campos de traducción vacíos; si ya estaban todos, los vuelve a traducir.
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest?.('[data-traducir]');
+  if (!btn) return;
+  const p = btn.dataset.traducir;
+  const nombre = (document.getElementById(p + '-nombre')?.value || '').trim();
+  const desc = (document.getElementById(p + '-desc')?.value || '').trim();
+  if (!nombre) { aviso('Escribe primero el nombre en español.', { ms: 3000 }); document.getElementById(p + '-nombre')?.focus(); return; }
+  const campos = [];
+  for (const l of SB.IDIOMAS_CARTA) {
+    campos.push({ el: document.getElementById(`${p}-tr-${l}-nombre`), l, i: 0 });
+    if (desc) campos.push({ el: document.getElementById(`${p}-tr-${l}-desc`), l, i: 1 });
+  }
+  const vacios = campos.filter(c => c.el && !c.el.value.trim());
+  const aRellenar = vacios.length ? vacios : campos.filter(c => c.el);
+  const texto = btn.innerHTML;
+  btn.disabled = true; btn.textContent = 'Traduciendo…';
+  try {
+    const r = await SB.traducir([nombre, desc]);
+    aRellenar.forEach(c => { c.el.value = r?.[c.l]?.[c.i] || c.el.value; });
+    aviso('✔ Traducido. Revísalo antes de guardar.', { tipo: 'ok', ms: 3000 });
+  } catch (x) {
+    aviso(x.message || 'No se pudo traducir.', { tipo: 'error', ms: 6000 });
+  } finally { btn.disabled = false; btn.innerHTML = texto; }
+});
+
 function validarEmail(v){
   if(!v) return true;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim());

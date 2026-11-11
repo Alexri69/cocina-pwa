@@ -785,6 +785,26 @@ const SB = (() => {
     }
     return out;
   }
+  /** Guarda solo las traducciones de un plato o bebida (traducción automática de toda la carta). */
+  const guardarTraducciones = (tabla, id, t) => _patch(tabla, id, { traducciones: limpiarTraducciones(t) }).then(_primero);
+
+  /**
+   * Traduce textos del español con DeepL (Edge Function "traducir").
+   * → { en: [...], de: [...] } en el mismo orden que `textos`.
+   */
+  async function traducir(textos, idiomas = IDIOMAS_CARTA) {
+    const llamar = () => fetch(`${BASE}/functions/v1/traducir`, {
+      method: 'POST', headers: _cab({ 'Prefer': '' }), body: JSON.stringify({ textos, idiomas }),
+    });
+    let res;
+    try {
+      res = await llamar();
+      if (res.status === 401 && await refrescarSesion()) res = await llamar();
+    } catch { throw new Error('Sin conexión: la traducción automática necesita internet.'); }
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || `No se pudo traducir (error ${res.status}).`);
+    return d;
+  }
   const eliminarPlato   = (id)  => _delete('platos', id);
 
   // ----------------------------------------------------------
@@ -1200,7 +1220,7 @@ const SB = (() => {
     obtenerBebidas, obtenerBebida,
     guardarBebida, actualizarBebida, eliminarBebida,
     // Costes de compra (privados), traducciones de la carta
-    obtenerCostes, guardarCoste, eliminarCoste, normalizarCoste, IDIOMAS_CARTA, limpiarTraducciones,
+    obtenerCostes, guardarCoste, eliminarCoste, normalizarCoste, IDIOMAS_CARTA, limpiarTraducciones, traducir, guardarTraducciones,
     // Proveedores y pedidos
     obtenerProveedores, guardarProveedor, actualizarProveedor, eliminarProveedor,
     obtenerPedidos, guardarPedido, actualizarPedido, cambiarEstadoPedido, eliminarPedido,

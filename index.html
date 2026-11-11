@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="iconos/icono-192.png">
   <link rel="apple-touch-icon" href="iconos/icono-192.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="estilo.css?v=72">
+  <link rel="stylesheet" href="estilo.css?v=73">
   <script>
     // Aplicar tema antes de pintar para evitar parpadeo
     document.documentElement.setAttribute('data-tema',
@@ -495,6 +495,7 @@
               <details class="form-grupo form-grupo-full traducciones" id="plato-traducciones" data-solo="gestion">
                 <summary>Traducciones para la carta QR <small>(inglés y alemán, opcional)</small></summary>
                 <p class="ayuda-campo">Los clientes eligen el idioma en la carta del QR. Los alérgenos se traducen solos; aquí van el nombre y la descripción. Si lo dejas vacío se muestra en español.</p>
+                <button type="button" class="btn btn-secundario-sm traducir-auto" data-traducir="plato"><svg class="ic" aria-hidden="true"><use href="#i-languages"/></svg> Traducir automáticamente</button>
                 <div class="traducciones-grid">
                   <label for="plato-tr-en-nombre">🇬🇧 Nombre en inglés</label>
                   <input id="plato-tr-en-nombre" type="text" class="inp" lang="en" maxlength="120">
@@ -703,6 +704,7 @@
               <details class="form-grupo form-grupo-full traducciones" id="beb-traducciones" data-solo="gestion">
                 <summary>Traducciones para la carta QR <small>(inglés y alemán, opcional)</small></summary>
                 <p class="ayuda-campo">Los clientes eligen el idioma en la carta del QR. Los alérgenos se traducen solos; aquí van el nombre y la descripción. Si lo dejas vacío se muestra en español.</p>
+                <button type="button" class="btn btn-secundario-sm traducir-auto" data-traducir="beb"><svg class="ic" aria-hidden="true"><use href="#i-languages"/></svg> Traducir automáticamente</button>
                 <div class="traducciones-grid">
                   <label for="beb-tr-en-nombre">🇬🇧 Nombre en inglés</label>
                   <input id="beb-tr-en-nombre" type="text" class="inp" lang="en" maxlength="120">
@@ -1280,22 +1282,22 @@
        ======================================================== -->
   <!-- jsPDF servido desde la propia app para que los PDF funcionen sin conexión -->
   <script src="lib/jspdf.umd.min.js" defer></script>
-  <script src="core/voz.js?v=72"></script>
-  <script src="core/supabase.js?v=72"></script>
-  <script src="modulos/lector-lote.js?v=72"></script>
-  <script src="modulos/etiquetas.js?v=72"></script>
-  <script src="modulos/menu.js?v=72"></script>
-  <script src="modulos/bebidas.js?v=72"></script>
-  <script src="modulos/pedidos.js?v=72"></script>
-  <script src="modulos/jornada.js?v=72"></script>
-  <script src="modulos/facturas.js?v=72"></script>
-  <script src="modulos/auth.js?v=72"></script>
-  <script src="modulos/config.js?v=72"></script>
-  <script src="modulos/appcc.js?v=72"></script>
+  <script src="core/voz.js?v=73"></script>
+  <script src="core/supabase.js?v=73"></script>
+  <script src="modulos/lector-lote.js?v=73"></script>
+  <script src="modulos/etiquetas.js?v=73"></script>
+  <script src="modulos/menu.js?v=73"></script>
+  <script src="modulos/bebidas.js?v=73"></script>
+  <script src="modulos/pedidos.js?v=73"></script>
+  <script src="modulos/jornada.js?v=73"></script>
+  <script src="modulos/facturas.js?v=73"></script>
+  <script src="modulos/auth.js?v=73"></script>
+  <script src="modulos/config.js?v=73"></script>
+  <script src="modulos/appcc.js?v=73"></script>
   <script src="lib/qrcode.min.js"></script>
-  <script src="modulos/cartaqr.js?v=72"></script>
-  <script src="modulos/equipo.js?v=72"></script>
-  <script src="app.js?v=72"></script>
+  <script src="modulos/cartaqr.js?v=73"></script>
+  <script src="modulos/equipo.js?v=73"></script>
+  <script src="app.js?v=73"></script>
   <!-- Las actualizaciones de la app se avisan desde app.js (sin recargar a la fuerza) -->
 
 </body>
