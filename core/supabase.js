@@ -793,14 +793,24 @@ const SB = (() => {
    * → { en: [...], de: [...] } en el mismo orden que `textos`.
    */
   async function traducir(textos, idiomas = IDIOMAS_CARTA) {
-    const llamar = () => fetch(`${BASE}/functions/v1/traducir`, {
-      method: 'POST', headers: _cab({ 'Prefer': '' }), body: JSON.stringify({ textos, idiomas }),
-    });
+    const llamar = () => {
+      _cargarSesion();
+      return fetch(`${BASE}/functions/v1/traducir`, {
+        method: 'POST',
+        headers: { 'apikey': ANON, 'Authorization': `Bearer ${_sesion?.access_token || ANON}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ textos, idiomas }),
+      });
+    };
     let res;
     try {
       res = await llamar();
       if (res.status === 401 && await refrescarSesion()) res = await llamar();
-    } catch { throw new Error('Sin conexión: la traducción automática necesita internet.'); }
+    } catch (e) {
+      console.warn('[traducir] Falló la llamada a la función:', e);
+      // Si la función no responde (p. ej. bloqueada), se intenta igualmente con MyMemory
+      if (navigator.onLine) return _traducirMyMemory(textos, idiomas);
+      throw new Error('Sin conexión: la traducción automática necesita internet.');
+    }
     const d = await res.json().catch(() => ({}));
     if (d.codigo === 'sin_deepl') return _traducirMyMemory(textos, idiomas);   // sin clave de DeepL
     if (!res.ok) throw new Error(d.error || `No se pudo traducir (error ${res.status}).`);
@@ -821,7 +831,12 @@ const SB = (() => {
       return out.map(x => x.slice(0, 450));
     };
     const uno = async (t, l) => {
-      const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(t)}&langpair=es|${l}&mt=1`);
+      let r;
+      try { r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(t)}&langpair=es|${l}&mt=1`); }
+      catch (e) {
+        console.warn('[traducir] MyMemory no responde:', e);
+        throw new Error(navigator.onLine ? 'No se puede conectar con el traductor. Prueba en un rato.' : 'Sin conexión: la traducción automática necesita internet.');
+      }
       const d = await r.json().catch(() => ({}));
       const txt = d?.responseData?.translatedText || '';
       if (r.status === 429 || d.quotaFinished || /MYMEMORY WARNING/i.test(txt)) {
@@ -832,19 +847,14 @@ const SB = (() => {
       const el = document.createElement('textarea'); el.innerHTML = txt; return el.value;
     };
     const resultado = {};
-    try {
-      for (const l of idiomas) {
-        resultado[l] = [];
-        for (const t of textos) {
-          if (!String(t || '').trim()) { resultado[l].push(''); continue; }
-          const partes = [];
-          for (const p of trozos(String(t))) partes.push(await uno(p, l));
-          resultado[l].push(partes.join(' '));
-        }
+    for (const l of idiomas) {
+      resultado[l] = [];
+      for (const t of textos) {
+        if (!String(t || '').trim()) { resultado[l].push(''); continue; }
+        const partes = [];
+        for (const p of trozos(String(t))) partes.push(await uno(p, l));
+        resultado[l].push(partes.join(' '));
       }
-    } catch (e) {
-      if (e instanceof TypeError) throw new Error('Sin conexión: la traducción automática necesita internet.');
-      throw e;
     }
     return resultado;
   }
