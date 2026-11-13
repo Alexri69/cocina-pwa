@@ -638,6 +638,13 @@ const SB = (() => {
   const guardarElementoAppcc    = (d)  => _post('appcc_elementos', { ..._elementoAppcc(d), timestamp: Date.now(), user_id: _uid() }).then(_primero);
   const actualizarElementoAppcc = (d)  => _patch('appcc_elementos', d.id, _elementoAppcc(d)).then(_primero);
   const eliminarElementoAppcc   = (id) => _delete('appcc_elementos', id);
+  /** Posición en el plano del local: { x, y } en % o null para quitarlo (solo propietario/encargado). */
+  const colocarElementoAppcc    = (id, plano) => _patch('appcc_elementos', id, { plano: plano || null }).then(_primero);
+  /** Marcar un equipo como averiado (true) o reparado (false). Deja un registro APPCC; devuelve ese registro. */
+  async function marcarAveria(elementoId, averiado, accion, responsable) {
+    if (!navigator.onLine) throw new Error('Para marcar una avería hace falta conexión.');
+    return _primero(await _rpcLegible('marcar_averia', { p_elemento: elementoId, p_averiado: !!averiado, p_accion: accion || '', p_responsable: responsable || '' }));
+  }
 
   /**
    * Registros entre dos fechas (ISO). Los de los últimos 40 días se guardan en
@@ -1261,7 +1268,7 @@ const SB = (() => {
     // Productos habituales (plantillas de etiqueta)
     obtenerPlantillas, guardarPlantilla, actualizarPlantilla, eliminarPlantilla,
     // APPCC
-    obtenerElementosAppcc, guardarElementoAppcc, actualizarElementoAppcc, eliminarElementoAppcc,
+    obtenerElementosAppcc, guardarElementoAppcc, actualizarElementoAppcc, eliminarElementoAppcc, colocarElementoAppcc, marcarAveria,
     obtenerRegistrosAppcc, guardarRegistroAppcc, eliminarRegistroAppcc,
     // Ingredientes
     obtenerIngredientes, obtenerIngrediente,

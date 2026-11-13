@@ -921,4 +921,40 @@ $$
 $$;
 REVOKE ALL ON FUNCTION public._datos_restaurante(uuid) FROM anon, authenticated, public;
 
+
+-- ============================================================
+-- APPCC: equipos averiados y plano del local (v77)
+-- averiado_desde: mientras no es null el equipo no pide lecturas.
+-- plano: { x, y } en % del plano (x < 50 = cocina · x ≥ 50 = barra); null = sin colocar.
+-- ============================================================
+ALTER TABLE public.appcc_elementos ADD COLUMN IF NOT EXISTS averiado_desde timestamptz;
+ALTER TABLE public.appcc_elementos ADD COLUMN IF NOT EXISTS plano jsonb;
+
+-- Marcar un equipo como averiado o reparado. Cualquier miembro (también cocina y
+-- camarero, que no pueden editar equipos). Deja un registro APPCC con datos.averia
+-- = 'inicio' | 'fin' para que la avería conste en el informe.
+CREATE OR REPLACE FUNCTION public.marcar_averia(p_elemento uuid, p_averiado boolean, p_accion text, p_responsable text)
+  RETURNS public.appcc_registros
+  LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS
+$$
+DECLARE e public.appcc_elementos; v public.appcc_registros;
+BEGIN
+  SELECT * INTO e FROM appcc_elementos WHERE id = p_elemento FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Equipo no encontrado'; END IF;
+  IF auth.uid() IS NULL OR NOT public.es_miembro(e.restaurante_id) THEN RAISE EXCEPTION 'No perteneces a este restaurante'; END IF;
+  IF e.tipo NOT IN ('temperatura','freidora') THEN RAISE EXCEPTION 'Solo los equipos se pueden marcar como averiados'; END IF;
+  IF coalesce(trim(p_responsable), '') = '' THEN RAISE EXCEPTION 'Indica el responsable'; END IF;
+  IF p_averiado AND coalesce(trim(p_accion), '') = '' THEN RAISE EXCEPTION 'Indica qué se ha hecho con el producto (acción correctora)'; END IF;
+  IF p_averiado AND e.averiado_desde IS NOT NULL THEN RAISE EXCEPTION 'El equipo ya está marcado como averiado'; END IF;
+  IF NOT p_averiado AND e.averiado_desde IS NULL THEN RAISE EXCEPTION 'El equipo no está marcado como averiado'; END IF;
+  UPDATE appcc_elementos SET averiado_desde = CASE WHEN p_averiado THEN now() END WHERE id = e.id;
+  INSERT INTO appcc_registros (restaurante_id, user_id, tipo, elemento_id, elemento_nombre, correcto, accion_correctora, responsable, datos)
+  VALUES (e.restaurante_id, auth.uid(), e.tipo, e.id, e.nombre, NOT p_averiado, left(coalesce(trim(p_accion), ''), 1000), left(trim(p_responsable), 100),
+          jsonb_build_object('averia', CASE WHEN p_averiado THEN 'inicio' ELSE 'fin' END))
+  RETURNING * INTO v;
+  RETURN v;
+END $$;
+REVOKE ALL ON FUNCTION public.marcar_averia(uuid, boolean, text, text) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.marcar_averia(uuid, boolean, text, text) TO authenticated;
+
 NOTIFY pgrst, 'reload schema';

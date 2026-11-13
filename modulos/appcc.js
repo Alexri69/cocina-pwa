@@ -32,6 +32,7 @@ const ModuloAppcc = (() => {
 
   const VISTAS = [
     ['hoy',         '<svg class="ic" aria-hidden="true"><use href="#i-list-checks"/></svg> Hoy'],
+    ['plano',       '<svg class="ic" aria-hidden="true"><use href="#i-map"/></svg> Plano'],
     ['temperatura', '<svg class="ic" aria-hidden="true"><use href="#i-thermometer"/></svg> Temperaturas'],
     ['limpieza',    '<svg class="ic" aria-hidden="true"><use href="#i-spray-can"/></svg> Limpieza'],
     ['recepcion',   '<svg class="ic" aria-hidden="true"><use href="#i-package"/></svg> Recepción'],
@@ -44,6 +45,9 @@ const ModuloAppcc = (() => {
   let _elementos = [];
   let _registros = [];   // últimos 40 días
   let _editando  = null; // elemento en edición (ajustes)
+  let _planoSel  = null; // equipo seleccionado en el plano
+  let _planoEdit = false; // modo «colocar equipos» (solo dirección)
+  let _planoPoner = null; // equipo sin colocar elegido para ponerlo con un toque
 
   // ----------------------------------------------------------
   // UTILIDADES
@@ -103,11 +107,18 @@ const ModuloAppcc = (() => {
   // Propietario/encargado pueden configurar equipos y modo; la cocina solo registra
   const _gestiona = () => (typeof SB === 'undefined' || !SB.puedeGestionar) ? true : SB.puedeGestionar();
 
+  // ---- Averías: un equipo averiado no pide lecturas hasta que se marca como reparado ----
+  const _esEquipo  = el => el.tipo === 'temperatura' || el.tipo === 'freidora';
+  const _averiado  = el => !!el.averiado_desde;
+  const _esAveria  = r => !!r.datos?.averia;   // registro de inicio/fin de avería (no es una lectura)
+  /** Último registro de inicio de avería del equipo (para mostrar qué se hizo con el producto). */
+  const _inicioAveria = el => _registros.find(r => r.elemento_id === el.id && r.datos?.averia === 'inicio');
+
   // Registros del elemento dentro de su periodo actual (hoy, últimos 7 o 30 días)
   function _regsPeriodo(el) {
     const f = _frec(el);
     const desde = f.dias ? Date.now() - f.dias * DIA : inicioDia().getTime();
-    return _registros.filter(r => r.elemento_id === el.id && new Date(r.fecha).getTime() >= desde);
+    return _registros.filter(r => r.elemento_id === el.id && !_esAveria(r) && new Date(r.fecha).getTime() >= desde);
   }
   /** Estado del control: { hechos, necesarios, cumplido, ultimo } */
   function _cumplimiento(el) {
@@ -118,7 +129,8 @@ const ModuloAppcc = (() => {
   const _periodoLimpieza = el => _cumplimiento(el).cumplido ? _cumplimiento(el).ultimo : null;
 
   const _activos = tipo => _elementos.filter(e => e.tipo === tipo && e.activo !== false);
-  const _periodicos = () => [..._activos('temperatura'), ..._activos('freidora'), ..._activos('limpieza')];
+  // Lo que hay que registrar (los equipos averiados no cuentan como pendientes)
+  const _periodicos = () => [..._activos('temperatura'), ..._activos('freidora'), ..._activos('limpieza')].filter(e => !_averiado(e));
 
   /** Nº de controles pendientes (para el badge). En modo por incidencias no hay pendientes. */
   function pendientes() {
@@ -176,9 +188,10 @@ const ModuloAppcc = (() => {
     const cont = $('appcc-vista');
     if (!cont) return;
     const r = { hoy: _htmlHoy, temperatura: () => _htmlHistorial('temperatura'), freidora: () => _htmlHistorial('freidora'),
-                limpieza: () => _htmlHistorial('limpieza'), recepcion: _htmlRecepcion, informe: _htmlInforme, ajustes: _htmlAjustes }[_vista];
+                limpieza: () => _htmlHistorial('limpieza'), recepcion: _htmlRecepcion, informe: _htmlInforme, ajustes: _htmlAjustes, plano: _htmlPlano }[_vista];
     cont.innerHTML = r ? r() : '';
     if (_vista === 'ajustes') _prepararFormElemento();
+    if (_vista === 'plano') _prepararPlano();
     _actualizarBadge();
   }
 
@@ -212,7 +225,28 @@ const ModuloAppcc = (() => {
     const pct = total ? Math.round(hechos / total * 100) : 100;
     const cuando = iso => fecha(iso) === fecha(new Date()) ? hora(iso) : `${fecha(iso)} ${hora(iso)}`;
 
+    // Interruptor «Funciona / Averiado» (lo puede usar todo el equipo)
+    const interruptor = (el) => `<label class="appcc-switch" title="Apágalo si el equipo está averiado">
+        <input type="checkbox" role="switch" data-averia="${esc(el.id)}" ${_averiado(el) ? '' : 'checked'}
+               aria-label="${esc(el.nombre)} funciona (desmarca si está averiado)">
+        <span class="appcc-switch-pista" aria-hidden="true"></span>
+        <span class="appcc-switch-txt">${_averiado(el) ? 'Averiado' : 'Funciona'}</span></label>`;
+
+    const bloqueAveriado = (el) => {
+      const ini = _inicioAveria(el);
+      return `<div class="appcc-item appcc-averiado" data-id="${esc(el.id)}">
+        <div class="appcc-item-cab">
+          <div><strong>${esc(el.nombre)}</strong>${el.zona ? ` <small>· ${esc(el.zona)}</small>` : ''}
+            <div class="appcc-rango"><span class="appcc-estado averia"><svg class="ic" aria-hidden="true"><use href="#i-wrench"/></svg> Averiado desde ${cuando(el.averiado_desde)}</span></div></div>
+          ${interruptor(el)}
+        </div>
+        ${ini?.accion_correctora ? `<div class="appcc-reg-accion">Acción correctora: ${esc(ini.accion_correctora)}${ini.responsable ? ' · ' + esc(ini.responsable) : ''}</div>` : ''}
+        <p class="appcc-nota" style="margin-top:6px">No hace falta registrar su temperatura hasta que se repare. Cuando funcione, vuelve a encender el interruptor.</p>
+      </div>`;
+    };
+
     const bloqueEquipo = (el) => {
+      if (_averiado(el)) return bloqueAveriado(el);
       const c = _cumplimiento(el);
       const ult = c.ultimo;
       const u = unidad(el.tipo);
@@ -228,7 +262,15 @@ const ModuloAppcc = (() => {
         <div class="appcc-item-cab">
           <div><strong>${esc(el.nombre)}</strong>${el.zona ? ` <small>· ${esc(el.zona)}</small>` : ''}
             <div class="appcc-rango">Rango: ${_rangoTexto(el)} · ${_frec(el).label}</div></div>
-          ${estado}
+          <div class="appcc-item-der">${estado}${interruptor(el)}</div>
+        </div>
+        <div class="appcc-accion" data-averia-box="${esc(el.id)}" hidden>
+          <label for="av-${esc(el.id)}"><svg class="ic" aria-hidden="true"><use href="#i-wrench"/></svg> Equipo averiado: ¿qué se ha hecho con el producto? *</label>
+          <textarea id="av-${esc(el.id)}" class="inp" rows="2" placeholder="Ej.: Se pasa el género a la cámara 2 y se avisa al técnico."></textarea>
+          <div class="form-acciones">
+            <button class="btn btn-primario-sm" type="button" data-accion="averia-confirmar" data-id="${esc(el.id)}"><svg class="ic" aria-hidden="true"><use href="#i-wrench"/></svg> Marcar como averiado</button>
+            <button class="btn btn-secundario-sm" type="button" data-accion="averia-cancelar" data-id="${esc(el.id)}"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg> Cancelar</button>
+          </div>
         </div>
         <div class="appcc-item-form">
           ${el.tipo === 'freidora' ? '' : '<span class="inp-con-signo">'}<input class="inp appcc-valor" type="number" inputmode="decimal" step="0.1" placeholder="${el.tipo === 'freidora' ? '% polares' : '°C'}"
@@ -336,6 +378,195 @@ const ModuloAppcc = (() => {
     }
   }
 
+  // ---- Interruptor de avería ----
+
+  /** El interruptor ha cambiado: apagado = averiado (pide la acción correctora), encendido = reparado. */
+  async function _cambioInterruptor(input) {
+    const el = _elementos.find(e => e.id === input.dataset.averia);
+    if (!el) return;
+    const caja = document.querySelector(`[data-averia-box="${CSS.escape(el.id)}"]`);
+    const txt = input.closest('.appcc-switch')?.querySelector('.appcc-switch-txt');
+    if (!input.checked) {
+      // Apagar → pedir qué se hace con el producto antes de guardar
+      if (caja) { caja.hidden = false; caja.querySelector('textarea')?.focus(); }
+      if (txt) txt.textContent = 'Averiado';
+      return;
+    }
+    // Volver a encender antes de confirmar la avería = cancelar
+    if (!_averiado(el)) { if (caja) caja.hidden = true; if (txt) txt.textContent = 'Funciona'; return; }
+    // Encender un equipo averiado → reparado
+    const responsable = _exigirResponsable();
+    if (!responsable || !confirm(`¿${el.nombre} ya funciona?\n\nSe anotará como reparado y volverá a pedir las lecturas de temperatura.`)) { input.checked = false; return; }
+    await _guardarAveria(el, false, '', responsable, input);
+  }
+
+  async function _confirmarAveria(id, boton) {
+    const el = _elementos.find(e => e.id === id);
+    if (!el) return;
+    const accion = (document.getElementById('av-' + id)?.value || '').trim();
+    if (!accion) { aviso('Indica qué se ha hecho con el producto (acción correctora).', { tipo: 'error' }); document.getElementById('av-' + id)?.focus(); return; }
+    const responsable = _exigirResponsable();
+    if (!responsable) return;
+    await _guardarAveria(el, true, accion, responsable, boton);
+  }
+
+  async function _guardarAveria(el, averiado, accion, responsable, control) {
+    if (control) control.disabled = true;
+    try {
+      const reg = await SB.marcarAveria(el.id, averiado, accion, responsable);
+      el.averiado_desde = averiado ? (reg?.fecha || new Date().toISOString()) : null;
+      if (reg) _registros.unshift(reg);
+      aviso(averiado ? `${el.nombre} marcado como averiado.` : `✔ ${el.nombre} vuelve a funcionar.`, { tipo: averiado ? 'info' : 'ok', ms: 3000 });
+    } catch (e) {
+      aviso('No se pudo guardar: ' + e.message, { tipo: 'error', ms: 6000 });
+    }
+    _render();
+  }
+
+  // ----------------------------------------------------------
+  // VISTA: PLANO DEL LOCAL (cocina | barra)
+  // ----------------------------------------------------------
+
+  const _equiposPlano = () => _elementos.filter(e => _esEquipo(e) && e.activo !== false);
+  const _posicion = el => {
+    const p = el.plano;
+    return p && isFinite(p.x) && isFinite(p.y) ? { x: Number(p.x), y: Number(p.y) } : null;
+  };
+  /** Estado para pintar el equipo: averiado | mal | pend | ok | libre */
+  function _estadoEquipo(el) {
+    if (_averiado(el)) return 'averia';
+    const c = _cumplimiento(el);
+    if (c.ultimo && !c.ultimo.correcto) return 'mal';
+    if (c.cumplido) return 'ok';
+    return _porIncidencias() ? 'libre' : 'pend';
+  }
+  const ESTADOS_PLANO = { ok: 'Registrado', pend: 'Pendiente', mal: 'Fuera de rango', averia: 'Averiado', libre: 'Sin incidencias' };
+
+  function _htmlPlano() {
+    const equipos = _equiposPlano();
+    const gestiona = _gestiona();
+    if (!equipos.length) {
+      return `<div class="tarjeta appcc-vacio"><p><strong>Aún no hay equipos.</strong></p>
+        <p>${gestiona ? 'Da de alta tus cámaras, neveras y congeladores en <svg class="ic" aria-hidden="true"><use href="#i-settings"/></svg> Equipos y después colócalos aquí.' : 'El propietario o el encargado tiene que dar de alta los equipos.'}</p></div>`;
+    }
+    const colocados = equipos.filter(_posicion);
+    const sinColocar = equipos.filter(e => !_posicion(e));
+    const icono = el => el.tipo === 'freidora' ? 'droplets' : (num(el.max) != null && num(el.max) < 0 ? 'snowflake' : 'thermometer');
+
+    const marcador = el => {
+      const p = _posicion(el), est = _estadoEquipo(el);
+      return `<button type="button" class="plano-eq est-${est}${_planoSel === el.id ? ' sel' : ''}" data-plano-id="${esc(el.id)}"
+          style="left:${p.x}%;top:${p.y}%" aria-label="${esc(el.nombre)}: ${ESTADOS_PLANO[est]}">
+          <span class="plano-eq-ic"><svg class="ic" aria-hidden="true"><use href="#i-${_averiado(el) ? 'wrench' : icono(el)}"/></svg></span>
+          <span class="plano-eq-nom">${esc(el.nombre)}</span></button>`;
+    };
+
+    const sel = equipos.find(e => e.id === _planoSel);
+    let panel = '';
+    if (sel) {
+      const est = _estadoEquipo(sel), c = _cumplimiento(sel);
+      const detalle = _averiado(sel) ? `Averiado desde ${fecha(sel.averiado_desde)} ${hora(sel.averiado_desde)}`
+        : c.ultimo ? `Última lectura: ${fmt1(c.ultimo.valor)} ${unidad(sel.tipo)} · ${fecha(c.ultimo.fecha)} ${hora(c.ultimo.fecha)}` : 'Sin lecturas en este periodo';
+      panel = `<div class="plano-panel">
+        <div><strong>${esc(sel.nombre)}</strong> <span class="appcc-estado ${{ ok: 'ok', mal: 'mal', pend: 'pend', averia: 'averia', libre: 'libre' }[est]}">${ESTADOS_PLANO[est]}</span>
+          <div class="appcc-rango">Rango: ${_rangoTexto(sel)} · ${detalle}</div></div>
+        <div class="form-acciones">
+          <button class="btn btn-primario-sm" type="button" data-accion="plano-ir" data-id="${esc(sel.id)}"><svg class="ic" aria-hidden="true"><use href="#i-thermometer"/></svg> ${_averiado(sel) ? 'Ver en Hoy' : 'Registrar'}</button>
+          ${_planoEdit && _posicion(sel) ? `<button class="btn btn-secundario-sm" type="button" data-accion="plano-quitar" data-id="${esc(sel.id)}"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg> Quitar del plano</button>` : ''}
+        </div></div>`;
+    }
+
+    const bandeja = gestiona && _planoEdit ? `<div class="plano-bandeja">
+        <div class="plano-bandeja-tit">${sinColocar.length ? 'Sin colocar: toca uno y después toca su sitio en el plano' : '✔ Todos los equipos están en el plano. Arrástralos para moverlos.'}</div>
+        ${sinColocar.map(e => `<button type="button" class="chip-plano${_planoPoner === e.id ? ' activo' : ''}" data-accion="plano-elegir" data-id="${esc(e.id)}">${esc(e.nombre)}</button>`).join('')}
+      </div>` : '';
+
+    return `<div class="tarjeta">
+      <div class="tarjeta-titulo plano-titulo"><span><svg class="ic" aria-hidden="true"><use href="#i-map"/></svg> Plano del local</span>
+        ${gestiona ? `<button class="btn ${_planoEdit ? 'btn-primario-sm' : 'btn-secundario-sm'}" type="button" data-accion="plano-editar"><svg class="ic" aria-hidden="true"><use href="#i-${_planoEdit ? 'check' : 'move'}"/></svg> ${_planoEdit ? 'Listo' : 'Colocar equipos'}</button>` : ''}</div>
+      <div class="plano${_planoEdit ? ' editando' : ''}${_planoPoner ? ' poniendo' : ''}" id="appcc-plano">
+        <div class="plano-zona"><span>Cocina</span></div>
+        <div class="plano-zona"><span>Barra</span></div>
+        ${colocados.map(marcador).join('')}
+      </div>
+      ${bandeja}
+      ${!colocados.length && !_planoEdit ? `<p class="appcc-nota">${gestiona ? 'Pulsa «Colocar equipos» para poner cada cámara o congelador en su sitio.' : 'El propietario o el encargado aún no ha colocado los equipos en el plano.'}</p>` : ''}
+      ${panel}
+      <div class="plano-leyenda">${['ok', 'pend', 'mal', 'averia'].map(k => `<span><i class="plano-punto est-${k}"></i>${ESTADOS_PLANO[k]}</span>`).join('')}</div>
+    </div>`;
+  }
+
+  // Arrastrar (modo edición) o seleccionar los equipos del plano
+  function _prepararPlano() {
+    const plano = $('appcc-plano');
+    if (!plano) return;
+    const pct = (ev) => {
+      const r = plano.getBoundingClientRect();
+      const lim = v => Math.round(Math.min(96, Math.max(4, v)) * 10) / 10;
+      return { x: lim((ev.clientX - r.left) / r.width * 100), y: lim((ev.clientY - r.top) / r.height * 100) };
+    };
+    let arr = null; // { boton, id, x0, y0, movido, pos }
+
+    plano.addEventListener('pointerdown', ev => {
+      const b = ev.target.closest('[data-plano-id]');
+      if (!b || !_planoEdit) return;
+      ev.preventDefault();
+      try { b.setPointerCapture(ev.pointerId); } catch {}
+      arr = { boton: b, id: b.dataset.planoId, x0: ev.clientX, y0: ev.clientY, movido: false, pos: null };
+    });
+    plano.addEventListener('pointermove', ev => {
+      if (!arr) return;
+      if (!arr.movido && Math.hypot(ev.clientX - arr.x0, ev.clientY - arr.y0) < 6) return;
+      arr.movido = true;
+      arr.pos = pct(ev);
+      arr.boton.style.left = arr.pos.x + '%';
+      arr.boton.style.top = arr.pos.y + '%';
+      arr.boton.classList.add('arrastrando');
+    });
+    const soltar = () => {
+      if (!arr) return;
+      const { id, movido, pos } = arr;
+      arr = null;
+      if (movido && pos) _colocar(id, pos);
+      else { _planoSel = _planoSel === id ? null : id; _render(); }
+    };
+    plano.addEventListener('pointerup', soltar);
+    plano.addEventListener('pointercancel', () => { arr = null; _render(); });
+
+    plano.addEventListener('click', ev => {
+      if (_planoEdit) {
+        // Poner un equipo sin colocar con un toque
+        if (_planoPoner && !ev.target.closest('[data-plano-id]')) { const id = _planoPoner; _planoPoner = null; _colocar(id, pct(ev)); }
+        return;
+      }
+      const b = ev.target.closest('[data-plano-id]');
+      _planoSel = b ? (_planoSel === b.dataset.planoId ? null : b.dataset.planoId) : null;
+      _render();
+    });
+  }
+
+  async function _colocar(id, pos) {
+    const el = _elementos.find(e => e.id === id);
+    if (!el) return;
+    const antes = el.plano;
+    el.plano = pos;
+    _planoSel = pos ? id : null;
+    _render();
+    try { await SB.colocarElementoAppcc(id, pos); }
+    catch (e) { el.plano = antes; _render(); aviso('No se pudo guardar la posición: ' + e.message, { tipo: 'error' }); }
+  }
+
+  /** Ir a la pestaña Hoy y llevar al usuario al equipo para registrar su temperatura. */
+  function _irAEquipo(id) {
+    _irA('hoy');
+    const item = document.querySelector(`.appcc-item[data-id="${CSS.escape(id)}"]`);
+    if (!item) return;
+    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    item.classList.add('resaltado');
+    setTimeout(() => item.classList.remove('resaltado'), 1800);
+    document.querySelector(`[data-valor="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+  }
+
   // ----------------------------------------------------------
   // VISTAS: HISTORIAL (temperaturas, aceite, limpieza)
   // ----------------------------------------------------------
@@ -346,6 +577,7 @@ const ModuloAppcc = (() => {
     let detalle = '';
     if (r.tipo === 'temperatura') detalle = `${fmt1(r.valor)} °C`;
     if (r.tipo === 'freidora')    detalle = `${fmt1(r.valor)} % polares${d.cambio_aceite ? ' · <svg class="ic" aria-hidden="true"><use href="#i-refresh-cw"/></svg> aceite cambiado' : ''}`;
+    if (d.averia) detalle = d.averia === 'inicio' ? '<svg class="ic" aria-hidden="true"><use href="#i-wrench"/></svg> Averiado' : '✔ Reparado, vuelve a funcionar';
     if (r.tipo === 'limpieza')    detalle = 'Realizada';
     if (r.tipo === 'recepcion')   detalle = `${esc(d.proveedor || '')}${d.lote ? ' · Lote ' + esc(d.lote) : ''}${r.valor != null ? ' · ' + fmt1(r.valor) + ' °C' : ''} · ${d.aceptado === false ? '✖ Rechazada' : '✔ Aceptada'}`;
     const titulo = r.tipo === 'recepcion' ? (d.producto || 'Recepción') : r.elemento_nombre;
@@ -355,7 +587,7 @@ const ModuloAppcc = (() => {
         <small>${fecha(r.fecha)} ${hora(r.fecha)}${r.responsable ? ' · ' + esc(r.responsable) : ''}</small>
       </div>
       ${r.accion_correctora ? `<div class="appcc-reg-accion"><svg class="ic" aria-hidden="true"><use href="#i-triangle-alert"/></svg> Acción correctora: ${esc(r.accion_correctora)}</div>` : ''}
-      ${borrable ? `<button class="btn-mini btn-borrar" type="button" data-accion="borrar-registro" data-id="${esc(r.id)}" aria-label="Eliminar registro (solo durante 24 h)" title="Se puede eliminar durante 24 h"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg></button>` : ''}
+      ${borrable && !d.averia ? `<button class="btn-mini btn-borrar" type="button" data-accion="borrar-registro" data-id="${esc(r.id)}" aria-label="Eliminar registro (solo durante 24 h)" title="Se puede eliminar durante 24 h"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg></button>` : ''}
     </div>`;
   }
 
@@ -486,17 +718,36 @@ const ModuloAppcc = (() => {
     const diasMes = new Date(a, m, 0).getDate();
     const hoyN = (a === new Date().getFullYear() && m === new Date().getMonth() + 1) ? new Date().getDate() : diasMes;
     const E = s => esc(s ?? '');
-    const estado = r => r.correcto ? '<span class="ok">Correcto</span>' : '<span class="mal">Incidencia</span>';
+    const estado = r => r.datos?.averia ? (r.datos.averia === 'inicio' ? '<span class="mal">Averiado</span>' : '<span class="ok">Reparado</span>')
+      : r.correcto ? '<span class="ok">Correcto</span>' : '<span class="mal">Incidencia</span>';
+    const valorTemp = r => r.datos?.averia ? '—' : `${fmt1(r.valor)} °C`;
 
-    // Días sin lectura por equipo (autocontrol)
+    // Días del mes en que el equipo estuvo averiado (algún momento del día)
+    const diasAveriado = (e) => {
+      const evs = regs.filter(r => r.elemento_id === e.id && r.datos?.averia);
+      // Estado al empezar el mes: si el primer evento es «fin», venía averiado; sin eventos, según su estado actual
+      let roto = evs.length ? evs[0].datos.averia === 'fin' : !!e.averiado_desde && new Date(e.averiado_desde) < desde;
+      const dias = new Set();
+      for (let dd = 1; dd <= diasMes; dd++) {
+        const delDia = evs.filter(r => new Date(r.fecha).getDate() === dd);
+        if (roto || delDia.some(r => r.datos.averia === 'inicio')) dias.add(dd);
+        if (delDia.length) roto = delDia[delDia.length - 1].datos.averia === 'inicio';
+      }
+      return dias;
+    };
+
+    // Días sin lectura por equipo (autocontrol); los días de avería no cuentan como hueco
     const huecos = (tipoEq) => _elementos.filter(e => e.tipo === tipoEq && e.activo !== false).map(e => {
-      const dias = new Set(regs.filter(r => r.elemento_id === e.id).map(r => new Date(r.fecha).getDate()));
+      const dias = new Set(regs.filter(r => r.elemento_id === e.id && !r.datos?.averia).map(r => new Date(r.fecha).getDate()));
+      const rotos = diasAveriado(e);
       // Contar solo desde que el equipo se dio de alta (no son "huecos" los días previos)
       const alta = new Date(Number(e.timestamp) || 0);
       if (alta >= hasta) return '';
       const primerDia = alta >= desde ? alta.getDate() : 1;
-      const faltan = []; for (let dd = primerDia; dd <= hoyN; dd++) if (!dias.has(dd)) faltan.push(dd);
-      return faltan.length ? `<li><strong>${E(e.nombre)}</strong>: sin registro los días ${faltan.join(', ')}</li>` : '';
+      const faltan = []; for (let dd = primerDia; dd <= hoyN; dd++) if (!dias.has(dd) && !rotos.has(dd)) faltan.push(dd);
+      const txtRotos = [...rotos].filter(dd => dd >= primerDia && dd <= hoyN);
+      return [faltan.length ? `<li><strong>${E(e.nombre)}</strong>: sin registro los días ${faltan.join(', ')}</li>` : '',
+              txtRotos.length ? `<li><strong>${E(e.nombre)}</strong>: averiado los días ${txtRotos.join(', ')}</li>` : ''].join('');
     }).join('');
 
     const tabla = (titulo, cab, filas, extra = '') => `
@@ -509,12 +760,12 @@ const ModuloAppcc = (() => {
     if (tipo === 'todos' || tipo === 'temperatura') {
       const h = _porIncidencias() ? '' : huecos('temperatura');
       secciones.push(tabla('Control de temperaturas de equipos', ['Fecha', 'Hora', 'Equipo', 'Temperatura', 'Límite', 'Estado', 'Acción correctora', 'Responsable'],
-        del('temperatura').map(r => { const el = _elementos.find(e => e.id === r.elemento_id); return `<tr class="${r.correcto ? '' : 'fila-mal'}"><td>${fecha(r.fecha)}</td><td>${hora(r.fecha)}</td><td>${E(r.elemento_nombre)}</td><td class="n">${fmt1(r.valor)} °C</td><td>${el ? _rangoTexto(el) : '—'}</td><td>${estado(r)}</td><td>${E(r.accion_correctora)}</td><td>${E(r.responsable)}</td></tr>`; }),
+        del('temperatura').map(r => { const el = _elementos.find(e => e.id === r.elemento_id); return `<tr class="${r.correcto ? '' : 'fila-mal'}"><td>${fecha(r.fecha)}</td><td>${hora(r.fecha)}</td><td>${E(r.elemento_nombre)}</td><td class="n">${valorTemp(r)}</td><td>${el ? _rangoTexto(el) : '—'}</td><td>${estado(r)}</td><td>${E(r.accion_correctora)}</td><td>${E(r.responsable)}</td></tr>`; }),
         h ? `<div class="huecos"><strong>Días sin registro:</strong><ul>${h}</ul></div>` : ''));
     }
     if (tipo === 'todos' || tipo === 'freidora') {
       secciones.push(tabla('Control del aceite de fritura', ['Fecha', 'Hora', 'Freidora', '% compuestos polares', 'Cambio de aceite', 'Estado', 'Acción correctora', 'Responsable'],
-        del('freidora').map(r => `<tr class="${r.correcto ? '' : 'fila-mal'}"><td>${fecha(r.fecha)}</td><td>${hora(r.fecha)}</td><td>${E(r.elemento_nombre)}</td><td class="n">${fmt1(r.valor)} %</td><td>${r.datos?.cambio_aceite ? 'Sí' : 'No'}</td><td>${estado(r)}</td><td>${E(r.accion_correctora)}</td><td>${E(r.responsable)}</td></tr>`)));
+        del('freidora').map(r => `<tr class="${r.correcto ? '' : 'fila-mal'}"><td>${fecha(r.fecha)}</td><td>${hora(r.fecha)}</td><td>${E(r.elemento_nombre)}</td><td class="n">${r.datos?.averia ? '—' : fmt1(r.valor) + ' %'}</td><td>${r.datos?.averia ? '—' : r.datos?.cambio_aceite ? 'Sí' : 'No'}</td><td>${estado(r)}</td><td>${E(r.accion_correctora)}</td><td>${E(r.responsable)}</td></tr>`)));
     }
     if (tipo === 'todos' || tipo === 'limpieza') {
       secciones.push(tabla('Registro de limpieza y desinfección', ['Fecha', 'Hora', 'Tarea', 'Zona', 'Frecuencia', 'Responsable'],
@@ -576,7 +827,7 @@ ${secciones.join('')}
       return `<div class="appcc-ajustes-grupo"><h3>${titulo}</h3>
         ${lista.length ? lista.map(e => `<div class="appcc-ajuste ${e.activo === false ? 'inactivo' : ''}">
           <span><strong>${esc(e.nombre)}</strong>${e.zona ? ' · ' + esc(e.zona) : ''}
-            <small>${tipo === 'limpieza' ? '' : _rangoTexto(e) + ' · '}${_frec(e).label}${e.activo === false ? ' · desactivado' : ''}</small></span>
+            <small>${tipo === 'limpieza' ? '' : _rangoTexto(e) + ' · '}${_frec(e).label}${e.activo === false ? ' · desactivado' : ''}${_averiado(e) ? ' · averiado' : ''}${_esEquipo(e) && !_posicion(e) ? ' · sin colocar en el plano' : ''}</small></span>
           <span class="card-acciones">
             <button class="btn-mini btn-editar" type="button" data-accion="editar-elemento" data-id="${esc(e.id)}"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Editar</button>
             <button class="btn-mini btn-borrar" type="button" data-accion="borrar-elemento" data-id="${esc(e.id)}" aria-label="Eliminar ${esc(e.nombre)}"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg></button>
@@ -753,10 +1004,17 @@ ${secciones.join('')}
         case 'editar-elemento':   _editando = _elementos.find(x => x.id === id) || null; _render(); $('el-nombre')?.focus(); break;
         case 'borrar-elemento':   _borrarElemento(id); break;
         case 'borrar-registro':   _borrarRegistro(id); break;
+        case 'averia-confirmar':  _confirmarAveria(id, b); break;
+        case 'averia-cancelar':   _render(); break;
+        case 'plano-editar':      _planoEdit = !_planoEdit; _planoPoner = null; _render(); break;
+        case 'plano-elegir':      _planoPoner = _planoPoner === id ? null : id; _render(); break;
+        case 'plano-quitar':      _colocar(id, null); break;
+        case 'plano-ir':          _irAEquipo(id); break;
       }
     });
     $('appcc-vista')?.addEventListener('change', e => {
       if (e.target.name === 'appcc-modo') _cambiarModo(e.target.value);
+      if (e.target.dataset.averia) _cambioInterruptor(e.target);
     });
     // Enter en el campo de valor = registrar
     $('appcc-vista')?.addEventListener('keydown', e => {

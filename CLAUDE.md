@@ -41,6 +41,10 @@ scripts/validate.js — validador (sintaxis + coherencia del precache del SW); l
 - **Proveedores y pedidos** (`modulos/pedidos.js`): tablas `proveedores` (escribe la dirección, lee todo el equipo) y `pedidos` (todo el equipo). `ingredientes.proveedor_id`. Envío por WhatsApp/email; al recibir, la dirección puede actualizar precios (→ escandallos).
 - **Registro de jornada** (`modulos/jornada.js`): tabla `fichajes` sin escritura directa; RPC `fichar(r)` (hora del servidor, alterna entrada/salida), `corregir_fichaje` y `crear_fichaje` (dirección, con motivo; guardan el historial en `correcciones`). Cada uno ve lo suyo; la dirección, todo. Las copias incluyen los fichajes pero no se restauran.
 
+## Averías y plano del local (v77)
+- **Averías:** `appcc_elementos.averiado_desde` (null = funciona). Interruptor «Funciona/Averiado» en APPCC → Hoy, para todo el equipo, vía RPC `marcar_averia(elemento, averiado, accion, responsable)` (pide acción correctora al apagarlo; necesita red). Deja un registro con `datos.averia = 'inicio'|'fin'` (no cuenta como lectura ni se puede borrar). Averiado ⇒ no pide lecturas ni cuenta como pendiente; en el informe sus días no son «sin registro».
+- **Plano:** pestaña APPCC → Plano: cuadrado dividido en Cocina | Barra. `appcc_elementos.plano` = { x, y } en % (null = sin colocar); lo coloca la dirección (arrastrar / tocar), el resto solo lo ve. Color del equipo según su estado de hoy.
+
 ## Carta pública (QR)
 - `carta.html?c=<token>` + `modulos/carta-publica.js`: página sin login; lee con la RPC `carta_publica(token)` (anon). Solo nombre, descripción, precio y alérgenos.
 - `restaurantes.carta_token` (32 hex, null = no publicada). RPC `publicar_carta(r, renovar)` / `despublicar_carta(r)` (propietario/encargado). Panel en Carta: `modulos/cartaqr.js` (QR con `lib/qrcode.min.js`).
