@@ -490,15 +490,19 @@ const ModuloEtiquetas = (() => {
     const sec  = document.getElementById('etq-seccion-etiqueta');
     const prev = document.getElementById('etq-preview');
     if (!sec || !prev) return;
+    _etiquetaActual = p;
+    prev.innerHTML = _htmlEtiqueta(p);
+    sec.style.display = 'block';
+    sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 
+  function _htmlEtiqueta(p) {
     const color = VOZ.calcularColorCaducidad(p.fechaCaducidad);
     const colorTexto = { verde:'✔ EN PLAZO', amarillo:'⚡ CONSUMIR PRONTO', rojo:'✖ CADUCADO' }[color];
     const alText = p.alergenos.length
       ? p.alergenos.map(a => a.toUpperCase()).join(' · ')
       : 'NINGUNO DECLARADO';
-
-    _etiquetaActual = p;
-    prev.innerHTML = `
+    return `
       <div class="etiqueta">
         <div class="etiqueta-nombre">${esc(p.nombre).toUpperCase()}</div>
         <div class="etiqueta-lote">Lote: <strong>${esc(p.lote)}</strong></div>
@@ -506,11 +510,9 @@ const ModuloEtiquetas = (() => {
         <div class="etiqueta-caducidad ${color}">
           ⏰ Caduca: ${VOZ.formatearFecha(p.fechaCaducidad)} — ${colorTexto}
         </div>
-        <div class="etiqueta-alergenos">⚠ ALÉRGENOS: ${alText}</div>
+        <div class="etiqueta-alergenos">⚠ ALÉRGENOS: ${esc(alText)}</div>
         <div class="etiqueta-normativa">Reg. UE 1169/2011 · RD 126/2015</div>
       </div>`;
-    sec.style.display = 'block';
-    sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   function _ocultarEtiqueta() {
@@ -523,10 +525,20 @@ const ModuloEtiquetas = (() => {
   // IMPRESIÓN
   // ----------------------------------------------------------
 
+  // Impresora de etiquetas: página de 62 mm. Impresora normal (modelo 'a4'):
+  // folio A4 con la etiqueta a tamaño real arriba a la izquierda (recortar o
+  // usar hojas A4 adhesivas). Las HP/Epson/Canon no admiten páginas de 62 mm.
+  function _cssEtiqueta() {
+    const imp = (typeof ModuloConfig !== 'undefined') ? ModuloConfig.obtenerConfigImpresora() : {};
+    const pagina = imp.modelo === 'a4'
+      ? '@page{size:A4;margin:10mm}'
+      : '@page{size:62mm auto;margin:2mm}';
+    return pagina + _CSS_ETIQUETA;
+  }
+
   const _CSS_ETIQUETA = `
-@page{size:62mm auto;margin:2mm}
 body{margin:0;padding:2mm;font-family:Arial,sans-serif}
-.etiqueta{width:58mm;border:2px solid #000;padding:3mm 4mm;font-size:8.5pt}
+.etiqueta{width:58mm;box-sizing:content-box;border:2px solid #000;padding:3mm 4mm;font-size:8.5pt}
 .etiqueta-nombre{font-size:12pt;font-weight:700;border-bottom:1px solid #000;padding-bottom:1mm;margin-bottom:2mm}
 .etiqueta-lote,.etiqueta-fecha{margin:1mm 0}
 .etiqueta-caducidad{padding:2mm 3mm;margin:2mm 0;border-radius:2px;font-weight:700;color:#fff;font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -534,21 +546,27 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
 .etiqueta-alergenos{font-weight:700;font-size:8pt;margin-top:2mm}
 .etiqueta-normativa{font-size:6.5pt;text-align:right;color:#888;margin-top:1mm}`;
 
-  function _escribirVentanaImpresion(win) {
-    const preview = document.getElementById('etq-preview');
-    if (!preview?.innerHTML) { win.close(); return; }
-    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><style>${_CSS_ETIQUETA}</style></head><body>${preview.innerHTML}</body></html>`);
+  function _abrirVentanaImpresion(html) {
+    if (!html) { alert('Primero genera una etiqueta.'); return; }
+    const win = window.open('', '_blank', 'width=320,height=400');
+    if (!win) { alert('El navegador bloqueó la ventana emergente.\nPermite ventanas emergentes para este sitio en la barra de direcciones.'); return; }
+    win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Etiqueta</title><style>${_cssEtiqueta()}</style></head><body>${html}</body></html>`);
     win.document.close();
     win.focus();
     setTimeout(() => { win.print(); win.close(); }, 500);
   }
 
-  function _abrirVentanaImpresion() {
-    const preview = document.getElementById('etq-preview');
-    if (!preview?.innerHTML) { alert('Primero genera una etiqueta.'); return; }
-    const win = window.open('', '_blank', 'width=320,height=400');
-    if (!win) { alert('El navegador bloqueó la ventana emergente.\nPermite ventanas emergentes para este sitio en la barra de direcciones.'); return; }
-    _escribirVentanaImpresion(win);
+  // Etiqueta de ejemplo para el botón «Prueba de impresión» de Configuración
+  function imprimirPrueba() {
+    const hoy = new Date();
+    const cad = new Date(hoy.getTime() + 3 * 86400000);
+    _abrirVentanaImpresion(_htmlEtiqueta({
+      nombre: 'Prueba de impresión',
+      lote: 'PRUEBA-001',
+      fechaApertura: hoy.toISOString(),
+      fechaCaducidad: cad.toISOString(),
+      alergenos: ['leche', 'huevo'],
+    }));
   }
 
   async function _imprimir() {
@@ -564,7 +582,7 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
         console.warn('[Impresora] Bluetooth falló, usando ventana emergente:', e);
       }
     }
-    _abrirVentanaImpresion();
+    _abrirVentanaImpresion(document.getElementById('etq-preview')?.innerHTML);
   }
 
   async function _imprimirBluetooth(p) {
@@ -1037,6 +1055,6 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
     };
   }
 
-  return { init, verificarCaducidades, revisarYAvisar: _revisarYAvisar, avisosActivos, retirarCaducados, _verEtiqueta, _imprimirEtiqueta, _borrarProducto, _habitualDesdeHistorial };
+  return { init, imprimirPrueba, verificarCaducidades, revisarYAvisar: _revisarYAvisar, avisosActivos, retirarCaducados, _verEtiqueta, _imprimirEtiqueta, _borrarProducto, _habitualDesdeHistorial };
 
 })();

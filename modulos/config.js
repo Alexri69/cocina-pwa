@@ -191,8 +191,8 @@ const ModuloConfig = (() => {
       alert(`Conexión WiFi configurada:\nIP: ${cfg.ip}:${cfg.puerto || 9100}\n\nLa impresión real por IP requiere servidor local o driver de la impresora.`);
     } else if (cfg.conexion === 'bluetooth') {
       alert('Bluetooth: la conexión directa requiere HTTPS y Chrome/Edge con soporte Web Bluetooth.\n\nLa impresión de etiquetas se iniciará desde la pantalla de Etiquetas.');
-    } else {
-      window.print();
+    } else if (typeof ModuloEtiquetas !== 'undefined') {
+      ModuloEtiquetas.imprimirPrueba();
     }
   }
 

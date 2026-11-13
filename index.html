@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="iconos/icono-192.png">
   <link rel="apple-touch-icon" href="iconos/icono-192.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="estilo.css?v=77">
+  <link rel="stylesheet" href="estilo.css?v=78">
   <script>
     // Aplicar tema antes de pintar para evitar parpadeo
     document.documentElement.setAttribute('data-tema',
@@ -1157,12 +1157,16 @@
       <div class="tarjeta" data-no-camarero style="margin-top:16px">
         <div class="tarjeta-titulo">Impresora de Etiquetas</div>
         <p style="font-size:.8rem;color:var(--texto2);margin-bottom:14px">
-          Configuración de la impresora térmica para etiquetas de trazabilidad (recipientes abiertos).
+          Configuración de la impresora para etiquetas de trazabilidad (recipientes abiertos).
+          Con una impresora de folios A4 la etiqueta sale a tamaño real arriba a la izquierda: recórtala o usa hojas A4 adhesivas.
         </p>
         <div class="form-grid">
           <div class="form-grupo">
             <label for="imp-modelo">Modelo</label>
             <select id="imp-modelo" class="inp">
+              <optgroup label="Impresora normal">
+                <option value="a4">Impresora de folios A4 (HP, Epson, Canon…)</option>
+              </optgroup>
               <optgroup label="Etiquetas de escritorio">
                 <option value="brother-ql">Brother QL (800, 810W, 820NWB…)</option>
                 <option value="dymo">Dymo LabelWriter (450, 550…)</option>
@@ -1286,22 +1290,22 @@
        ======================================================== -->
   <!-- jsPDF servido desde la propia app para que los PDF funcionen sin conexión -->
   <script src="lib/jspdf.umd.min.js" defer></script>
-  <script src="core/voz.js?v=77"></script>
-  <script src="core/supabase.js?v=77"></script>
-  <script src="modulos/lector-lote.js?v=77"></script>
-  <script src="modulos/etiquetas.js?v=77"></script>
-  <script src="modulos/menu.js?v=77"></script>
-  <script src="modulos/bebidas.js?v=77"></script>
-  <script src="modulos/pedidos.js?v=77"></script>
-  <script src="modulos/jornada.js?v=77"></script>
-  <script src="modulos/facturas.js?v=77"></script>
-  <script src="modulos/auth.js?v=77"></script>
-  <script src="modulos/config.js?v=77"></script>
-  <script src="modulos/appcc.js?v=77"></script>
+  <script src="core/voz.js?v=78"></script>
+  <script src="core/supabase.js?v=78"></script>
+  <script src="modulos/lector-lote.js?v=78"></script>
+  <script src="modulos/etiquetas.js?v=78"></script>
+  <script src="modulos/menu.js?v=78"></script>
+  <script src="modulos/bebidas.js?v=78"></script>
+  <script src="modulos/pedidos.js?v=78"></script>
+  <script src="modulos/jornada.js?v=78"></script>
+  <script src="modulos/facturas.js?v=78"></script>
+  <script src="modulos/auth.js?v=78"></script>
+  <script src="modulos/config.js?v=78"></script>
+  <script src="modulos/appcc.js?v=78"></script>
   <script src="lib/qrcode.min.js"></script>
-  <script src="modulos/cartaqr.js?v=77"></script>
-  <script src="modulos/equipo.js?v=77"></script>
-  <script src="app.js?v=77"></script>
+  <script src="modulos/cartaqr.js?v=78"></script>
+  <script src="modulos/equipo.js?v=78"></script>
+  <script src="app.js?v=78"></script>
   <!-- Las actualizaciones de la app se avisan desde app.js (sin recargar a la fuerza) -->
 
 </body>
