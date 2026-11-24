@@ -107,6 +107,91 @@ function aviso(texto, opciones = {}) {
 // Escapa texto para insertarlo en HTML de forma segura (evita XSS con datos guardados).
 function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+// ── Trazas de alérgenos: «Puede contener trazas de…» (v80) ──────────────────
+// Etiquetado precautorio, voluntario. Criterio AESAN (2025) y Codex (2026): solo
+// cuando el contacto cruzado no se puede evitar; nunca «por si acaso».
+// Una traza nunca repite un alérgeno que el plato ya contiene.
+const Trazas = (() => {
+  // Los 14 alérgenos del anexo II del Reglamento (UE) 1169/2011, en orden oficial
+  const LISTA = [
+    ['gluten','🌾'],['crustáceos','🦞'],['huevo','🥚'],['pescado','🐟'],['cacahuetes','🥜'],['soja','🌱'],['leche','🥛'],
+    ['frutos de cáscara','🌰'],['apio','🌿'],['mostaza','🌼'],['granos de sésamo','🫘'],['altramuces','🌸'],['moluscos','🐚'],['sulfitos','🍷'],
+  ];
+  const NOMBRES = LISTA.map(a => a[0]);
+  const emoji = a => (LISTA.find(x => x[0] === a) || [])[1] || '';
+
+  /** Trazas sin repetidos, sin los alérgenos presentes y en el orden oficial. */
+  function limpiar(trazas, alergenos = []) {
+    const quitar = new Set(alergenos || []);
+    const set = new Set((trazas || []).filter(a => a && !quitar.has(a)));
+    return NOMBRES.filter(a => set.has(a)).concat([...set].filter(a => !NOMBRES.includes(a)));
+  }
+
+  /** Bloque plegable con las 14 casillas. prefijo = id base de las casillas. */
+  function bloqueHtml(prefijo, titulo, ayuda) {
+    return `<details class="bloque-trazas" id="${prefijo}-bloque">
+      <summary>⚠️ ${esc(titulo)} <span class="trazas-cuenta" id="${prefijo}-cuenta"></span></summary>
+      <p class="ayuda-campo">${ayuda}</p>
+      <div class="grid-alergenos-check">${LISTA.map(([a, e], i) =>
+        `<label class="check-alergeno check-traza"><input type="checkbox" id="${prefijo}-${i}" value="${esc(a)}"> ${e} ${esc(capitalizar(a))}</label>`).join('')}</div>
+    </details>`;
+  }
+
+  /** Pinta el bloque en el contenedor (solo la primera vez). */
+  function montar(contenedorId, prefijo, titulo, ayuda) {
+    const cont = document.getElementById(contenedorId);
+    if (!cont || document.getElementById(prefijo + '-bloque')) return;
+    cont.innerHTML = bloqueHtml(prefijo, titulo, ayuda);
+    cont.addEventListener('change', () => _cuenta(prefijo));
+  }
+
+  const leer = prefijo => NOMBRES.filter((_, i) => document.getElementById(`${prefijo}-${i}`)?.checked);
+
+  function poner(prefijo, lista = []) {
+    NOMBRES.forEach((a, i) => { const c = document.getElementById(`${prefijo}-${i}`); if (c) c.checked = (lista || []).includes(a); });
+    const det = document.getElementById(prefijo + '-bloque');
+    if (det) det.open = (lista || []).length > 0;   // abierto solo si ya tiene trazas
+    _cuenta(prefijo);
+  }
+
+  /** Desactiva la traza de un alérgeno que ya está marcado como «contiene». */
+  function bloquearPresentes(prefijo, alergenos = []) {
+    NOMBRES.forEach((a, i) => {
+      const c = document.getElementById(`${prefijo}-${i}`);
+      if (!c) return;
+      const presente = (alergenos || []).includes(a);
+      if (presente) c.checked = false;
+      c.disabled = presente;
+      c.closest('label')?.classList.toggle('desactivado', presente);
+      c.closest('label')?.setAttribute('title', presente ? 'Ya lo contiene: no hace falta marcarlo como traza' : '');
+    });
+    _cuenta(prefijo);
+  }
+
+  function _cuenta(prefijo) {
+    const el = document.getElementById(prefijo + '-cuenta');
+    if (el) { const n = leer(prefijo).length; el.textContent = n ? `(${n})` : ''; }
+  }
+
+  /** «Puede contener trazas de: gluten, soja» o '' si no hay. */
+  const texto = (lista, mayus = false) => {
+    const l = limpiar(lista);
+    if (!l.length) return '';
+    const s = 'Puede contener trazas de: ' + l.join(', ');
+    return mayus ? s.toUpperCase() : s;
+  };
+
+  /** Línea de distintivos para listados (vacía si no hay trazas). */
+  function badgeHtml(lista) {
+    const l = limpiar(lista);
+    return l.length
+      ? `<div class="badges-trazas"><span class="badge-traza" title="Puede contener trazas (contaminación cruzada)">⚠️ Trazas: ${l.map(a => `${emoji(a)} ${esc(a)}`).join(' · ')}</span></div>`
+      : '';
+  }
+
+  return { LISTA, NOMBRES, emoji, limpiar, bloqueHtml, montar, leer, poner, bloquearPresentes, texto, badgeHtml };
+})();
+
 // ── Validadores (devuelven true si está vacío → campos opcionales) ──────────
 // Botón ± junto a los campos de temperatura: muchos teclados numéricos de Android no traen «−».
 // Uso: <span class="inp-con-signo"><input type="number" …><button type="button" class="btn-signo" …>±</button></span>

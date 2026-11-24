@@ -501,8 +501,8 @@ const SB = (() => {
 
   // Columnas añadidas en migraciones recientes: si la BD aún no las tiene,
   // se reintenta sin ellas en vez de fallar el guardado entero.
-  // alergenos: en bebidas · traducciones: platos y bebidas · proveedor_id: ingredientes
-  const _COLUMNAS_NUEVAS = ['comensales', 'alergenos', 'traducciones', 'proveedor_id'];
+  // alergenos: en bebidas · traducciones: platos y bebidas · proveedor_id: ingredientes · trazas (v80)
+  const _COLUMNAS_NUEVAS = ['comensales', 'alergenos', 'traducciones', 'proveedor_id', 'trazas', 'trazas_cocina'];
   async function _sinColumnasNuevas(datos, fn, intentos = 5) {
     try {
       return await fn(datos);
@@ -612,7 +612,7 @@ const SB = (() => {
       throw e;
     }
   }
-  const _plantillaParaBD = (p) => ({ nombre: p.nombre, dias_caducidad: p.diasCaducidad, alergenos: p.alergenos || [], ...(p.usos != null ? { usos: p.usos } : {}) });
+  const _plantillaParaBD = (p) => ({ nombre: p.nombre, dias_caducidad: p.diasCaducidad, alergenos: p.alergenos || [], ...(Array.isArray(p.trazas) ? { trazas: p.trazas } : {}), ...(p.usos != null ? { usos: p.usos } : {}) });
   const guardarPlantilla    = (p)  => _post('plantillas_etiqueta', { ..._plantillaParaBD(p), usos: p.usos ?? 0, timestamp: Date.now(), user_id: _uid() }).then(r => _plantillaDeBD(_primero(r)));
   const actualizarPlantilla = (p)  => _patch('plantillas_etiqueta', p.id, _plantillaParaBD(p)).then(r => _plantillaDeBD(_primero(r)));
   const eliminarPlantilla   = (id) => _delete('plantillas_etiqueta', id);
@@ -708,8 +708,8 @@ const SB = (() => {
   }
   // El proveedor solo se envía si viene (al renombrar desde un plato no se toca)
   const _provIng = d => ('proveedor_id' in d ? { proveedor_id: d.proveedor_id || null } : {});
-  const guardarIngrediente    = (d)   => _sinColumnasNuevas({ nombre: d.nombre, alergenos: d.alergenos, ..._provIng(d), timestamp: Date.now(), user_id: _uid() }, x => _post('ingredientes', x)).then(_primero);
-  const actualizarIngrediente = (d)   => _sinColumnasNuevas({ nombre: d.nombre, alergenos: d.alergenos, ..._provIng(d) }, x => _patch('ingredientes', d.id, x)).then(_primero);
+  const guardarIngrediente    = (d)   => _sinColumnasNuevas({ nombre: d.nombre, alergenos: d.alergenos, trazas: d.trazas || [], ..._provIng(d), timestamp: Date.now(), user_id: _uid() }, x => _post('ingredientes', x)).then(_primero);
+  const actualizarIngrediente = (d)   => _sinColumnasNuevas({ nombre: d.nombre, alergenos: d.alergenos, trazas: d.trazas || [], ..._provIng(d) }, x => _patch('ingredientes', d.id, x)).then(_primero);
 
   // ----------------------------------------------------------
   // COSTES DE COMPRA (privados: solo propietario y encargado). id = id del ingrediente o bebida.
@@ -782,8 +782,8 @@ const SB = (() => {
   }
   // traducciones solo se envía si viene (al recalcular alérgenos desde ingredientes no se toca)
   const _trad = d => ('traducciones' in d ? { traducciones: limpiarTraducciones(d.traducciones) } : {});
-  const guardarPlato    = (d)   => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos, ..._trad(d), timestamp: Date.now(), user_id: _uid() }, x => _post('platos', x)).then(_primero);
-  const actualizarPlato = (d)   => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos, ..._trad(d) }, x => _patch('platos', d.id, x)).then(_primero);
+  const guardarPlato    = (d)   => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos, trazas: d.trazas || [], trazas_cocina: d.trazas_cocina || [], ..._trad(d), timestamp: Date.now(), user_id: _uid() }, x => _post('platos', x)).then(_primero);
+  const actualizarPlato = (d)   => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion, precio: d.precio, ingredientes: d.ingredientes, alergenos: d.alergenos, trazas: d.trazas || [], trazas_cocina: d.trazas_cocina || [], ..._trad(d) }, x => _patch('platos', d.id, x)).then(_primero);
 
   /** Idiomas de la carta pública además del español. Quita los textos vacíos. */
   const IDIOMAS_CARTA = ['en', 'de'];
@@ -1119,8 +1119,8 @@ const SB = (() => {
       throw e;
     }
   }
-  const guardarBebida    = (d)  => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', alergenos: d.alergenos || [], ..._trad(d), timestamp: Date.now(), user_id: _uid() }, x => _post('bebidas', x)).then(_primero);
-  const actualizarBebida = (d)  => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', alergenos: d.alergenos || [], ..._trad(d) }, x => _patch('bebidas', d.id, x)).then(_primero);
+  const guardarBebida    = (d)  => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', alergenos: d.alergenos || [], trazas: d.trazas || [], ..._trad(d), timestamp: Date.now(), user_id: _uid() }, x => _post('bebidas', x)).then(_primero);
+  const actualizarBebida = (d)  => _sinColumnasNuevas({ nombre: d.nombre, descripcion: d.descripcion ?? '', precio: d.precio ?? 0, categoria: d.categoria ?? 'otro', alergenos: d.alergenos || [], trazas: d.trazas || [], ..._trad(d) }, x => _patch('bebidas', d.id, x)).then(_primero);
 
   // ----------------------------------------------------------
   // PROVEEDORES Y PEDIDOS (lectura con caché para trabajar sin conexión)

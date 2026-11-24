@@ -957,4 +957,37 @@ END $$;
 REVOKE ALL ON FUNCTION public.marcar_averia(uuid, boolean, text, text) FROM anon, public;
 GRANT EXECUTE ON FUNCTION public.marcar_averia(uuid, boolean, text, text) TO authenticated;
 
+
+-- ============================================================
+-- TRAZAS DE ALÉRGENOS (v80): «Puede contener trazas de…» (etiquetado precautorio).
+-- Voluntario: solo cuando el contacto cruzado no se puede evitar (criterio AESAN/Codex).
+-- trazas         = alérgenos que pueden aparecer por contaminación cruzada (no los contiene).
+-- platos.trazas  = calculadas: trazas de sus ingredientes + trazas_cocina − sus alérgenos.
+-- platos.trazas_cocina = contacto cruzado en la propia cocina (freidora compartida…).
+-- ============================================================
+ALTER TABLE public.ingredientes        ADD COLUMN IF NOT EXISTS trazas text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.platos              ADD COLUMN IF NOT EXISTS trazas text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.platos              ADD COLUMN IF NOT EXISTS trazas_cocina text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.bebidas             ADD COLUMN IF NOT EXISTS trazas text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.productos           ADD COLUMN IF NOT EXISTS trazas text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.plantillas_etiqueta ADD COLUMN IF NOT EXISTS trazas text[] NOT NULL DEFAULT '{}';
+
+CREATE OR REPLACE FUNCTION public.carta_publica(p_token text) RETURNS json
+  LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
+$$
+  SELECT json_build_object(
+    'nombre',    coalesce(nullif(trim(c.empresa->>'razonSocial'), ''), r.nombre),
+    'direccion', concat_ws(', ', nullif(c.empresa->>'direccion', ''), nullif(c.empresa->>'ciudad', '')),
+    'telefono',  nullif(c.empresa->>'telefono', ''),
+    'logo',      c.logo,
+    'platos',  coalesce((SELECT json_agg(json_build_object('nombre', p.nombre, 'descripcion', p.descripcion, 'precio', p.precio, 'alergenos', p.alergenos, 'trazas', p.trazas, 'traducciones', p.traducciones) ORDER BY lower(p.nombre))
+                         FROM platos p WHERE p.restaurante_id = r.id), '[]'::json),
+    'bebidas', coalesce((SELECT json_agg(json_build_object('nombre', b.nombre, 'descripcion', b.descripcion, 'precio', b.precio, 'categoria', b.categoria, 'alergenos', b.alergenos, 'trazas', b.trazas, 'traducciones', b.traducciones) ORDER BY b.categoria, lower(b.nombre))
+                         FROM bebidas b WHERE b.restaurante_id = r.id), '[]'::json)
+  )
+  FROM restaurantes r LEFT JOIN config c ON c.restaurante_id = r.id
+  WHERE p_token IS NOT NULL AND length(p_token) >= 24 AND r.carta_token = p_token
+$$;
+GRANT EXECUTE ON FUNCTION public.carta_publica(text) TO anon, authenticated;
+
 NOTIFY pgrst, 'reload schema';

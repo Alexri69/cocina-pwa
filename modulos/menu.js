@@ -23,6 +23,12 @@ const ModuloMenu = (() => {
   ];
   const NOMBRES_ALERGENOS = ALERGENOS_INFO.map(a => a.nombre);
 
+  // Trazas (v80): casillas plegables generadas por core/voz.js (Trazas)
+  const TR_ING = 'ing-tr', TR_PLATO = 'plato-trc';
+  const AYUDA_TRAZAS_ING = 'Márcalo solo si la <b>etiqueta del proveedor</b> dice «puede contener…» o «elaborado en instalaciones que…». No lo marques «por si acaso»: una persona alérgica dejaría de poder pedir ese plato.';
+  const AYUDA_TRAZAS_PLATO = 'Contacto cruzado <b>en tu cocina</b> que no puedes evitar. Ej.: patatas en la misma freidora que el rebozado → gluten; plancha compartida con el marisco → crustáceos. Las trazas de los ingredientes ya se suman solas.';
+  const _leerAlIng = () => NOMBRES_ALERGENOS.filter(a => document.getElementById('ing-al-' + a.replace(/\s+/g, '-'))?.checked);
+
   let _idIngredienteEditando = null;
   let _idPlatoEditando       = null;
 
@@ -375,6 +381,7 @@ ${fichas}
           <span class="card-ing-nombre">${_esc(ing.nombre)}</span>
           <span class="card-ing-precio${precio ? '' : ' sin'}" data-solo="gestion">${precio ? _esc(precio) : 'Sin precio de compra'}</span>
           <div class="badges-alergenos">${badges}</div>
+          ${Trazas.badgeHtml(ing.trazas)}
         </div>
         <div class="card-acciones">
           <button class="btn-mini btn-editar" onclick="ModuloMenu.editarIngrediente('${ing.id}')" title="Editar"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Editar</button>
@@ -396,6 +403,8 @@ ${fichas}
       const cb = document.getElementById('ing-al-' + nombre.replace(/\s+/g, '-'));
       if (cb) cb.checked = ing.alergenos?.includes(nombre) ?? false;
     });
+    Trazas.poner(TR_ING, ing.trazas || []);
+    Trazas.bloquearPresentes(TR_ING, ing.alergenos || []);
     document.getElementById('ing-form-titulo').textContent = 'Editar ingrediente';
     _activarSubtab('ingredientes');
     _mostrarVistaIngs('form');
@@ -414,7 +423,8 @@ ${fichas}
         if (plato.ingredientes?.some(i => i.id === id)) {
           const ingsFiltrados = plato.ingredientes.filter(i => i.id !== id);
           const alergenos     = _alergenosDe(ingsFiltrados.map(i => i.id), restantes);
-          await SB.actualizarPlato({ ...plato, ingredientes: ingsFiltrados, alergenos });
+          const trazas        = _trazasDe(ingsFiltrados.map(i => i.id), restantes, plato.trazas_cocina, alergenos);
+          await SB.actualizarPlato({ ...plato, ingredientes: ingsFiltrados, alergenos, trazas });
         }
       }
     } catch (e) {
@@ -435,25 +445,27 @@ ${fichas}
         const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-'));
         return cb?.checked;
       });
+      const trazas = Trazas.limpiar(Trazas.leer(TR_ING), alergenos);
       const coste = _leerCosteIng();
       if (coste.error) { alert(coste.error); return; }
       const proveedorId = document.getElementById('ing-proveedor')?.value || null;
       if (_idIngredienteEditando !== null) {
         const idEd = _idIngredienteEditando;
-        await SB.actualizarIngrediente({ id: idEd, nombre, alergenos, proveedor_id: proveedorId });
+        await SB.actualizarIngrediente({ id: idEd, nombre, alergenos, trazas, proveedor_id: proveedorId });
         await _guardarCosteIng(idEd, coste);
         const [platos, ings] = await Promise.all([SB.obtenerPlatos(), SB.obtenerIngredientes()]);
         // Asegurar que el cálculo usa los alérgenos recién guardados (aunque la caché vaya por detrás)
-        const ingsAct = (ings || []).map(i => i.id === idEd ? { ...i, nombre, alergenos } : i);
+        const ingsAct = (ings || []).map(i => i.id === idEd ? { ...i, nombre, alergenos, trazas } : i);
         for (const plato of platos) {
           if (plato.ingredientes?.some(i => i.id === idEd)) {
             const ingsActualizados = plato.ingredientes.map(i => i.id === idEd ? { ...i, nombre } : i);
             const nuevosAl         = _alergenosDe(ingsActualizados.map(i => i.id), ingsAct);
-            await SB.actualizarPlato({ ...plato, ingredientes: ingsActualizados, alergenos: nuevosAl });
+            const nuevasTr         = _trazasDe(ingsActualizados.map(i => i.id), ingsAct, plato.trazas_cocina, nuevosAl);
+            await SB.actualizarPlato({ ...plato, ingredientes: ingsActualizados, alergenos: nuevosAl, trazas: nuevasTr });
           }
         }
       } else {
-        const nuevo = await SB.guardarIngrediente({ nombre, alergenos, proveedor_id: proveedorId });
+        const nuevo = await SB.guardarIngrediente({ nombre, alergenos, trazas, proveedor_id: proveedorId });
         await _guardarCosteIng(nuevo?.id, coste);
       }
       _resetFormIngrediente();
@@ -498,6 +510,7 @@ ${fichas}
     _rellenarProveedores('');
     document.getElementById('ing-nombre').value = '';
     NOMBRES_ALERGENOS.forEach(a => { const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-')); if (cb) cb.checked = false; });
+    Trazas.poner(TR_ING, []); Trazas.bloquearPresentes(TR_ING, []);
     document.getElementById('ing-form-titulo').textContent = 'Nuevo Ingrediente';
     _mostrarVistaIngs('form');
     document.getElementById('ing-nombre').focus();
@@ -508,6 +521,7 @@ ${fichas}
     _ponerCosteIng(null);
     document.getElementById('ing-nombre').value = '';
     NOMBRES_ALERGENOS.forEach(a => { const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-')); if (cb) cb.checked = false; });
+    Trazas.poner(TR_ING, []); Trazas.bloquearPresentes(TR_ING, []);
     document.getElementById('ing-form-titulo').textContent = 'Nuevo Ingrediente';
     _mostrarVistaIngs('lista');
   }
@@ -524,10 +538,14 @@ ${fichas}
     return NOMBRES_ALERGENOS.filter(a => conjunto.has(a)).concat([...conjunto].filter(a => !NOMBRES_ALERGENOS.includes(a)));
   }
 
-  // Antes hacía una petición al servidor por cada ingrediente; ahora una sola.
-  async function _calcularAlergenos(idsIngredientes) {
-    return _alergenosDe(idsIngredientes, await SB.obtenerIngredientes());
+  // Trazas del plato: las de sus ingredientes + contacto cruzado en cocina, sin los alérgenos que ya contiene
+  function _trazasDe(idsIngredientes, ingredientes, trazasCocina = [], alergenos = []) {
+    const porId = new Map((ingredientes || []).map(i => [i.id, i]));
+    const todas = [...(trazasCocina || [])];
+    for (const id of idsIngredientes) todas.push(...(porId.get(id)?.trazas || []));
+    return Trazas.limpiar(todas, alergenos);
   }
+
 
   async function _renderSelectorIngredientes() {
     const cont = document.getElementById('plato-selector-ingredientes');
@@ -543,6 +561,7 @@ ${fichas}
         <input type="checkbox" class="plato-ing-check" value="${ing.id}" data-nombre="${_esc(ing.nombre)}">
         ${_esc(ing.nombre)}
         ${ing.alergenos?.length ? '<small>(' + ing.alergenos.map(a => { const i = ALERGENOS_INFO.find(x => x.nombre === a); return i?.emoji ?? a; }).join(' ') + ')</small>' : ''}
+        ${ing.trazas?.length ? '<small class="traza-mini" title="Puede contener trazas">⚠️ ' + ing.trazas.map(a => Trazas.emoji(a) || _esc(a)).join(' ') + '</small>' : ''}
       </label>`).join('');
     cont.querySelectorAll('.plato-ing-check').forEach(cb => cb.addEventListener('change', () => { _actualizarAlergenos_realtime(); _renderEscandalloForm(); }));
     _filtrarSelectorIngredientes();
@@ -565,6 +584,10 @@ ${fichas}
     div.innerHTML = alergenos.length
       ? alergenos.map(a => { const i = ALERGENOS_INFO.find(x => x.nombre === a); return `<span class="badge-alergeno">${i?.emoji ?? ''} ${_esc(a)}</span>`; }).join('')
       : '<span class="badge-sin-alergenos">Ninguno</span>';
+    const trazas = _trazasDe(ids, _todosIngredientes, Trazas.leer(TR_PLATO), alergenos);
+    const divTr  = document.getElementById('plato-trazas-calculadas');
+    if (divTr) divTr.innerHTML = Trazas.badgeHtml(trazas);
+    Trazas.bloquearPresentes(TR_PLATO, alergenos);
   }
 
   async function _renderPlatos() {
@@ -609,6 +632,7 @@ ${fichas}
         ${plato.descripcion ? `<div class="card-plato-desc">${_esc(plato.descripcion)}</div>` : ''}
         <div class="card-plato-ingredientes"><svg class="ic" aria-hidden="true"><use href="#i-carrot"/></svg> ${ings || 'Sin ingredientes asignados'}</div>
         <div class="badges-alergenos">${badgesAl}</div>
+        ${Trazas.badgeHtml(plato.trazas)}
         <div class="card-acciones">
           <button class="btn-mini btn-editar" onclick="ModuloMenu.editarPlato('${plato.id}')"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Editar</button>
           <button class="btn-mini btn-pagar"  onclick="ModuloMenu.imprimirPlato('${plato.id}')"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg> PDF</button>
@@ -657,6 +681,7 @@ ${fichas}
       ${ings}
       <h3>Alérgenos (Reg. UE 1169/2011)</h3>
       <div class="alergenos">${al}</div>
+      ${plato.trazas?.length ? `<p class="trazas">⚠ ${_esc(Trazas.texto(plato.trazas))}</p>` : ''}
     </article>`;
   }
 
@@ -702,6 +727,7 @@ body { font-family: Arial, Helvetica, sans-serif; color:#222; margin:0; padding:
 .alergenos { font-size:10pt; }
 .al { display:inline-block; background:#fdecea; color:#c0392b; padding:2px 8px; border-radius:10px; margin:2px 4px 2px 0; }
 .sin-al { color:#27ae60; font-weight:600; }
+.trazas { font-size:9.5pt; color:#92400e; margin:6px 0 0; font-style:italic; }
 .vacio { color:#999; font-style:italic; font-size:10pt; }
 .pie { text-align:center; font-size:8pt; color:#888; margin-top:24px; padding-top:8px; border-top:1px solid #ccc; }
 </style></head><body>
@@ -750,6 +776,7 @@ ${platos.map(_platoToHtml).join('')}
     const idsPlato = plato.ingredientes?.map(i => i.id) || [];
     _cantidades = Object.fromEntries((plato.ingredientes || []).filter(i => Number(i.cantidad) > 0).map(i => [i.id, Number(i.cantidad)]));
     document.querySelectorAll('.plato-ing-check').forEach(cb => { cb.checked = idsPlato.includes(cb.value); });
+    Trazas.poner(TR_PLATO, plato.trazas_cocina || []);
     await _actualizarAlergenos_realtime();
     _renderEscandalloForm();
     document.getElementById('plato-form-titulo').textContent = 'Editar plato';
@@ -780,6 +807,9 @@ ${platos.map(_platoToHtml).join('')}
     document.querySelectorAll('.plato-ing-check').forEach(cb => cb.checked = false);
     const div = document.getElementById('plato-alergenos-calculados');
     if (div) div.innerHTML = '<span class="badge-sin-alergenos">Ninguno</span>';
+    Trazas.poner(TR_PLATO, []); Trazas.bloquearPresentes(TR_PLATO, []);
+    const divTr = document.getElementById('plato-trazas-calculadas');
+    if (divTr) divTr.innerHTML = '';
     _renderEscandalloForm();
     document.getElementById('plato-form-titulo').textContent = 'Nuevo Plato';
     _mostrarVistaPlatos('form');
@@ -796,6 +826,9 @@ ${platos.map(_platoToHtml).join('')}
     document.querySelectorAll('.plato-ing-check').forEach(cb => cb.checked = false);
     const div = document.getElementById('plato-alergenos-calculados');
     if (div) div.innerHTML = '<span class="badge-sin-alergenos">Ninguno</span>';
+    Trazas.poner(TR_PLATO, []); Trazas.bloquearPresentes(TR_PLATO, []);
+    const divTr = document.getElementById('plato-trazas-calculadas');
+    if (divTr) divTr.innerHTML = '';
     document.getElementById('plato-form-titulo').textContent = 'Nuevo Plato';
     _mostrarVistaPlatos('lista');
   }
@@ -811,8 +844,11 @@ ${platos.map(_platoToHtml).join('')}
       const checks       = [...document.querySelectorAll('.plato-ing-check:checked')];
       // La cantidad por ración (escandallo) va junto a cada ingrediente
       const ingredientes = checks.map(cb => ({ id: cb.value, nombre: cb.dataset.nombre, ...(_cantidades[cb.value] > 0 ? { cantidad: _cantidades[cb.value] } : {}) }));
-      const alergenos    = await _calcularAlergenos(ingredientes.map(i => i.id));
-      const datos        = { nombre, descripcion: desc, precio, ingredientes, alergenos, traducciones: _leerTraducciones() };
+      const ingsBD       = await SB.obtenerIngredientes();
+      const alergenos    = _alergenosDe(ingredientes.map(i => i.id), ingsBD);
+      const trazas_cocina = Trazas.limpiar(Trazas.leer(TR_PLATO));
+      const trazas       = _trazasDe(ingredientes.map(i => i.id), ingsBD, trazas_cocina, alergenos);
+      const datos        = { nombre, descripcion: desc, precio, ingredientes, alergenos, trazas, trazas_cocina, traducciones: _leerTraducciones() };
       if (_idPlatoEditando !== null) {
         await SB.actualizarPlato({ id: _idPlatoEditando, ...datos });
       } else {
@@ -839,6 +875,11 @@ ${platos.map(_platoToHtml).join('')}
     document.getElementById('plato-btn-guardar')?.addEventListener('click', _guardarPlato);
     document.getElementById('ing-btn-volver')   ?.addEventListener('click', _resetFormIngrediente);
     document.getElementById('ing-btn-guardar')  ?.addEventListener('click', _guardarIngrediente);
+    // Trazas (v80)
+    Trazas.montar('ing-trazas-cont', TR_ING, 'Puede contener trazas de… (opcional)', AYUDA_TRAZAS_ING);
+    Trazas.montar('plato-trazas-cont', TR_PLATO, 'Contacto cruzado en tu cocina (opcional)', AYUDA_TRAZAS_PLATO);
+    document.querySelectorAll('[id^="ing-al-"]').forEach(cb => cb.addEventListener('change', () => Trazas.bloquearPresentes(TR_ING, _leerAlIng())));
+    document.getElementById('plato-trazas-cont')?.addEventListener('change', () => _actualizarAlergenos_realtime());
 
     // Buscadores
     document.getElementById('ing-buscador')?.addEventListener('input', e => {

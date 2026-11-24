@@ -45,6 +45,13 @@ scripts/validate.js — validador (sintaxis + coherencia del precache del SW); l
 - **Averías:** `appcc_elementos.averiado_desde` (null = funciona). Interruptor «Funciona/Averiado» en APPCC → Hoy, para todo el equipo, vía RPC `marcar_averia(elemento, averiado, accion, responsable)` (pide acción correctora al apagarlo; necesita red). Deja un registro con `datos.averia = 'inicio'|'fin'` (no cuenta como lectura ni se puede borrar). Averiado ⇒ no pide lecturas ni cuenta como pendiente; en el informe sus días no son «sin registro».
 - **Plano:** pestaña APPCC → Plano: cuadrado dividido en Cocina | Barra. `appcc_elementos.plano` = { x, y } en % (null = sin colocar); lo coloca la dirección (arrastrar / tocar), el resto solo lo ve. Color del equipo según su estado de hoy.
 
+## Trazas de alérgenos (v80)
+- «Puede contener trazas de…» (etiquetado precautorio, voluntario; criterio AESAN 2025 / Codex 2026: solo si el contacto cruzado no se puede evitar). Columna `trazas text[]` en `ingredientes`, `platos`, `bebidas`, `productos` y `plantillas_etiqueta`.
+- `platos.trazas` se calcula (`_trazasDe` en menu.js): trazas de sus ingredientes + `platos.trazas_cocina` (contacto cruzado en la propia cocina) − sus alérgenos. Se recalcula al editar o borrar un ingrediente.
+- Utilidades compartidas en `core/voz.js` → `Trazas` (lista oficial de los 14, `limpiar`, `montar`/`poner`/`leer` del bloque plegable, `bloquearPresentes`, `texto`, `badgeHtml`). Una traza nunca repite un alérgeno presente.
+- Carta pública: línea «Puede contener trazas de…» (es/en/de). El filtro oculta lo que contiene el alérgeno; lo que solo puede tener trazas se muestra resaltado con aviso de consultar al personal.
+- Etiqueta impresa y Bluetooth: línea de trazas; los habituales las guardan y las copian.
+
 ## Carta pública (QR)
 - `carta.html?c=<token>` + `modulos/carta-publica.js`: página sin login; lee con la RPC `carta_publica(token)` (anon). Solo nombre, descripción, precio y alérgenos.
 - `restaurantes.carta_token` (32 hex, null = no publicada). RPC `publicar_carta(r, renovar)` / `despublicar_carta(r)` (propietario/encargado). Panel en Carta: `modulos/cartaqr.js` (QR con `lib/qrcode.min.js`).

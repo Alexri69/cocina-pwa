@@ -12,6 +12,11 @@ const ModuloEtiquetas = (() => {
     'altramuces','moluscos','sulfitos'
   ];
 
+  // Trazas (v80): «puede contener trazas de…» del envase original
+  const TR_ETQ = 'etq-m-tr';
+  const AYUDA_TRAZAS_ETQ = 'Cópialo de la <b>etiqueta del envase</b> si dice «puede contener…». No lo marques «por si acaso».';
+  const _leerAlManual = () => ALERGENOS.filter((_, i) => document.getElementById(`etq-m-al-${i}`)?.checked);
+
   const PASOS = {
     INACTIVO:'INACTIVO', NOMBRE:'NOMBRE', LOTE:'LOTE', DIAS:'DIAS',
     ALERGENO:'ALERGENO', CONFIRMAR:'CONFIRMAR', GUARDADO:'GUARDADO'
@@ -136,6 +141,7 @@ const ModuloEtiquetas = (() => {
     document.getElementById('etq-m-dias').value   = p.diasCaducidad;
     document.getElementById('etq-m-lote').value   = '';
     ALERGENOS.forEach((a, i) => { const ck = document.getElementById(`etq-m-al-${i}`); if (ck) ck.checked = (p.alergenos || []).includes(a); });
+    Trazas.poner(TR_ETQ, p.trazas || []); Trazas.bloquearPresentes(TR_ETQ, p.alergenos || []);
     const hab = document.getElementById('etq-m-habitual'); if (hab) hab.checked = false;
     _setFechaAhora();
     _renderPlantillas();
@@ -158,17 +164,17 @@ const ModuloEtiquetas = (() => {
   }
 
   // Crea el habitual o, si ya hay uno con ese nombre, actualiza sus días y alérgenos
-  async function _guardarComoHabitual({ nombre, diasCaducidad, alergenos }, silencioso = false) {
+  async function _guardarComoHabitual({ nombre, diasCaducidad, alergenos, trazas }, silencioso = false) {
     if (!nombre || !(diasCaducidad > 0)) return;
     const existente = _buscarPlantilla(nombre);
     try {
       if (existente) {
-        const nueva = { ...existente, nombre: existente.nombre, diasCaducidad, alergenos: [...(alergenos || [])] };
+        const nueva = { ...existente, nombre: existente.nombre, diasCaducidad, alergenos: [...(alergenos || [])], trazas: [...(trazas || [])] };
         await SB.actualizarPlantilla(nueva);
         Object.assign(existente, nueva);
         if (!silencioso) aviso(`⭐ "${existente.nombre}" actualizado en habituales.`, { tipo: 'ok', ms: 2500 });
       } else {
-        const creada = await SB.guardarPlantilla({ nombre: VOZ.capitalizarNombre(nombre.trim()), diasCaducidad, alergenos: [...(alergenos || [])], usos: 1 });
+        const creada = await SB.guardarPlantilla({ nombre: VOZ.capitalizarNombre(nombre.trim()), diasCaducidad, alergenos: [...(alergenos || [])], trazas: [...(trazas || [])], usos: 1 });
         if (creada) _plantillas.push(creada);
         if (!silencioso) aviso(`⭐ "${creada?.nombre || nombre}" guardado en habituales.`, { tipo: 'ok', ms: 2500 });
       }
@@ -199,7 +205,8 @@ const ModuloEtiquetas = (() => {
 
     const fechaApertura  = apert ? new Date(apert) : new Date();
     const fechaCaducidad = new Date(fechaApertura.getTime() + dias * 86400000);
-    const alergenos      = ALERGENOS.filter((_, i) => document.getElementById(`etq-m-al-${i}`)?.checked);
+    const alergenos      = _leerAlManual();
+    const trazas         = Trazas.limpiar(Trazas.leer(TR_ETQ), alergenos);
 
     // Si viene de un habitual, se respeta su nombre tal cual está guardado
     const hab = _buscarPlantilla(nombre);
@@ -210,6 +217,7 @@ const ModuloEtiquetas = (() => {
       fechaApertura:  fechaApertura.toISOString(),
       fechaCaducidad: fechaCaducidad.toISOString(),
       alergenos,
+      trazas,
       timestamp: fechaApertura.getTime()
     };
 
@@ -258,6 +266,7 @@ const ModuloEtiquetas = (() => {
       const ck = document.getElementById(`etq-m-al-${i}`);
       if (ck) ck.checked = false;
     });
+    Trazas.poner(TR_ETQ, []); Trazas.bloquearPresentes(TR_ETQ, []);
     _setFechaAhora();
     const msgEl = document.getElementById('etq-mensaje');
     if (msgEl) { msgEl.textContent = 'Listo para la siguiente etiqueta.'; msgEl.style.color = ''; }
@@ -278,7 +287,7 @@ const ModuloEtiquetas = (() => {
       paso: PASOS.NOMBRE,
       indiceAlergeno: 0,
       cancelado: false,
-      producto: { nombre:'', lote:'', diasCaducidad:0, fechaApertura:'', fechaCaducidad:'', alergenos:[], timestamp:0 }
+      producto: { nombre:'', lote:'', diasCaducidad:0, fechaApertura:'', fechaCaducidad:'', alergenos:[], trazas:[], timestamp:0 }
     };
     _ocultarEtiqueta();
     _setRespuesta('');
@@ -325,6 +334,7 @@ const ModuloEtiquetas = (() => {
       estado.producto.nombre        = hab.nombre;
       estado.producto.diasCaducidad = hab.diasCaducidad;
       estado.producto.alergenos     = [...(hab.alergenos || [])];
+      estado.producto.trazas        = [...(hab.trazas || [])];
       estado.desdePlantilla = true;
       _setRespuesta(`⭐ ${hab.nombre} (habitual)`);
       await _hablar(`${hab.nombre}, producto habitual.`);
@@ -511,6 +521,7 @@ const ModuloEtiquetas = (() => {
           ⏰ Caduca: ${VOZ.formatearFecha(p.fechaCaducidad)} — ${colorTexto}
         </div>
         <div class="etiqueta-alergenos">⚠ ALÉRGENOS: ${esc(alText)}</div>
+        ${(p.trazas || []).length ? `<div class="etiqueta-trazas">${esc(Trazas.texto(p.trazas, true))}</div>` : ''}
         <div class="etiqueta-normativa">Reg. UE 1169/2011 · RD 126/2015</div>
       </div>`;
   }
@@ -544,6 +555,7 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
 .etiqueta-caducidad{padding:2mm 3mm;margin:2mm 0;border-radius:2px;font-weight:700;color:#fff;font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .verde{background:#27ae60!important}.amarillo{background:#e67e22!important}.rojo{background:#e74c3c!important}
 .etiqueta-alergenos{font-weight:700;font-size:8pt;margin-top:2mm}
+.etiqueta-trazas{font-size:7pt;margin-top:1mm;font-style:italic}
 .etiqueta-normativa{font-size:6.5pt;text-align:right;color:#888;margin-top:1mm}`;
 
   function _abrirVentanaImpresion(html) {
@@ -610,6 +622,7 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
       enc.encode('Caduca: ' + VOZ.formatearFecha(p.fechaCaducidad) + '\n'),
       new Uint8Array([E, 0x45, 0x01]),
       enc.encode((p.alergenos.length ? 'ALERG: ' + p.alergenos.join(', ').toUpperCase() : 'ALERG: NINGUNO') + '\n'),
+      enc.encode((p.trazas || []).length ? 'TRAZAS: ' + Trazas.limpiar(p.trazas, p.alergenos).join(', ').toUpperCase() + '\n' : ''),
       new Uint8Array([E, 0x45, 0x00]),
       enc.encode('Reg.UE 1169/2011\n'),
       new Uint8Array([LF, LF, G, 0x56, 0x01])
@@ -942,13 +955,15 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
   async function _habitualDesdeHistorial(idx) {
     const p = _historial[idx];
     if (!p) return;
-    await _guardarComoHabitual({ nombre: p.nombre, diasCaducidad: p.diasCaducidad, alergenos: p.alergenos });
+    await _guardarComoHabitual({ nombre: p.nombre, diasCaducidad: p.diasCaducidad, alergenos: p.alergenos, trazas: p.trazas || [] });
     await _actualizarHistorial();
   }
 
   async function init() {
     // Generar checkboxes de alérgenos para el modo manual
     _renderAlergenos();
+    Trazas.montar('etq-m-trazas-cont', TR_ETQ, 'Puede contener trazas de… (opcional)', AYUDA_TRAZAS_ETQ);
+    document.getElementById('etq-m-alergenos')?.addEventListener('change', () => Trazas.bloquearPresentes(TR_ETQ, _leerAlManual()));
     _setFechaAhora();
 
     // Productos habituales (antes del historial: el historial marca cuáles ya lo son)

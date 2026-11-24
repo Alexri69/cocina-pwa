@@ -28,7 +28,10 @@ const ModuloBebidas = (() => {
       `<label class="check-alergeno"><input type="checkbox" id="beb-al-${i}" value="${a}"> ${e} ${a}</label>`).join('');
   }
   const _leerAlergenos = () => ALERGENOS.map(([a], i) => document.getElementById(`beb-al-${i}`)?.checked ? a : null).filter(Boolean);
-  const _ponerAlergenos = (lista = []) => ALERGENOS.forEach(([a], i) => { const c = document.getElementById(`beb-al-${i}`); if (c) c.checked = lista.includes(a); });
+  const _ponerAlergenos = (lista = []) => { ALERGENOS.forEach(([a], i) => { const c = document.getElementById(`beb-al-${i}`); if (c) c.checked = lista.includes(a); }); Trazas.bloquearPresentes(TR_BEB, lista); };
+  // Trazas (v80): «puede contener trazas de…», como en la etiqueta de la botella
+  const TR_BEB = 'beb-tr';
+  const AYUDA_TRAZAS_BEB = 'Márcalo solo si la <b>etiqueta de la bebida</b> dice «puede contener…» (p. ej. licores de crema: trazas de frutos de cáscara). No lo marques «por si acaso».';
 
   let _idEditando = null;
   let _bebidas    = [];
@@ -138,6 +141,7 @@ const ModuloBebidas = (() => {
           <div class="badges-alergenos">${(b.alergenos || []).length
             ? b.alergenos.map(a => `<span class="badge-alergeno">${(ALERGENOS.find(x => x[0] === a) || [])[1] || ''} ${_esc(a)}</span>`).join('')
             : '<span class="badge-sin-alergenos">Sin alérgenos</span>'}</div>
+          ${Trazas.badgeHtml(b.trazas)}
           <div class="card-acciones">
             <button class="btn-mini btn-editar" onclick="ModuloBebidas.editarBebida('${b.id}')"><svg class="ic" aria-hidden="true"><use href="#i-pencil"/></svg> Editar</button>
             <button class="btn-mini btn-borrar" onclick="ModuloBebidas.borrarBebida('${b.id}')"><svg class="ic" aria-hidden="true"><use href="#i-trash-2"/></svg> Eliminar</button>
@@ -170,7 +174,7 @@ const ModuloBebidas = (() => {
     document.getElementById('beb-desc').value      = b.descripcion || '';
     document.getElementById('beb-precio').value    = b.precio > 0 ? b.precio : '';
     document.getElementById('beb-categoria').value = b.categoria || 'otro';
-    _renderChecksAlergenos(); _ponerAlergenos(b.alergenos || []);
+    _renderChecksAlergenos(); _ponerAlergenos(b.alergenos || []); Trazas.poner(TR_BEB, b.trazas || []);
     if (!_costes.size && SB.puedeGestionar()) {
       try { _costes = new Map((await SB.obtenerCostes()).filter(c => c.tipo === 'bebida').map(c => [c.id, c])); } catch {}
     }
@@ -199,7 +203,7 @@ const ModuloBebidas = (() => {
     document.getElementById('beb-desc').value      = '';
     document.getElementById('beb-precio').value    = '';
     document.getElementById('beb-categoria').value = 'refresco';
-    _renderChecksAlergenos(); _ponerAlergenos([]);
+    _renderChecksAlergenos(); _ponerAlergenos([]); Trazas.poner(TR_BEB, []);
     _ponerCoste(null);
     _ponerTraducciones({});
     document.getElementById('beb-form-titulo').textContent = 'Nueva Bebida';
@@ -231,6 +235,7 @@ const ModuloBebidas = (() => {
         alergenos:   _leerAlergenos(),
         traducciones: _leerTraducciones(),
       };
+      datos.trazas = Trazas.limpiar(Trazas.leer(TR_BEB), datos.alergenos);
       const coste = _leerCoste();
       if (coste.precio_compra != null && !(coste.precio_compra >= 0)) { alert('El precio de compra no es válido.'); return; }
       let id = _idEditando;
@@ -261,6 +266,8 @@ const ModuloBebidas = (() => {
     document.getElementById('beb-btn-volver') ?.addEventListener('click', _resetForm);
     document.getElementById('beb-btn-guardar')?.addEventListener('click', _guardarBebida);
     _renderChecksAlergenos();
+    Trazas.montar('beb-trazas-cont', TR_BEB, 'Puede contener trazas de… (opcional)', AYUDA_TRAZAS_BEB);
+    document.getElementById('beb-alergenos')?.addEventListener('change', () => Trazas.bloquearPresentes(TR_BEB, _leerAlergenos()));
     ['beb-compra', 'beb-formato', 'beb-formato-otro', 'beb-racion', 'beb-precio'].forEach(idc =>
       document.getElementById(idc)?.addEventListener(idc === 'beb-formato' ? 'change' : 'input', _actualizarCoste));
     // Al elegir «Vinos», sugerir sulfitos; «Cerveza», gluten (se pueden desmarcar)

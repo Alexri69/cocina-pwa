@@ -13,7 +13,7 @@
   <link rel="icon" type="image/png" href="iconos/icono-192.png">
   <link rel="apple-touch-icon" href="iconos/icono-192.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="estilo.css?v=79">
+  <link rel="stylesheet" href="estilo.css?v=80">
   <script>
     // Aplicar tema antes de pintar para evitar parpadeo
     document.documentElement.setAttribute('data-tema',
@@ -364,6 +364,7 @@
                 <label>Alérgenos que contiene:</label>
                 <div class="grid-alergenos-check" id="etq-m-alergenos"></div>
               </div>
+              <div class="form-grupo form-grupo-full" id="etq-m-trazas-cont"></div>
             </div>
             <label class="etq-hab-check">
               <input type="checkbox" id="etq-m-habitual">
@@ -521,7 +522,9 @@
                 <div id="plato-alergenos-calculados" class="badges-alergenos">
                   <span class="badge-sin-alergenos">Ninguno</span>
                 </div>
+                <div id="plato-trazas-calculadas"></div>
               </div>
+              <div class="form-grupo form-grupo-full" id="plato-trazas-cont"></div>
               <div class="form-grupo form-grupo-full" data-solo="gestion">
                 <label>Escandallo: cantidad por ración</label>
                 <div id="plato-escandallo" class="esc-form"></div>
@@ -614,6 +617,7 @@
                   <label class="check-alergeno"><input type="checkbox" id="ing-al-sulfitos">          🍷 Sulfitos</label>
                 </div>
               </div>
+              <div class="form-grupo form-grupo-full" id="ing-trazas-cont"></div>
             </div>
             <div class="form-acciones">
               <button id="ing-btn-guardar" class="btn btn-primario-sm"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Guardar ingrediente</button>
@@ -724,6 +728,7 @@
               <label>Alérgenos que contiene <small style="color:var(--texto2);font-weight:400">(p. ej. vino: sulfitos · cerveza: gluten)</small></label>
               <div class="grid-alergenos-check" id="beb-alergenos"></div>
             </div>
+            <div class="form-grupo form-grupo-full" id="beb-trazas-cont"></div>
           </div>
           <div class="form-acciones">
             <button id="beb-btn-guardar" class="btn btn-primario-sm"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg> Guardar bebida</button>
@@ -1290,22 +1295,22 @@
        ======================================================== -->
   <!-- jsPDF servido desde la propia app para que los PDF funcionen sin conexión -->
   <script src="lib/jspdf.umd.min.js" defer></script>
-  <script src="core/voz.js?v=79"></script>
-  <script src="core/supabase.js?v=79"></script>
-  <script src="modulos/lector-lote.js?v=79"></script>
-  <script src="modulos/etiquetas.js?v=79"></script>
-  <script src="modulos/menu.js?v=79"></script>
-  <script src="modulos/bebidas.js?v=79"></script>
-  <script src="modulos/pedidos.js?v=79"></script>
-  <script src="modulos/jornada.js?v=79"></script>
-  <script src="modulos/facturas.js?v=79"></script>
-  <script src="modulos/auth.js?v=79"></script>
-  <script src="modulos/config.js?v=79"></script>
-  <script src="modulos/appcc.js?v=79"></script>
+  <script src="core/voz.js?v=80"></script>
+  <script src="core/supabase.js?v=80"></script>
+  <script src="modulos/lector-lote.js?v=80"></script>
+  <script src="modulos/etiquetas.js?v=80"></script>
+  <script src="modulos/menu.js?v=80"></script>
+  <script src="modulos/bebidas.js?v=80"></script>
+  <script src="modulos/pedidos.js?v=80"></script>
+  <script src="modulos/jornada.js?v=80"></script>
+  <script src="modulos/facturas.js?v=80"></script>
+  <script src="modulos/auth.js?v=80"></script>
+  <script src="modulos/config.js?v=80"></script>
+  <script src="modulos/appcc.js?v=80"></script>
   <script src="lib/qrcode.min.js"></script>
-  <script src="modulos/cartaqr.js?v=79"></script>
-  <script src="modulos/equipo.js?v=79"></script>
-  <script src="app.js?v=79"></script>
+  <script src="modulos/cartaqr.js?v=80"></script>
+  <script src="modulos/equipo.js?v=80"></script>
+  <script src="app.js?v=80"></script>
   <!-- Las actualizaciones de la app se avisan desde app.js (sin recargar a la fuerza) -->
 
 </body>

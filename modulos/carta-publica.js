@@ -46,17 +46,23 @@
           buscar: 'Buscar plato o bebida…', ocultar: 'Ocultar lo que contenga:', platos: 'Platos', bebidas: 'Bebidas', sinAl: 'Sin alérgenos declarados',
           mostrando: (n, t) => `Mostrando ${n} de ${t}`, ocultos: n => `${n} ocultos`, quitar: 'Quitar filtros', ningunPlato: 'Ningún plato cumple los filtros.',
           ningunaBebida: 'Ninguna bebida cumple los filtros.', pie: 'Información sobre alérgenos conforme al Reglamento (UE) 1169/2011.', tel: 'Teléfono',
-          enEsp: '', vacia: 'La carta todavía está vacía.', idioma: 'Idioma', alergenos: 'Alérgenos' },
+          enEsp: '', vacia: 'La carta todavía está vacía.', idioma: 'Idioma', alergenos: 'Alérgenos',
+          trazas: 'Puede contener trazas de', ojoTrazas: 'Puede contener trazas de algo que has marcado: consulta al personal.',
+          conTrazas: n => `${n} con posibles trazas (marcados con ⚠️)` },
     en: { sub: 'Menu & allergens', avisoT: 'Do you have an allergy or intolerance?', aviso: 'Please tell our staff before ordering: traces may be present due to cross-contamination in the kitchen.',
           buscar: 'Search dish or drink…', ocultar: 'Hide anything containing:', platos: 'Dishes', bebidas: 'Drinks', sinAl: 'No declared allergens',
           mostrando: (n, t) => `Showing ${n} of ${t}`, ocultos: n => `${n} hidden`, quitar: 'Clear filters', ningunPlato: 'No dish matches the filters.',
           ningunaBebida: 'No drink matches the filters.', pie: 'Allergen information in accordance with Regulation (EU) No 1169/2011.', tel: 'Phone',
-          enEsp: 'Some names are only available in Spanish.', vacia: 'The menu is still empty.', idioma: 'Language', alergenos: 'Allergens' },
+          enEsp: 'Some names are only available in Spanish.', vacia: 'The menu is still empty.', idioma: 'Language', alergenos: 'Allergens',
+          trazas: 'May contain traces of', ojoTrazas: 'May contain traces of something you selected: please ask our staff.',
+          conTrazas: n => `${n} may contain traces (marked ⚠️)` },
     de: { sub: 'Speisekarte & Allergene', avisoT: 'Haben Sie eine Allergie oder Unverträglichkeit?', aviso: 'Bitte informieren Sie unser Personal vor der Bestellung: Spuren durch Kreuzkontamination in der Küche sind möglich.',
           buscar: 'Gericht oder Getränk suchen…', ocultar: 'Ausblenden, was enthält:', platos: 'Gerichte', bebidas: 'Getränke', sinAl: 'Keine deklarierten Allergene',
           mostrando: (n, t) => `${n} von ${t} angezeigt`, ocultos: n => `${n} ausgeblendet`, quitar: 'Filter entfernen', ningunPlato: 'Kein Gericht entspricht den Filtern.',
           ningunaBebida: 'Kein Getränk entspricht den Filtern.', pie: 'Allergeninformationen gemäß Verordnung (EU) Nr. 1169/2011.', tel: 'Telefon',
-          enEsp: 'Einige Namen sind nur auf Spanisch verfügbar.', vacia: 'Die Speisekarte ist noch leer.', idioma: 'Sprache', alergenos: 'Allergene' },
+          enEsp: 'Einige Namen sind nur auf Spanisch verfügbar.', vacia: 'Die Speisekarte ist noch leer.', idioma: 'Sprache', alergenos: 'Allergene',
+          trazas: 'Kann Spuren enthalten von', ojoTrazas: 'Kann Spuren von etwas enthalten, das Sie ausgewählt haben: bitte fragen Sie unser Personal.',
+          conTrazas: n => `${n} können Spuren enthalten (mit ⚠️ markiert)` },
   };
 
   const cont = document.getElementById('carta');
@@ -82,15 +88,23 @@
   const txt = (x, campo) => (idioma !== 'es' && x.traducciones?.[idioma]?.[campo]) || x[campo] || '';
   const traducido = x => idioma === 'es' || !!x.traducciones?.[idioma]?.nombre;
 
+  // Trazas: nunca repiten un alérgeno que el plato ya contiene
+  const trazasDe = x => (x.trazas || []).filter(a => INFO[a] && !(x.alergenos || []).includes(a));
+  const avisaTrazas = x => trazasDe(x).some(a => excluir.has(a));
+
   function item(x) {
     const als = (x.alergenos || []).filter(a => INFO[a]);
+    const trz = trazasDe(x);
+    const ojo = avisaTrazas(x);
     const desc = txt(x, 'descripcion');
-    return `<article class="item">
+    return `<article class="item${ojo ? ' item-ojo' : ''}">
       <div class="item-cab"><span class="item-nombre"${traducido(x) ? '' : ' lang="es"'}>${esc(txt(x, 'nombre'))}</span><span class="item-precio">${precio(x.precio)}</span></div>
       ${desc ? `<p class="item-desc"${idioma !== 'es' && !x.traducciones?.[idioma]?.descripcion ? ' lang="es"' : ''}>${esc(desc)}</p>` : ''}
       <div class="als" aria-label="${t().alergenos}">${als.length
         ? als.map(a => `<span class="al">${INFO[a][1]} ${esc(nombreAl(a))}</span>`).join('')
         : `<span class="sin">✔ ${t().sinAl}</span>`}</div>
+      ${trz.length ? `<p class="trz">⚠️ ${t().trazas}: ${trz.map(a => excluir.has(a) ? `<strong>${esc(nombreAl(a))}</strong>` : esc(nombreAl(a))).join(', ')}</p>` : ''}
+      ${ojo ? `<p class="ojo" role="note">${t().ojoTrazas}</p>` : ''}
     </article>`;
   }
 
@@ -103,9 +117,10 @@
     const bebidas = datos.bebidas.filter(pasa);
     const total   = datos.platos.length + datos.bebidas.length;
     const ocultos = total - (platos.length + bebidas.length);
+    const nTrazas = [...platos, ...bebidas].filter(avisaTrazas).length;
     const est = document.getElementById('estado-filtro');
     est.innerHTML = (excluir.size || busqueda)
-      ? `${t().mostrando(platos.length + bebidas.length, total)}${ocultos ? ` · ${t().ocultos(ocultos)}` : ''} <button type="button" id="quitar-filtros">${t().quitar}</button>`
+      ? `${t().mostrando(platos.length + bebidas.length, total)}${ocultos ? ` · ${t().ocultos(ocultos)}` : ''}${nTrazas ? ` · ${t().conTrazas(nTrazas)}` : ''} <button type="button" id="quitar-filtros">${t().quitar}</button>`
       : '';
     document.getElementById('quitar-filtros')?.addEventListener('click', () => {
       excluir.clear(); busqueda = ''; document.getElementById('buscar').value = '';
@@ -128,7 +143,7 @@
   function pintar() {
     document.documentElement.lang = idioma;
     document.title = `${datos.nombre} — ${t().sub}`;
-    const presentes = new Set([...datos.platos, ...datos.bebidas].flatMap(x => x.alergenos || []));
+    const presentes = new Set([...datos.platos, ...datos.bebidas].flatMap(x => [...(x.alergenos || []), ...(x.trazas || [])]));
     const faltanTraducciones = idioma !== 'es' && [...datos.platos, ...datos.bebidas].some(x => !traducido(x));
     cont.innerHTML = `
       <nav class="idiomas" aria-label="${t().idioma}">

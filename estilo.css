@@ -735,6 +735,30 @@ textarea.inp  { resize: vertical; min-height: 60px; font-family: inherit; line-h
   border-radius: 4px; padding: 2px 8px; font-size: .75rem;
 }
 
+/* Trazas de alérgenos (v80): «puede contener trazas de…» — ámbar y discontinuo,
+   para que no se confundan con los alérgenos que el plato sí contiene */
+.badges-trazas { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.badge-traza {
+  color: var(--warn); border: 1px dashed var(--warn); background: transparent;
+  border-radius: 4px; padding: 2px 8px; font-size: .75rem; line-height: 1.5;
+}
+.traza-mini { color: var(--warn); }
+.bloque-trazas {
+  border: 1px dashed var(--borde); border-radius: var(--radio);
+  padding: 8px 12px; background: var(--surface);
+}
+.bloque-trazas[open] { border-color: var(--warn); }
+.bloque-trazas > summary {
+  cursor: pointer; font-size: .875rem; font-weight: 600; padding: 4px 0;
+  min-height: 32px; display: flex; align-items: center; gap: 6px;
+}
+.bloque-trazas .ayuda-campo { margin: 4px 0 8px; }
+.bloque-trazas .grid-alergenos-check { background: transparent; border: none; padding: 0; }
+.trazas-cuenta { color: var(--warn); font-weight: 700; }
+.check-traza input { accent-color: var(--warn); }
+.check-alergeno.desactivado { opacity: .45; cursor: not-allowed; }
+.check-alergeno.desactivado input { cursor: not-allowed; }
+
 /* Tarjeta de plato */
 .card-plato {
   background: var(--surface); border: 1px solid var(--borde);
