@@ -256,7 +256,10 @@ const SB = (() => {
       throw new Error(`Error Supabase ${res.status}: ${body}`);
     }
 
-    return res.json();
+    // Con «Prefer: return=minimal» PostgREST responde 201 sin cuerpo (no 204):
+    // res.json() fallaría con «Unexpected end of JSON input» aunque se guardó bien.
+    const texto = await res.text();
+    return texto ? JSON.parse(texto) : null;
   }
 
   // ----------------------------------------------------------
