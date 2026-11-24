@@ -462,7 +462,19 @@ const SB = (() => {
 
   // Escrituras que el servidor rechazó (no por red). Se guardan para no perderlas en silencio.
   const _ERRORES_KEY = 'cocina_outbox_errores';
-  function erroresSync()       { try { return JSON.parse(localStorage.getItem(_ERRORES_KEY)) || []; } catch { return []; } }
+  // Hasta la v79, una respuesta 201 sin cuerpo daba «Unexpected end of JSON input» aunque el
+  // servidor SÍ había guardado el cambio: esos errores son falsos y se descartan.
+  const _FALSO_ERROR = /Unexpected end of JSON input|Failed to execute 'json'/i;
+  function erroresSync() {
+    try {
+      const todos = JSON.parse(localStorage.getItem(_ERRORES_KEY)) || [];
+      const reales = todos.filter(e => !_FALSO_ERROR.test(String(e?.error || '')));
+      if (reales.length !== todos.length) {
+        reales.length ? localStorage.setItem(_ERRORES_KEY, JSON.stringify(reales)) : localStorage.removeItem(_ERRORES_KEY);
+      }
+      return reales;
+    } catch { return []; }
+  }
   function descartarErroresSync() { try { localStorage.removeItem(_ERRORES_KEY); } catch {} }
 
   let _sincronizando = false;

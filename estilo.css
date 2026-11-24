@@ -272,7 +272,7 @@ html, body {
   font-family: inherit;
 }
 .cab-btn:hover { color: var(--texto); border-color: #777; background: rgba(128,128,128,.08); }
-.cab-btn.online  { color: #4ade80; }
+.cab-btn.online  { color: var(--ok); }
 .cab-btn.offline { color: #f87171; }
 
 
@@ -662,11 +662,12 @@ textarea.inp  { resize: vertical; min-height: 60px; font-family: inherit; line-h
 .etiqueta-lote         { font-size: .9rem; margin-bottom: 3px; }
 .etiqueta-fecha        { font-size: .8rem; color: #666; margin-bottom: 7px; }
 .etiqueta-caducidad    { font-size: .95rem; font-weight: 700; padding: 5px 9px; border-radius: 4px; color: white; margin-bottom: 7px; }
-.etiqueta-caducidad.verde    { background: #22c55e; }
-.etiqueta-caducidad.amarillo { background: #f59e0b; }
-.etiqueta-caducidad.rojo     { background: #ef4444; }
+/* Fondos oscuros para que el texto blanco se lea (≥ 4,5:1) */
+.etiqueta-caducidad.verde    { background: #15803d; }
+.etiqueta-caducidad.amarillo { background: #b45309; }
+.etiqueta-caducidad.rojo     { background: #b91c1c; }
 .etiqueta-alergenos    { font-size: .8rem; font-weight: 700; text-transform: uppercase; border-top: 1px solid #e5e5e5; padding-top: 5px; }
-.etiqueta-normativa    { font-size: .6rem; color: #aaa; margin-top: 5px; text-align: right; }
+.etiqueta-normativa    { font-size: .6rem; color: #595959; margin-top: 5px; text-align: right; }
 
 /* Leyenda de colores */
 .leyenda        { display: flex; gap: 14px; font-size: .8rem; flex-wrap: wrap; margin-top: 8px; }

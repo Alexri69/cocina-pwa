@@ -471,6 +471,7 @@ ${fichas}
       _resetFormIngrediente();
       await _renderIngredientes();
       await _renderSelectorIngredientes();
+      await _renderPlatos();   // sus alérgenos y trazas pueden haber cambiado
     } catch (e) {
       alert('Error al guardar el ingrediente: ' + e.message);
     } finally {

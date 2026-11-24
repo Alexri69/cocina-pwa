@@ -553,10 +553,10 @@ body{margin:0;padding:2mm;font-family:Arial,sans-serif}
 .etiqueta-nombre{font-size:12pt;font-weight:700;border-bottom:1px solid #000;padding-bottom:1mm;margin-bottom:2mm}
 .etiqueta-lote,.etiqueta-fecha{margin:1mm 0}
 .etiqueta-caducidad{padding:2mm 3mm;margin:2mm 0;border-radius:2px;font-weight:700;color:#fff;font-size:8pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.verde{background:#27ae60!important}.amarillo{background:#e67e22!important}.rojo{background:#e74c3c!important}
+.verde{background:#15803d!important}.amarillo{background:#b45309!important}.rojo{background:#b91c1c!important}
 .etiqueta-alergenos{font-weight:700;font-size:8pt;margin-top:2mm}
 .etiqueta-trazas{font-size:7pt;margin-top:1mm;font-style:italic}
-.etiqueta-normativa{font-size:6.5pt;text-align:right;color:#888;margin-top:1mm}`;
+.etiqueta-normativa{font-size:6.5pt;text-align:right;color:#555;margin-top:1mm}`;
 
   function _abrirVentanaImpresion(html) {
     if (!html) { alert('Primero genera una etiqueta.'); return; }
