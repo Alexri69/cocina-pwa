@@ -440,6 +440,7 @@ ${fichas}
     if (!nombre) { alert('El nombre del ingrediente es obligatorio.'); return; }
     const btn = document.getElementById('ing-btn-guardar');
     if (btn) btn.disabled = true;
+    let guardado = false;
     try {
       const alergenos = NOMBRES_ALERGENOS.filter(a => {
         const cb = document.getElementById('ing-al-' + a.replace(/\s+/g, '-'));
@@ -468,14 +469,21 @@ ${fichas}
         const nuevo = await SB.guardarIngrediente({ nombre, alergenos, trazas, proveedor_id: proveedorId });
         await _guardarCosteIng(nuevo?.id, coste);
       }
-      _resetFormIngrediente();
-      await _renderIngredientes();
-      await _renderSelectorIngredientes();
-      await _renderPlatos();   // sus alérgenos y trazas pueden haber cambiado
+      guardado = true;
     } catch (e) {
       alert('Error al guardar el ingrediente: ' + e.message);
     } finally {
       if (btn) btn.disabled = false;
+    }
+    if (!guardado) return;
+    // Repintar fuera del try: un fallo aquí no significa que no se haya guardado
+    _resetFormIngrediente();
+    try {
+      await _renderIngredientes();
+      await _renderSelectorIngredientes();
+      await _renderPlatos();   // sus alérgenos y trazas pueden haber cambiado
+    } catch (e) {
+      console.warn('[menu] repintado tras guardar ingrediente:', e);
     }
   }
 

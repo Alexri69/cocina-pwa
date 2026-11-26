@@ -273,7 +273,7 @@ html, body {
 }
 .cab-btn:hover { color: var(--texto); border-color: #777; background: rgba(128,128,128,.08); }
 .cab-btn.online  { color: var(--ok); }
-.cab-btn.offline { color: #f87171; }
+.cab-btn.offline { color: var(--err); }
 
 
 /* ============================================================
@@ -669,22 +669,22 @@ textarea.inp  { resize: vertical; min-height: 60px; font-family: inherit; line-h
 .etiqueta-alergenos    { font-size: .8rem; font-weight: 700; text-transform: uppercase; border-top: 1px solid #e5e5e5; padding-top: 5px; }
 .etiqueta-normativa    { font-size: .6rem; color: #595959; margin-top: 5px; text-align: right; }
 
-/* Leyenda de colores */
+/* Leyenda de colores (mismos tonos que .etiqueta-caducidad) */
 .leyenda        { display: flex; gap: 14px; font-size: .8rem; flex-wrap: wrap; margin-top: 8px; }
 .leyenda-item   { display: flex; align-items: center; gap: 6px; }
 .leyenda-punto  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.leyenda-punto.verde    { background: #22c55e; }
-.leyenda-punto.amarillo { background: #f59e0b; }
-.leyenda-punto.rojo     { background: #ef4444; }
+.leyenda-punto.verde    { background: #15803d; }
+.leyenda-punto.amarillo { background: #b45309; }
+.leyenda-punto.rojo     { background: #b91c1c; }
 
 /* Historial */
 .item-historial {
   padding: 9px 12px; border-radius: var(--radio); margin-bottom: 6px;
   border-left: 3px solid var(--borde); background: var(--surface); font-size: .875rem;
 }
-.item-historial.verde    { border-left-color: #22c55e; }
-.item-historial.amarillo { border-left-color: #f59e0b; }
-.item-historial.rojo     { border-left-color: #ef4444; }
+.item-historial.verde    { border-left-color: #15803d; }
+.item-historial.amarillo { border-left-color: #b45309; }
+.item-historial.rojo     { border-left-color: #b91c1c; }
 .item-historial small    { color: var(--texto2); }
 
 /* ============================================================
