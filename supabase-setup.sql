@@ -481,8 +481,9 @@ CREATE POLICY appcc_registros_insert ON public.appcc_registros FOR INSERT TO aut
 CREATE POLICY appcc_registros_delete ON public.appcc_registros FOR DELETE TO authenticated
   USING (public.es_miembro(restaurante_id) AND (fecha > now() - interval '1 day' OR public.puede_gestionar(restaurante_id)));
 
--- Configuración del restaurante: todo el equipo la lee; propietario y encargado la cambian
-CREATE POLICY config_select ON public.config FOR SELECT TO authenticated USING (public.es_miembro(restaurante_id));
+-- Configuración del restaurante: solo propietario y encargado la leen entera y la cambian.
+-- Cocina y camarero reciben una versión sin datos sensibles con config_equipo() (v90).
+CREATE POLICY config_select ON public.config FOR SELECT TO authenticated USING (public.puede_gestionar(restaurante_id));
 CREATE POLICY config_insert ON public.config FOR INSERT TO authenticated WITH CHECK (public.puede_gestionar(restaurante_id));
 CREATE POLICY config_update ON public.config FOR UPDATE TO authenticated USING (public.puede_gestionar(restaurante_id)) WITH CHECK (public.puede_gestionar(restaurante_id));
 
@@ -989,5 +990,33 @@ $$
   WHERE p_token IS NOT NULL AND length(p_token) >= 24 AND r.carta_token = p_token
 $$;
 GRANT EXECUTE ON FUNCTION public.carta_publica(text) TO anon, authenticated;
+
+-- ============================================================
+-- v90: la ficha de empresa (IBAN, email…) solo la ve la dirección.
+-- Cocina y camarero leen con config_equipo() solo lo que necesitan
+-- (nombre y dirección del restaurante para etiquetas e informe APPCC,
+-- régimen de impuestos, modo APPCC), la impresora y el logo.
+-- ============================================================
+DROP POLICY IF EXISTS config_select ON public.config;
+CREATE POLICY config_select ON public.config FOR SELECT TO authenticated USING (public.puede_gestionar(restaurante_id));
+
+CREATE OR REPLACE FUNCTION public.config_equipo(p_restaurante uuid) RETURNS json
+  LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS
+$$
+DECLARE v json;
+BEGIN
+  IF NOT public.es_miembro(p_restaurante) THEN RAISE EXCEPTION 'No eres miembro de este restaurante'; END IF;
+  SELECT json_build_object(
+    'empresa', (SELECT coalesce(jsonb_object_agg(k, c.empresa->k), '{}'::jsonb)
+                FROM unnest(ARRAY['razonSocial','nif','direccion','cp','ciudad','provincia','pais','telefono','web',
+                                  'regimen','igicDefault','appccModo','objetivoCoste']) AS k
+                WHERE c.empresa ? k),
+    'impresora', c.impresora,
+    'logo',      c.logo)
+  INTO v FROM config c WHERE c.restaurante_id = p_restaurante;
+  RETURN v;
+END $$;
+REVOKE ALL ON FUNCTION public.config_equipo(uuid) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.config_equipo(uuid) TO authenticated;
 
 NOTIFY pgrst, 'reload schema';

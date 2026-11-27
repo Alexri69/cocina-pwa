@@ -1225,6 +1225,9 @@ const SB = (() => {
   async function obtenerConfigRemota() {
     if (!restauranteId()) return null;
     try {
+      // Cocina y camarero no pueden leer la tabla (IBAN, email…): reciben solo
+      // lo necesario (nombre/dirección, impuestos, modo APPCC, impresora, logo).
+      if (!puedeGestionar()) return await _rpc('config_equipo', { p_restaurante: restauranteId() });
       const arr = await _get('config', '?select=empresa,impresora,logo');
       return _primero(arr);
     } catch { return null; }
