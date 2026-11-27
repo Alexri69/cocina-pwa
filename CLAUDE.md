@@ -86,6 +86,7 @@ Si se añade una columna nueva: añadirla a `supabase-setup.sql` (ADD COLUMN IF 
 
 ## Pruebas
 - Cuenta de prueba: `prueba@cocina.test`, contraseña en `.env` (`COCINA_PRUEBA_PASSWORD`). Es propietaria del restaurante «Pruebas (Claude)», solo con datos inventados. No probar nunca con cuentas reales.
+- En el mismo restaurante: `cocina@cocina.test` (rol cocina) y `camarero@cocina.test` (rol camarero); contraseñas en `.env` (`COCINA_PRUEBA_COCINA_PASSWORD`, `COCINA_PRUEBA_CAMARERO_PASSWORD`). Para tener dos sesiones a la vez usar orígenes distintos (`localhost:8765`, `localhost:8766`, `127.0.0.1:8766`).
 - Navegador: el integrado de Orca (`orca tab create --url http://localhost:8765/`). Tras cambiar JS/CSS hay que **recargar dos veces** (la primera la sirve aún el Service Worker viejo).
 - Para comprobar lo guardado: SQL de solo lectura con la Management API (token `sbp_` de `.env`).
 

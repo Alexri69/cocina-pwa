@@ -253,6 +253,14 @@ const ModuloEquipo = (() => {
       </div>`;
 
     if (gest) { _cargarMiembros(); _cargarInvitaciones(); }
+    else {
+      // Cocina y camarero no cargan la lista del equipo: su nombre se lee aparte
+      // (si no, el campo sale vacío y al pulsar «Guardar» se borraría el nombre)
+      SB.miNombre().then(n => {
+        const inp = $('eq-minombre');
+        if (inp && !inp.value && n && !n.includes('@')) inp.value = n;
+      }).catch(() => {});
+    }
   }
 
   async function _cargarMiembros() {
@@ -363,7 +371,10 @@ const ModuloEquipo = (() => {
         _cargarMiembros();
       }
       else if (a === 'minombre') {
-        await SB.cambiarMiNombre($('eq-minombre').value.trim());
+        const nombre = $('eq-minombre').value.trim();
+        if (!nombre) { aviso('Escribe tu nombre.', { tipo: 'error' }); $('eq-minombre').focus(); return; }
+        await SB.cambiarMiNombre(nombre);
+        try { localStorage.setItem('cocina_minombre_' + (SB.restauranteActivo()?.id || ''), nombre); } catch {}
         aviso('✔ Nombre guardado.', { tipo: 'ok', ms: 2000 });
       }
       else if (a === 'salir') {
