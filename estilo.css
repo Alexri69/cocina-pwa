@@ -48,6 +48,8 @@
 /* --- Superficies del navegador (selección, cursor, scroll, foco) --- */
 ::selection { background: rgba(91,124,246,.35); color: inherit; }
 html { accent-color: var(--acento-relleno); caret-color: var(--acento); scrollbar-color: #3a3a3a transparent; }
+/* Que la cabecera fija y la barra inferior del móvil no tapen el campo al que se salta con focus() */
+html { scroll-padding-top: 64px; scroll-padding-bottom: 72px; }
 [data-tema="claro"] { scrollbar-color: #c4c8d0 transparent; }
 .inp::placeholder, textarea::placeholder, input::placeholder { color: var(--texto2); opacity: 1; }
 /* Importes y tablas: cifras alineadas */

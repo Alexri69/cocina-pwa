@@ -746,8 +746,8 @@ const ModuloAppcc = (() => {
       const primerDia = alta >= desde ? alta.getDate() : 1;
       const faltan = []; for (let dd = primerDia; dd <= hoyN; dd++) if (!dias.has(dd) && !rotos.has(dd)) faltan.push(dd);
       const txtRotos = [...rotos].filter(dd => dd >= primerDia && dd <= hoyN);
-      return [faltan.length ? `<li><strong>${E(e.nombre)}</strong>: sin registro los días ${faltan.join(', ')}</li>` : '',
-              txtRotos.length ? `<li><strong>${E(e.nombre)}</strong>: averiado los días ${txtRotos.join(', ')}</li>` : ''].join('');
+      return [faltan.length ? `<li><strong>${E(e.nombre)}</strong>: sin registro ${faltan.length === 1 ? 'el día' : 'los días'} ${faltan.join(', ')}</li>` : '',
+              txtRotos.length ? `<li><strong>${E(e.nombre)}</strong>: averiado ${txtRotos.length === 1 ? 'el día' : 'los días'} ${txtRotos.join(', ')}</li>` : ''].join('');
     }).join('');
 
     const tabla = (titulo, cab, filas, extra = '') => `

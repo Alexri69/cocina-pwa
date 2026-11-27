@@ -65,6 +65,14 @@ try {
   }
   if (!/ARCHIVOS_A_CACHEAR/.test(sw)) throw new Error('sin lista');
   console.log(`✅ trabajador.js (${enSw.length} archivos precacheados, coherentes con index.html)`);
+  // carta.html (carta pública) no la sirve el SW, pero comparte core/*.js: misma ?v= que index.html
+  const vIndex = (index.match(/\?v=(\d+)/) || [])[1];
+  const carta  = fs.readFileSync(path.join(ROOT, 'carta.html'), 'utf8');
+  for (const [, src, v] of carta.matchAll(/<script[^>]*\bsrc="(?!https?:)([^"?]+)\?v=(\d+)"/g)) {
+    if (v !== vIndex) { errors++; console.error(`❌ carta.html carga "${src}?v=${v}" pero index.html va por ?v=${vIndex}`); }
+  }
+  const nombreCache = (sw.match(/NOMBRE_CACHE\s*=\s*'[^']*?v(\d+)'/) || [])[1];
+  if (nombreCache !== vIndex) { errors++; console.error(`❌ NOMBRE_CACHE (v${nombreCache}) no coincide con ?v=${vIndex}`); }
 } catch (e) { errors++; console.error('❌ No se pudo comprobar el Service Worker: ' + e.message); }
 
 console.log(`\n${jsFiles} JS · ${htmlBlocks} bloques HTML · ${errors} error(es)`);

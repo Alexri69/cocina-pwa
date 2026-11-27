@@ -266,7 +266,7 @@ const ModuloFacturas = (() => {
       <tr>
         <td><input class="inp-linea inp-desc"   type="text"   value="${_esc(l.descripcion)}"   oninput="ModuloFacturas._actualizarLinea(${i},'descripcion',this.value)" placeholder="Concepto"></td>
         <td><input class="inp-linea inp-qty"    type="number" value="${l.cantidad}"             oninput="ModuloFacturas._actualizarLinea(${i},'cantidad',this.value)"    ${minCant} step="0.01"></td>
-        <td><input class="inp-linea inp-precio" type="number" value="${l.precioUnitario || ''}" oninput="ModuloFacturas._actualizarLinea(${i},'precio',this.value)"      min="0"    step="0.01" placeholder="0.00"></td>
+        <td><input class="inp-linea inp-precio" type="number" value="${l.precioUnitario || ''}" oninput="ModuloFacturas._actualizarLinea(${i},'precio',this.value)"      min="0"    step="any"  placeholder="0.00"></td>
         <td class="linea-subtotal">${dinero(l.subtotal || 0)} €</td>
         <td><button class="btn-mini btn-borrar" onclick="ModuloFacturas._eliminarLinea(${i})" title="Eliminar" aria-label="Eliminar línea"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></td>
       </tr>`).join('');
@@ -432,7 +432,7 @@ const ModuloFacturas = (() => {
       <tr>
         <td>${_esc(l.descripcion)}</td>
         <td class="td-num">${l.cantidad}</td>
-        <td class="td-num">${dinero(l.precioUnitario || 0)} €</td>
+        <td class="td-num">${dineroUnit(l.precioUnitario || 0)} €</td>
         <td class="td-num">${dinero(l.subtotal || 0)} €</td>
       </tr>`).join('');
 
@@ -809,7 +809,7 @@ const ModuloFacturas = (() => {
       checkNuevaPagina(rowH + 30);
       doc.text(descLineas, ML + 2, y + 4);
       doc.text(String(l.cantidad || 0),                     colCantX + 5, y + 4, { align: 'right' });
-      doc.text(`${dinero(l.precioUnitario || 0)} €`,    colPrecX + 5, y + 4, { align: 'right' });
+      doc.text(`${dineroUnit(l.precioUnitario || 0)} €`,    colPrecX + 5, y + 4, { align: 'right' });
       doc.text(`${dinero(l.subtotal       || 0)} €`,    colImpX,      y + 4, { align: 'right' });
       y += rowH;
       linea(ML, y, ML + W, y, [225, 225, 225], 0.2);
@@ -1153,7 +1153,12 @@ const ModuloFacturas = (() => {
     document.getElementById('fac-selector-platos')?.addEventListener('change', (e) => {
       const opt = e.target.selectedOptions[0];
       if (!opt.value) return;
-      _agregarLinea(opt.dataset.nombre, parseFloat(opt.dataset.precio) || 0, 1);
+      // El precio de carta es PVP con el impuesto incluido; en la factura el precio
+      // unitario va sin impuesto (se suma después), así que se descuenta aquí.
+      const pvp  = parseFloat(opt.dataset.precio) || 0;
+      const tipo = parseFloat(document.getElementById('fac-iva')?.value) || 0;
+      // 4 decimales para que el total vuelva a cuadrar con el precio de carta
+      _agregarLinea(opt.dataset.nombre, Math.round(pvp / (1 + tipo / 100) * 10000) / 10000, 1);
       e.target.value = '';
     });
     document.getElementById('fac-iva') ?.addEventListener('input',  _calcularTotales);

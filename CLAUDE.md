@@ -80,7 +80,14 @@ Si se añade una columna nueva: añadirla a `supabase-setup.sql` (ADD COLUMN IF 
 - Chrome/Edge (Firefox no tiene SpeechRecognition).
 - Etiquetas: 62 mm Brother QL · Facturas: A4.
 - Escapar SIEMPRE con `esc()`/`_esc()` cualquier dato al meterlo en `innerHTML`; en `onclick` pasar solo ids.
-- **Al cambiar cualquier JS o CSS:** subir `?v=N` en `index.html` Y en `trabajador.js` (y `NOMBRE_CACHE`). `node scripts/validate.js` lo comprueba.
+- **Al cambiar cualquier JS o CSS:** subir `?v=N` en `index.html`, `trabajador.js` (y `NOMBRE_CACHE`) **y `carta.html`**. `node scripts/validate.js` lo comprueba (los cuatro sitios).
+- Precios de carta (platos/bebidas) = PVP **con** impuesto incluido. Al importarlos en una factura se guarda el precio unitario sin impuesto con 4 decimales (`dineroUnit` lo muestra) para que el total cuadre con la carta.
+- La traducción con MyMemory se limpia (etiquetas `<g>`, rellenos de puntos) en `_traducirMyMemory`.
+
+## Pruebas
+- Cuenta de prueba: `prueba@cocina.test`, contraseña en `.env` (`COCINA_PRUEBA_PASSWORD`). Es propietaria del restaurante «Pruebas (Claude)», solo con datos inventados. No probar nunca con cuentas reales.
+- Navegador: el integrado de Orca (`orca tab create --url http://localhost:8765/`). Tras cambiar JS/CSS hay que **recargar dos veces** (la primera la sirve aún el Service Worker viejo).
+- Para comprobar lo guardado: SQL de solo lectura con la Management API (token `sbp_` de `.env`).
 
 ## Arrancar en local
 ```bash

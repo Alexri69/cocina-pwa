@@ -865,8 +865,15 @@ const SB = (() => {
         throw new Error('Se ha llegado al límite diario de traducciones gratis. Prueba mañana (o configura DeepL).');
       }
       if (!r.ok || String(d.responseStatus) !== '200') throw new Error('El traductor no responde ahora. Prueba en un rato.');
-      // MyMemory devuelve a veces entidades HTML (&#39;)
-      const el = document.createElement('textarea'); el.innerHTML = txt; return el.value;
+      // MyMemory devuelve a veces entidades HTML (&#39;) y, desde su memoria colaborativa,
+      // etiquetas de segmento (<g id="1">…</g>) y rellenos de puntos ("Plato ..........")
+      const el = document.createElement('textarea'); el.innerHTML = txt;
+      return el.value
+        .replace(/<\/?[a-z][^>]*>/gi, ' ')     // etiquetas
+        .replace(/[.·_…\-]{4,}/g, ' ')          // rellenos de puntos o guiones
+        .replace(/\s+/g, ' ')
+        .replace(/\s+([.,;:!?)])/g, '$1')
+        .trim();
     };
     const resultado = {};
     for (const l of idiomas) {

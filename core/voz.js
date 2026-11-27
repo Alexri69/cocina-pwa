@@ -6,6 +6,8 @@
 
 // Formatea un importe a 2 decimales de forma segura (null/undefined/'' → 0.00).
 function dinero(n){ return (Number(n) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+// Precio unitario: 2 decimales, o hasta 4 si los tiene (p. ej. un precio de carta sin impuesto)
+function dineroUnit(n){ return (Number(n) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 4 }); }
 // ---- Botón "atrás" del móvil/navegador dentro de la app ----
 // Cada formulario o vista secundaria abierta añade una entrada al historial;
 // "atrás" la cierra en vez de salir de la app. Cambiar de módulo también se puede deshacer con "atrás".
